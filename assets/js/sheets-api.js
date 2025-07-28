@@ -7,10 +7,10 @@
  */
 const SHEETS_API_CONFIG = {
   // 판매실적 시트 웹앱 URL
-  SALES_API_URL: 'YOUR_SALES_WEBAPP_URL_HERE',
+  SALES_API_URL: 'https://script.google.com/macros/s/AKfycbzn-IJo9JGXEeoFqNSDCgQBPSIaovaaKgRc6Kb2m6r_lqgDpjEcAf5Limyv9AGSD0_2vw/exec',
   
   // 조달데이터 시트 웹앱 URL  
-  PROCUREMENT_API_URL: 'YOUR_PROCUREMENT_WEBAPP_URL_HERE'
+  PROCUREMENT_API_URL: 'https://script.google.com/macros/s/AKfycbz_ypb8dOYi7KIyCgzYEw3nTOV2kAzeWptg7CLhVVRlm9c_98_EFx1MqZWLnF78qfZ3/exec'
 };
 
 /**
