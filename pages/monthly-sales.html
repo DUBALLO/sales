@@ -1,235 +1,44 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>월별매출 현황 - 판매실적 대시보드</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="../assets/css/common.css" rel="stylesheet">
-    <link href="../assets/css/monthly-sales.css" rel="stylesheet">
-</head>
-<body class="bg-gray-50">
-    <!-- 네비게이션 -->
-    <nav class="bg-white shadow-sm border-b">
-        <div class="max-w-6xl mx-auto px-4 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <a href="../index.html" class="text-lg font-semibold text-gray-900">판매실적 대시보드</a>
-                    <span class="text-gray-400">|</span>
-                    <span class="text-blue-600 font-medium">월별매출 현황</span>
-                </div>
-                <div class="flex space-x-2">
-                    <a href="../index.html" class="nav-link">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                        </svg>
-                        홈
-                    </a>
-                    <a href="./customer-analysis.html" class="nav-link">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                        </svg>
-                        매출처별 집계
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- 메인 컨텐츠 -->
-    <main class="max-w-6xl mx-auto px-4 py-8">
-        <!-- 페이지 헤더 -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">월별매출 현황</h1>
-            <p class="text-gray-600">월별 매출 데이터를 확인하고 금액을 클릭하여 상세 계약 내역을 조회할 수 있습니다.</p>
-        </div>
-
-        <!-- 필터 섹션 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div class="flex flex-wrap items-end gap-4">
-                <div>
-                    <label class="form-label">시작 기간</label>
-                    <div class="flex gap-2">
-                        <select id="startYear" class="form-select">
-                            <option value="2020">2020년</option>
-                            <option value="2021">2021년</option>
-                            <option value="2022">2022년</option>
-                            <option value="2023">2023년</option>
-                            <option value="2024" selected>2024년</option>
-                        </select>
-                        <select id="startMonth" class="form-select">
-                            <option value="1" selected>1월</option>
-                            <option value="2">2월</option>
-                            <option value="3">3월</option>
-                            <option value="4">4월</option>
-                            <option value="5">5월</option>
-                            <option value="6">6월</option>
-                            <option value="7">7월</option>
-                            <option value="8">8월</option>
-                            <option value="9">9월</option>
-                            <option value="10">10월</option>
-                            <option value="11">11월</option>
-                            <option value="12">12월</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="text-gray-500">~</div>
-                <div>
-                    <label class="form-label">종료 기간</label>
-                    <div class="flex gap-2">
-                        <select id="endYear" class="form-select">
-                            <option value="2020">2020년</option>
-                            <option value="2021">2021년</option>
-                            <option value="2022">2022년</option>
-                            <option value="2023">2023년</option>
-                            <option value="2024" selected>2024년</option>
-                        </select>
-                        <select id="endMonth" class="form-select">
-                            <option value="1">1월</option>
-                            <option value="2">2월</option>
-                            <option value="3">3월</option>
-                            <option value="4">4월</option>
-                            <option value="5">5월</option>
-                            <option value="6">6월</option>
-                            <option value="7">7월</option>
-                            <option value="8">8월</option>
-                            <option value="9">9월</option>
-                            <option value="10">10월</option>
-                            <option value="11">11월</option>
-                            <option value="12" selected>12월</option>
-                        </select>
-                    </div>
-                </div>
-                <button id="searchBtn" class="btn btn-primary">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                    조회
-                </button>
-                <button id="uploadBtn" class="btn btn-secondary">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                    </svg>
-                    데이터 업로드
-                </button>
-            </div>
-        </div>
-
-        <!-- 데이터 업로드 패널 (숨겨짐) -->
-        <div id="uploadPanel" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">판매실적 데이터 업로드</h3>
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center" data-drop-zone>
-                <input type="file" id="fileInput" class="sr-only" accept=".xlsx,.xls,.csv">
-                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-                <div class="mt-4">
-                    <label for="fileInput" class="cursor-pointer">
-                        <span class="mt-2 block text-sm font-medium text-gray-900">
-                            클릭하여 파일을 선택하거나 여기로 드래그하세요
-                        </span>
-                    </label>
-                    <p class="mt-1 text-xs text-gray-500">Excel(.xlsx, .xls) 또는 CSV 파일만 지원됩니다</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- 월별매출 테이블 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-gray-900">월별 매출 집계</h2>
-                <button id="exportBtn" class="btn btn-secondary btn-sm">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                    CSV 내보내기
-                </button>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table id="monthlyTable" class="data-table">
-                    <thead>
-                        <tr>
-                            <th rowspan="2" class="border-r-2 border-gray-300">년/월</th>
-                            <th colspan="2" class="text-center border-r border-gray-200">주문</th>
-                            <th colspan="2" class="text-center border-r border-gray-200">관급매출</th>
-                            <th colspan="2" class="text-center border-r border-gray-200">사급매출</th>
-                            <th rowspan="2">합계</th>
-                        </tr>
-                        <tr>
-                            <th class="border-r border-gray-200">건수</th>
-                            <th class="border-r border-gray-200">금액</th>
-                            <th class="border-r border-gray-200">건수</th>
-                            <th class="border-r border-gray-200">금액</th>
-                            <th class="border-r border-gray-200">건수</th>
-                            <th class="border-r border-gray-200">금액</th>
-                        </tr>
-                    </thead>
-                    <tbody id="monthlyTableBody">
-                        <!-- 데이터가 여기에 표시됩니다 -->
-                    </tbody>
-                    <tfoot>
-                        <tr class="bg-gray-100 font-semibold">
-                            <td>합계</td>
-                            <td id="totalOrderCount">0</td>
-                            <td id="totalOrderAmount" class="amount">0원</td>
-                            <td id="totalGovCount">0</td>
-                            <td id="totalGovAmount" class="amount">0원</td>
-                            <td id="totalPrivCount">0</td>
-                            <td id="totalPrivAmount" class="amount">0원</td>
-                            <td id="grandTotal" class="amount font-bold">0원</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-
-        <!-- 상세내역 섹션 -->
-        <div id="detailSection" class="bg-white rounded-lg shadow-md p-6 hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h2 id="detailTitle" class="text-xl font-semibold text-gray-900">상세 계약 내역</h2>
-                <button id="closeDetailBtn" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table id="detailTable" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>계약명</th>
-                            <th>거래처</th>
-                            <th>금액</th>
-                            <th>날짜</th>
-                            <th>구분</th>
-                        </tr>
-                    </thead>
-                    <tbody id="detailTableBody">
-                        <!-- 상세 데이터가 여기에 표시됩니다 -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </main>
-
-    <!-- 스크립트 -->
+<!-- 기존 스크립트 부분을 이 코드로 교체하세요 -->
     <script src="../assets/js/common.js"></script>
     <script src="../assets/js/monthly-sales.js"></script>
     
     <script>
         // 페이지 로드시 초기화
         document.addEventListener('DOMContentLoaded', function() {
-            // 기본 데이터 로드
-            loadSampleData();
+            console.log('페이지 로드 완료, 데이터 로딩 시작...');
+            
+            // 실제 CSV 데이터 로드 시도
+            loadSampleData(); // 이 함수가 내부적으로 loadSalesData()를 호출
             
             // 이벤트 리스너 설정
-            document.getElementById('searchBtn').addEventListener('click', generateReport);
+            document.getElementById('searchBtn').addEventListener('click', function() {
+                console.log('조회 버튼 클릭');
+                MonthlySales.generateReport();
+            });
+            
             document.getElementById('uploadBtn').addEventListener('click', toggleUploadPanel);
             document.getElementById('fileInput').addEventListener('change', handleFileUpload);
             document.getElementById('exportBtn').addEventListener('click', exportData);
             document.getElementById('closeDetailBtn').addEventListener('click', hideDetailSection);
+            
+            // 새로고침 버튼 추가 (데이터 다시 로드)
+            const refreshBtn = document.createElement('button');
+            refreshBtn.className = 'btn btn-secondary ml-2';
+            refreshBtn.innerHTML = `
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                데이터 새로고침
+            `;
+            refreshBtn.addEventListener('click', function() {
+                console.log('데이터 새로고침');
+                CommonUtils.showAlert('데이터를 다시 불러오는 중...', 'info', 1000);
+                MonthlySales.loadSalesData();
+            });
+            
+            // 검색 버튼 옆에 새로고침 버튼 추가
+            const searchBtn = document.getElementById('searchBtn');
+            searchBtn.parentNode.insertBefore(refreshBtn, searchBtn.nextSibling);
         });
         
         // 업로드 패널 토글
@@ -242,21 +51,46 @@
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (file) {
-                CommonUtils.showAlert(`파일 "${file.name}"이 선택되었습니다. 파일 처리 기능을 구현중입니다.`, 'info');
-                // TODO: 실제 파일 처리 로직 구현
+                if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                    CommonUtils.showAlert('CSV 또는 Excel 파일만 업로드 가능합니다.', 'warning');
+                    return;
+                }
+                
+                CommonUtils.showAlert(`파일 "${file.name}"을 처리 중입니다...`, 'info');
+                
+                // 파일 업로드 처리 (추후 구현)
+                setTimeout(() => {
+                    CommonUtils.showAlert('파일 처리 기능은 곧 추가될 예정입니다.', 'warning');
+                }, 1000);
             }
         }
         
         // 데이터 내보내기
         function exportData() {
-            const table = document.getElementById('monthlyTable');
-            CommonUtils.exportTableToCSV(table, '월별매출현황.csv');
+            try {
+                const table = document.getElementById('monthlyTable');
+                const filename = `월별매출현황_${new Date().toISOString().slice(0,10)}.csv`;
+                CommonUtils.exportTableToCSV(table, filename);
+                CommonUtils.showAlert('데이터가 성공적으로 내보내졌습니다.', 'success');
+            } catch (error) {
+                console.error('내보내기 오류:', error);
+                CommonUtils.showAlert('데이터 내보내기 중 오류가 발생했습니다.', 'error');
+            }
         }
         
         // 상세내역 섹션 숨기기
         function hideDetailSection() {
             document.getElementById('detailSection').classList.add('hidden');
         }
+        
+        // 전역 에러 핸들러
+        window.addEventListener('error', function(e) {
+            console.error('전역 에러:', e.error);
+            CommonUtils.showAlert('예상치 못한 오류가 발생했습니다.', 'error');
+        });
+        
+        // URL 해시 변경시 처리 (나중에 추가할 수 있음)
+        window.addEventListener('hashchange', function() {
+            console.log('URL 해시 변경:', window.location.hash);
+        });
     </script>
-</body>
-</html>
