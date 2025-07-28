@@ -223,7 +223,7 @@
         // 페이지 로드시 초기화
         document.addEventListener('DOMContentLoaded', function() {
             // 기본 데이터 로드
-            loadSalesData(); //
+            loadSalesData().catch(error => console.error('데이터 로드 실패:', error));
             
             // 이벤트 리스너 설정
             document.getElementById('searchBtn').addEventListener('click', generateReport);
