@@ -222,12 +222,20 @@ async function loadSalesData() {
                 // 결과 배열 (한 행에서 여러 타입 생성 가능)
                 const results = [];
                 
-                // 1. 주문일자가 있으면 주문 데이터 생성
+                // 1. 주문일자가 있으면 항상 데이터 생성
                 if (orderDate) {
+                    // 세금계산서 발행일자가 있으면 '납품완료', 없으면 '주문'
+                    let orderStatus = '주문'; // 기본값
+                    
+                    if (invoiceDate) {
+                        orderStatus = '납품완료';
+                    }
+                    
                     results.push({
                         ...baseItem,
                         date: orderDate,
-                        type: '주문'
+                        type: orderStatus,
+                        invoiceDate: invoiceDate
                     });
                 }
                 
@@ -236,7 +244,8 @@ async function loadSalesData() {
                     results.push({
                         ...baseItem,
                         date: invoiceDate,
-                        type: finalType
+                        type: finalType,
+                        invoiceDate: invoiceDate
                     });
                 }
                 
@@ -341,7 +350,8 @@ function aggregateData(monthlyData, startDate, endDate) {
         // 구분별 기준 날짜 설정
         switch (item.type) {
             case '주문':
-                // 주문: 주문일자(orderDate) 기준
+            case '납품완료':
+                // 주문/납품완료: 주문일자(orderDate) 기준
                 targetDate = item.orderDate || item.date;
                 break;
             case '관급매출':
@@ -362,6 +372,7 @@ function aggregateData(monthlyData, startDate, endDate) {
                 
                 switch (item.type) {
                     case '주문':
+                    case '납품완료':
                         // 계약명별 건수 카운트 (중복 제거)
                         if (!contractCounts[contractKey]) {
                             monthlyData[yearMonth].order.count++;
@@ -495,8 +506,8 @@ function renderMonthlyTable(monthlyData) {
         }
         row.appendChild(privAmountCell);
         
-        // 합계
-        const totalAmount = data.order.amount + data.government.amount + data.private.amount;
+        // 합계 (관급매출 + 사급매출만, 주문 제외)
+        const totalAmount = data.government.amount + data.private.amount;
         const totalCell = document.createElement('td');
         totalCell.textContent = formatCurrency(totalAmount);
         totalCell.className = 'text-right font-medium';
@@ -535,7 +546,7 @@ function updateTotalRow(totals) {
     if (elements.totalPrivCount) elements.totalPrivCount.textContent = formatNumber(totals.privCount);
     if (elements.totalPrivAmount) elements.totalPrivAmount.textContent = formatCurrency(totals.privAmount);
     
-    const grandTotal = totals.orderAmount + totals.govAmount + totals.privAmount;
+    const grandTotal = totals.govAmount + totals.privAmount; // 주문 제외
     if (elements.grandTotal) elements.grandTotal.textContent = formatCurrency(grandTotal);
 }
 
@@ -562,6 +573,20 @@ function showDetail(yearMonth, type, typeName) {
     if (detailSection) {
         detailSection.classList.remove('hidden');
         detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    // X 버튼 이벤트 리스너 추가
+    const closeBtn = $('closeDetailBtn');
+    if (closeBtn) {
+        closeBtn.onclick = hideDetailSection;
+    }
+}
+
+// 상세내역 섹션 숨기기
+function hideDetailSection() {
+    const detailSection = $('detailSection');
+    if (detailSection) {
+        detailSection.classList.add('hidden');
     }
 }
 
@@ -634,6 +659,7 @@ function renderDetailTable(details, type) {
         let badgeClass = 'badge-gray';
         switch (item.type) {
             case '주문': badgeClass = 'badge-primary'; break;
+            case '납품완료': badgeClass = 'badge-success'; break;
             case '관급매출': badgeClass = 'badge-success'; break;
             case '사급매출': badgeClass = 'badge-warning'; break;
         }
@@ -894,6 +920,7 @@ window.showDetail = showDetail;
 window.refreshData = refreshData;
 window.checkConnection = checkConnection;
 window.printReport = printReport;  // 인쇄 기능 추가
+window.hideDetailSection = hideDetailSection;  // X 버튼 기능 추가
 
 // 페이지 로드시 자동 실행
 document.addEventListener('DOMContentLoaded', function() {
