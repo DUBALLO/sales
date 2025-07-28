@@ -290,30 +290,78 @@ function initializeMonthlyData(startDate, endDate) {
     return monthlyData;
 }
 
-// 데이터 집계
+// 데이터 집계 (수정된 로직)
 function aggregateData(monthlyData, startDate, endDate) {
+    // 계약명별 카운트 추적용 객체
+    const contractCounts = {};
+    
     salesData.forEach(item => {
-        const itemDate = item.date;
+        let targetDate = null;
+        let yearMonth = null;
         
-        if (itemDate >= startDate && itemDate <= endDate) {
-            const yearMonth = getYearMonth(itemDate.getFullYear(), itemDate.getMonth() + 1);
+        // 구분별 기준 날짜 설정
+        switch (item.type) {
+            case '주문':
+                // 주문: 주문일자 기준
+                targetDate = item.date;
+                break;
+            case '관급매출':
+                // 관급매출: 세금계산서 발행일자 기준
+                targetDate = item.invoiceDate || item.date;
+                break;
+            case '사급매출':
+                // 사급매출: 세금계산서 발행일자 기준
+                targetDate = item.invoiceDate || item.date;
+                break;
+            default:
+                targetDate = item.date;
+        }
+        
+        // 기준 날짜가 선택된 기간 내에 있는지 확인
+        if (targetDate && targetDate >= startDate && targetDate <= endDate) {
+            yearMonth = getYearMonth(targetDate.getFullYear(), targetDate.getMonth() + 1);
             
             if (monthlyData[yearMonth]) {
+                const contractKey = `${yearMonth}-${item.type}-${item.contractName}`;
+                
                 switch (item.type) {
                     case '주문':
-                        monthlyData[yearMonth].order.count++;
+                        // 계약명별 건수 카운트 (중복 제거)
+                        if (!contractCounts[contractKey]) {
+                            monthlyData[yearMonth].order.count++;
+                            contractCounts[contractKey] = true;
+                        }
                         monthlyData[yearMonth].order.amount += item.amount;
-                        monthlyData[yearMonth].order.details.push(item);
+                        monthlyData[yearMonth].order.details.push({
+                            ...item,
+                            displayDate: targetDate // 표시용 날짜
+                        });
                         break;
+                        
                     case '관급매출':
-                        monthlyData[yearMonth].government.count++;
+                        // 계약명별 건수 카운트 (중복 제거)
+                        if (!contractCounts[contractKey]) {
+                            monthlyData[yearMonth].government.count++;
+                            contractCounts[contractKey] = true;
+                        }
                         monthlyData[yearMonth].government.amount += item.amount;
-                        monthlyData[yearMonth].government.details.push(item);
+                        monthlyData[yearMonth].government.details.push({
+                            ...item,
+                            displayDate: targetDate // 표시용 날짜
+                        });
                         break;
+                        
                     case '사급매출':
-                        monthlyData[yearMonth].private.count++;
+                        // 계약명별 건수 카운트 (중복 제거)
+                        if (!contractCounts[contractKey]) {
+                            monthlyData[yearMonth].private.count++;
+                            contractCounts[contractKey] = true;
+                        }
                         monthlyData[yearMonth].private.amount += item.amount;
-                        monthlyData[yearMonth].private.details.push(item);
+                        monthlyData[yearMonth].private.details.push({
+                            ...item,
+                            displayDate: targetDate // 표시용 날짜
+                        });
                         break;
                 }
             }
@@ -481,14 +529,36 @@ function showDetail(yearMonth, type, typeName) {
     }
 }
 
-// 상세 테이블 렌더링
+// 상세 테이블 렌더링 (계약명별 합치기)
 function renderDetailTable(details, type) {
     const tbody = $('detailTableBody');
     if (!tbody) return;
     
     tbody.innerHTML = '';
     
-    details.forEach((item, index) => {
+    // 계약명별로 데이터 합치기
+    const mergedData = {};
+    details.forEach(item => {
+        const key = `${item.contractName}-${item.customer}`;
+        if (mergedData[key]) {
+            // 기존 항목에 금액 합산
+            mergedData[key].amount += item.amount;
+        } else {
+            // 새 항목 추가
+            mergedData[key] = {
+                contractName: item.contractName,
+                customer: item.customer,
+                amount: item.amount,
+                type: item.type,
+                displayDate: item.displayDate || item.invoiceDate || item.date
+            };
+        }
+    });
+    
+    // 합쳐진 데이터를 배열로 변환하고 금액순 정렬
+    const sortedData = Object.values(mergedData).sort((a, b) => b.amount - a.amount);
+    
+    sortedData.forEach((item, index) => {
         const row = document.createElement('tr');
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
         
@@ -513,9 +583,11 @@ function renderDetailTable(details, type) {
         const dateCell = document.createElement('td');
         let dateText = '';
         if (type === 'order') {
-            dateText = item.deliveryDate ? formatDate(item.deliveryDate) : '-';
+            // 주문: 주문일자 표시
+            dateText = item.displayDate ? formatDate(item.displayDate) : '-';
         } else {
-            dateText = item.invoiceDate ? formatDate(item.invoiceDate) : '-';
+            // 관급매출, 사급매출: 세금계산서 발행일자 표시
+            dateText = item.displayDate ? formatDate(item.displayDate) : '-';
         }
         dateCell.textContent = dateText;
         dateCell.className = 'text-center';
@@ -535,6 +607,198 @@ function renderDetailTable(details, type) {
         
         tbody.appendChild(row);
     });
+}
+
+// 인쇄 기능 추가
+function printReport() {
+    const printWindow = window.open('', '_blank');
+    const currentDate = new Date().toLocaleDateString('ko-KR');
+    
+    // 현재 선택된 기간 정보
+    const startYear = $('startYear')?.value || '2025';  
+    const startMonth = $('startMonth')?.value || '1';
+    const endYear = $('endYear')?.value || '2025';
+    const endMonth = $('endMonth')?.value || '12';
+    
+    const periodText = `${startYear}년 ${startMonth}월 ~ ${endYear}년 ${endMonth}월`;
+    
+    // 월별 테이블 HTML 복사
+    const monthlyTable = document.getElementById('monthlyTable');
+    const monthlyTableHTML = monthlyTable ? monthlyTable.outerHTML : '<p>테이블 데이터가 없습니다.</p>';
+    
+    // 상세 테이블 HTML (있는 경우)
+    const detailSection = document.getElementById('detailSection');
+    const hasDetailData = detailSection && !detailSection.classList.contains('hidden');
+    const detailHTML = hasDetailData ? `
+        <div style="page-break-before: always;">
+            <h2 style="color: #374151; margin-bottom: 1rem;">${document.getElementById('detailTitle')?.textContent || '상세 내역'}</h2>
+            ${document.getElementById('detailTable')?.outerHTML || ''}
+        </div>
+    ` : '';
+    
+    const printHTML = `
+        <!DOCTYPE html>
+        <html lang="ko">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>월별매출 현황 - ${periodText}</title>
+            <style>
+                @page {
+                    size: A4;
+                    margin: 20mm;
+                }
+                
+                * {
+                    box-sizing: border-box;
+                }
+                
+                body {
+                    font-family: 'Malgun Gothic', '맑은 고딕', Arial, sans-serif;
+                    font-size: 12px;
+                    line-height: 1.4;
+                    color: #333;
+                    margin: 0;
+                    padding: 0;
+                }
+                
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    border-bottom: 2px solid #333;
+                    padding-bottom: 15px;
+                }
+                
+                .header h1 {
+                    margin: 0;
+                    font-size: 24px;
+                    color: #333;
+                }
+                
+                .header .period {
+                    margin: 5px 0;
+                    font-size: 16px;
+                    color: #666;
+                }
+                
+                .header .print-date {
+                    margin: 0;
+                    font-size: 12px;
+                    color: #999;
+                }
+                
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 20px;
+                    font-size: 11px;
+                }
+                
+                th, td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: center;
+                    vertical-align: middle;
+                }
+                
+                th {
+                    background-color: #f8f9fa;
+                    font-weight: bold;
+                    color: #333;
+                }
+                
+                .text-right {
+                    text-align: right;
+                }
+                
+                .font-medium {
+                    font-weight: 600;
+                }
+                
+                .font-bold {
+                    font-weight: bold;
+                }
+                
+                .amount {
+                    color: #059669;
+                    font-weight: 600;
+                }
+                
+                .bg-gray-100 {
+                    background-color: #f3f4f6;
+                }
+                
+                .badge {
+                    display: inline-block;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-size: 10px;
+                    font-weight: 500;
+                }
+                
+                .badge-primary {
+                    background-color: #dbeafe;
+                    color: #1e40af;
+                }
+                
+                .badge-success {
+                    background-color: #d1fae5;
+                    color: #065f46;
+                }
+                
+                .badge-warning {
+                    background-color: #fef3c7;
+                    color: #92400e;
+                }
+                
+                .no-print {
+                    display: none;
+                }
+                
+                @media print {
+                    body { 
+                        font-size: 11px; 
+                    }
+                    
+                    table { 
+                        font-size: 10px; 
+                    }
+                    
+                    th, td { 
+                        padding: 6px; 
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>월별매출 현황</h1>
+                <p class="period">기간: ${periodText}</p>
+                <p class="print-date">출력일: ${currentDate}</p>
+            </div>
+            
+            <div class="content">
+                ${monthlyTableHTML}
+                ${detailHTML}
+            </div>
+            
+            <script>
+                window.onload = function() {
+                    setTimeout(function() {
+                        window.print();
+                    }, 500);
+                    
+                    window.onafterprint = function() {
+                        window.close();
+                    };
+                };
+            </script>
+        </body>
+        </html>
+    `;
+    
+    printWindow.document.write(printHTML);
+    printWindow.document.close();
 }
 
 // 데이터 새로고침
@@ -593,6 +857,7 @@ window.generateReport = generateReport;
 window.showDetail = showDetail;
 window.refreshData = refreshData;
 window.checkConnection = checkConnection;
+window.printReport = printReport;  // 인쇄 기능 추가
 
 // 페이지 로드시 자동 실행
 document.addEventListener('DOMContentLoaded', function() {
