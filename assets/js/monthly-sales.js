@@ -117,9 +117,53 @@ const sampleData = [
 ];
 
 /**
- * 샘플 데이터 로드
+ * 실제 데이터 로드 (Google Sheets API)
  */
-function loadSampleData() {
+async function loadSalesData() {
+    try {
+        // 로딩 상태 표시
+        SheetsAPI.setLoadingState('monthlyTableBody', true);
+        
+        // API에서 판매실적 데이터 가져오기
+        const response = await SheetsAPI.getSalesData();
+        
+        if (response && response.data) {
+            // 데이터 변환 및 형식화
+            salesData = response.data.map(item => ({
+                date: new Date(item['주문일자'] || item.date),
+                type: item['구분'] || item.type,
+                contractName: item['계약명'] || item.contractName,
+                customer: item['거래처'] || item.customer,
+                amount: parseInt(item['합계'] || item.amount || 0),
+                deliveryDate: item['납품기한'] ? new Date(item['납품기한']) : null,
+                invoiceDate: item['세금계산서'] ? new Date(item['세금계산서']) : null
+            })).filter(item => !isNaN(item.date.getTime()) && item.amount > 0);
+            
+            console.log(`${salesData.length}건의 데이터를 로드했습니다.`);
+            
+            // 보고서 생성
+            generateReport();
+            
+            CommonUtils.showAlert(`${salesData.length}건의 데이터를 성공적으로 로드했습니다.`, 'success');
+            
+        } else {
+            throw new Error('데이터를 찾을 수 없습니다.');
+        }
+        
+    } catch (error) {
+        console.error('데이터 로드 실패:', error);
+        SheetsAPI.handleAPIError(error, 'monthlyTableBody');
+        
+        // 실패시 샘플 데이터로 fallback
+        console.log('샘플 데이터로 대체합니다.');
+        loadSampleDataFallback();
+    }
+}
+
+/**
+ * 샘플 데이터 로드 (API 실패시 fallback)
+ */
+function loadSampleDataFallback() {
     salesData = sampleData.map(item => ({
         ...item,
         date: new Date(item.date),
@@ -128,6 +172,7 @@ function loadSampleData() {
     }));
     
     generateReport();
+    CommonUtils.showAlert('샘플 데이터를 표시합니다. API 설정을 확인해주세요.', 'warning');
 }
 
 /**
