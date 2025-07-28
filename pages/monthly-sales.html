@@ -1,263 +1,269 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>월별매출 현황 - 판매실적 대시보드</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="../assets/css/common.css" rel="stylesheet">
-    <link href="../assets/css/monthly-sales.css" rel="stylesheet">
-    <script src="../assets/js/sheets-api.js"></script>
-</head>
-<body class="bg-gray-50">
-    <!-- 네비게이션 -->
-    <nav class="bg-white shadow-sm border-b">
-        <div class="max-w-6xl mx-auto px-4 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <a href="../index.html" class="text-lg font-semibold text-gray-900">판매실적 대시보드</a>
-                    <span class="text-gray-400">|</span>
-                    <span class="text-blue-600 font-medium">월별매출 현황</span>
-                </div>
-                <div class="flex space-x-2">
-                    <a href="../index.html" class="nav-link">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                        </svg>
-                        홈
-                    </a>
-                    <a href="./customer-analysis.html" class="nav-link">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                        </svg>
-                        매출처별 집계
-                    </a>
-                </div>
-            </div>
-        </div>
-    </nav>
+// Google Sheets API 연결 모듈
+// assets/js/sheets-api.js
 
-    <!-- 메인 컨텐츠 -->
-    <main class="max-w-6xl mx-auto px-4 py-8">
-        <!-- 페이지 헤더 -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">월별매출 현황</h1>
-            <p class="text-gray-600">월별 매출 데이터를 확인하고 금액을 클릭하여 상세 계약 내역을 조회할 수 있습니다.</p>
-        </div>
+/**
+ * Google Apps Script 웹앱 URL 설정
+ * 웹앱 배포 후 여기에 URL을 입력하세요
+ */
+const SHEETS_API_CONFIG = {
+  // 판매실적 시트 웹앱 URL
+  SALES_API_URL: 'https://script.google.com/macros/s/AKfycbzn-IJo9JGXEeoFqNSDCgQBPSIaovaaKgRc6Kb2m6r_lqgDpjEcAf5Limyv9AGSD0_2vw/exec',
+  
+  // 조달데이터 시트 웹앱 URL  
+  PROCUREMENT_API_URL: 'https://script.google.com/macros/s/AKfycbz_ypb8dOYi7KIyCgzYEw3nTOV2kAzeWptg7CLhVVRlm9c_98_EFx1MqZWLnF78qfZ3/exec'
+};
 
-        <!-- 필터 섹션 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div class="flex flex-wrap items-end gap-4">
-                <div>
-                    <label class="form-label">시작 기간</label>
-                    <div class="flex gap-2">
-                        <select id="startYear" class="form-select">
-                            <option value="2020">2020년</option>
-                            <option value="2021">2021년</option>
-                            <option value="2022">2022년</option>
-                            <option value="2023">2023년</option>
-                            <option value="2024" selected>2024년</option>
-                        </select>
-                        <select id="startMonth" class="form-select">
-                            <option value="1" selected>1월</option>
-                            <option value="2">2월</option>
-                            <option value="3">3월</option>
-                            <option value="4">4월</option>
-                            <option value="5">5월</option>
-                            <option value="6">6월</option>
-                            <option value="7">7월</option>
-                            <option value="8">8월</option>
-                            <option value="9">9월</option>
-                            <option value="10">10월</option>
-                            <option value="11">11월</option>
-                            <option value="12">12월</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="text-gray-500">~</div>
-                <div>
-                    <label class="form-label">종료 기간</label>
-                    <div class="flex gap-2">
-                        <select id="endYear" class="form-select">
-                            <option value="2020">2020년</option>
-                            <option value="2021">2021년</option>
-                            <option value="2022">2022년</option>
-                            <option value="2023">2023년</option>
-                            <option value="2024" selected>2024년</option>
-                        </select>
-                        <select id="endMonth" class="form-select">
-                            <option value="1">1월</option>
-                            <option value="2">2월</option>
-                            <option value="3">3월</option>
-                            <option value="4">4월</option>
-                            <option value="5">5월</option>
-                            <option value="6">6월</option>
-                            <option value="7">7월</option>
-                            <option value="8">8월</option>
-                            <option value="9">9월</option>
-                            <option value="10">10월</option>
-                            <option value="11">11월</option>
-                            <option value="12" selected>12월</option>
-                        </select>
-                    </div>
-                </div>
-                <button id="searchBtn" class="btn btn-primary">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                    조회
-                </button>
-                <button id="uploadBtn" class="btn btn-secondary">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                    </svg>
-                    데이터 업로드
-                </button>
-            </div>
-        </div>
-
-        <!-- 데이터 업로드 패널 (숨겨짐) -->
-        <div id="uploadPanel" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">판매실적 데이터 업로드</h3>
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center" data-drop-zone>
-                <input type="file" id="fileInput" class="sr-only" accept=".xlsx,.xls,.csv">
-                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-                <div class="mt-4">
-                    <label for="fileInput" class="cursor-pointer">
-                        <span class="mt-2 block text-sm font-medium text-gray-900">
-                            클릭하여 파일을 선택하거나 여기로 드래그하세요
-                        </span>
-                    </label>
-                    <p class="mt-1 text-xs text-gray-500">Excel(.xlsx, .xls) 또는 CSV 파일만 지원됩니다</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- 월별매출 테이블 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-gray-900">월별 매출 집계</h2>
-                <button id="exportBtn" class="btn btn-secondary btn-sm">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                    CSV 내보내기
-                </button>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table id="monthlyTable" class="data-table">
-                    <thead>
-                        <tr>
-                            <th rowspan="2" class="border-r-2 border-gray-300">년/월</th>
-                            <th colspan="2" class="text-center border-r border-gray-200">주문</th>
-                            <th colspan="2" class="text-center border-r border-gray-200">관급매출</th>
-                            <th colspan="2" class="text-center border-r border-gray-200">사급매출</th>
-                            <th rowspan="2">합계</th>
-                        </tr>
-                        <tr>
-                            <th class="border-r border-gray-200">건수</th>
-                            <th class="border-r border-gray-200">금액</th>
-                            <th class="border-r border-gray-200">건수</th>
-                            <th class="border-r border-gray-200">금액</th>
-                            <th class="border-r border-gray-200">건수</th>
-                            <th class="border-r border-gray-200">금액</th>
-                        </tr>
-                    </thead>
-                    <tbody id="monthlyTableBody">
-                        <!-- 데이터가 여기에 표시됩니다 -->
-                    </tbody>
-                    <tfoot>
-                        <tr class="bg-gray-100 font-semibold">
-                            <td>합계</td>
-                            <td id="totalOrderCount">0</td>
-                            <td id="totalOrderAmount" class="amount">0원</td>
-                            <td id="totalGovCount">0</td>
-                            <td id="totalGovAmount" class="amount">0원</td>
-                            <td id="totalPrivCount">0</td>
-                            <td id="totalPrivAmount" class="amount">0원</td>
-                            <td id="grandTotal" class="amount font-bold">0원</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-
-        <!-- 상세내역 섹션 -->
-        <div id="detailSection" class="bg-white rounded-lg shadow-md p-6 hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h2 id="detailTitle" class="text-xl font-semibold text-gray-900">상세 계약 내역</h2>
-                <button id="closeDetailBtn" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table id="detailTable" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>계약명</th>
-                            <th>거래처</th>
-                            <th>금액</th>
-                            <th>날짜</th>
-                            <th>구분</th>
-                        </tr>
-                    </thead>
-                    <tbody id="detailTableBody">
-                        <!-- 상세 데이터가 여기에 표시됩니다 -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </main>
-
-    <!-- 스크립트 -->
-    <script src="../assets/js/common.js"></script>
-    <script src="../assets/js/monthly-sales.js"></script>
+/**
+ * API 호출 공통 함수
+ */
+async function callSheetsAPI(url, params = {}) {
+  try {
+    // URL 파라미터 생성
+    const urlParams = new URLSearchParams(params);
+    const fullUrl = `${url}?${urlParams.toString()}`;
     
-    <script>
-        // 페이지 로드시 초기화
-        document.addEventListener('DOMContentLoaded', function() {
-            // 기본 데이터 로드
-            loadSalesData().catch(error => console.error('데이터 로드 실패:', error));
-            
-            // 이벤트 리스너 설정
-            document.getElementById('searchBtn').addEventListener('click', generateReport);
-            document.getElementById('uploadBtn').addEventListener('click', toggleUploadPanel);
-            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
-            document.getElementById('exportBtn').addEventListener('click', exportData);
-            document.getElementById('closeDetailBtn').addEventListener('click', hideDetailSection);
-        });
-        
-        // 업로드 패널 토글
-        function toggleUploadPanel() {
-            const panel = document.getElementById('uploadPanel');
-            panel.classList.toggle('hidden');
-        }
-        
-        // 파일 업로드 처리
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (file) {
-                CommonUtils.showAlert(`파일 "${file.name}"이 선택되었습니다. 파일 처리 기능을 구현중입니다.`, 'info');
-                // TODO: 실제 파일 처리 로직 구현
-            }
-        }
-        
-        // 데이터 내보내기
-        function exportData() {
-            const table = document.getElementById('monthlyTable');
-            CommonUtils.exportTableToCSV(table, '월별매출현황.csv');
-        }
-        
-        // 상세내역 섹션 숨기기
-        function hideDetailSection() {
-            document.getElementById('detailSection').classList.add('hidden');
-        }
-    </script>
-</body>
-</html>
+    console.log('API 호출:', fullUrl);
+    
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'API 호출 실패');
+    }
+    
+    return data;
+    
+  } catch (error) {
+    console.error('API 호출 오류:', error);
+    throw error;
+  }
+}
+
+/**
+ * 판매실적 데이터 가져오기 (CSV 방식)
+ */
+async function getSalesData(startDate = null, endDate = null) {
+  try {
+    // 구글시트 CSV URL
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/13jSz0U8NYDojGnIyE5iaZhwNoirooVnKlkl_IoXSjdc/export?format=csv&gid=0';
+    
+    console.log('CSV 데이터 로드 중...', csvUrl);
+    
+    const response = await fetch(csvUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const csvText = await response.text();
+    
+    // CSV 파싱
+    const lines = csvText.split('\n').filter(line => line.trim());
+    const headers = lines[0].split(',').map(header => header.replace(/"/g, '').trim());
+    
+    const data = lines.slice(1).map(line => {
+      const values = line.split(',').map(value => value.replace(/"/g, '').trim());
+      const item = {};
+      headers.forEach((header, index) => {
+        item[header] = values[index] || '';
+      });
+      return item;
+    }).filter(item => item[headers[0]] && item[headers[0]] !== ''); // 빈 행 제외
+    
+    console.log(`${data.length}건의 CSV 데이터 로드 완료`);
+    
+    return {
+      success: true,
+      data: data,
+      total: data.length,
+      source: 'CSV'
+    };
+    
+  } catch (error) {
+    console.error('CSV 로드 실패:', error);
+    throw error;
+  }
+}
+
+/**
+ * 월별 집계 데이터 가져오기
+ */
+async function getMonthlySalesData() {
+  const params = {
+    action: 'getMonthlyData'
+  };
+  
+  return await callSheetsAPI(SHEETS_API_CONFIG.SALES_API_URL, params);
+}
+
+/**
+ * 조달데이터 가져오기
+ */
+async function getProcurementData(year = '2020') {
+  const params = {
+    action: 'getProcurementData',
+    year: year
+  };
+  
+  return await callSheetsAPI(SHEETS_API_CONFIG.PROCUREMENT_API_URL, params);
+}
+
+/**
+ * 고객별 매출 분석 데이터
+ */
+async function getCustomerAnalysis(year = '2020') {
+  const params = {
+    action: 'getCustomerAnalysis',
+    year: year
+  };
+  
+  return await callSheetsAPI(SHEETS_API_CONFIG.PROCUREMENT_API_URL, params);
+}
+
+/**
+ * 지역별 매출 분석 데이터
+ */
+async function getRegionAnalysis(year = '2020') {
+  const params = {
+    action: 'getRegionAnalysis', 
+    year: year
+  };
+  
+  return await callSheetsAPI(SHEETS_API_CONFIG.PROCUREMENT_API_URL, params);
+}
+
+/**
+ * 수요기관별 분석 데이터
+ */
+async function getAgencyAnalysis(year = '2020') {
+  const params = {
+    action: 'getAgencyAnalysis',
+    year: year
+  };
+  
+  return await callSheetsAPI(SHEETS_API_CONFIG.PROCUREMENT_API_URL, params);
+}
+
+/**
+ * 로딩 상태 관리
+ */
+function setLoadingState(elementId, loading) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  
+  if (loading) {
+    element.innerHTML = '<div class="loading-spinner"></div> 데이터를 불러오는 중...';
+    element.style.color = '#6b7280';
+  } else {
+    element.style.color = '';
+  }
+}
+
+/**
+ * 에러 처리
+ */
+function handleAPIError(error, elementId = null) {
+  console.error('API 에러:', error);
+  
+  let message = '데이터를 불러오는 중 오류가 발생했습니다.';
+  
+  if (error.message.includes('Failed to fetch')) {
+    message = '네트워크 연결을 확인해주세요.';
+  } else if (error.message.includes('YOUR_') && error.message.includes('_URL_HERE')) {
+    message = 'Google Apps Script 웹앱 URL을 설정해주세요.';
+  }
+  
+  if (elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.innerHTML = `<span style="color: #dc2626;">❌ ${message}</span>`;
+    }
+  }
+  
+  CommonUtils.showAlert(message, 'error');
+  return null;
+}
+
+/**
+ * API URL 설정 확인
+ */
+function checkAPIConfiguration() {
+  const salesConfigured = !SHEETS_API_CONFIG.SALES_API_URL.includes('YOUR_');
+  const procurementConfigured = !SHEETS_API_CONFIG.PROCUREMENT_API_URL.includes('YOUR_');
+  
+  if (!salesConfigured || !procurementConfigured) {
+    const missingAPIs = [];
+    if (!salesConfigured) missingAPIs.push('판매실적 API');
+    if (!procurementConfigured) missingAPIs.push('조달데이터 API');
+    
+    CommonUtils.showAlert(
+      `다음 API URL을 설정해주세요: ${missingAPIs.join(', ')}\n` +
+      'assets/js/sheets-api.js 파일의 SHEETS_API_CONFIG를 확인하세요.',
+      'warning',
+      0 // 자동으로 사라지지 않음
+    );
+    
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * 테스트 함수
+ */
+async function testAPIs() {
+  console.log('API 연결 테스트 시작...');
+  
+  try {
+    // 판매실적 API 테스트
+    console.log('판매실적 API 테스트...');
+    const salesData = await getSalesData();
+    console.log('판매실적 데이터:', salesData);
+    
+    // 조달데이터 API 테스트
+    console.log('조달데이터 API 테스트...');
+    const procurementData = await getProcurementData('2020');
+    console.log('조달데이터:', procurementData);
+    
+    console.log('✅ 모든 API 연결 성공!');
+    CommonUtils.showAlert('API 연결 테스트 성공!', 'success');
+    
+  } catch (error) {
+    console.error('❌ API 연결 테스트 실패:', error);
+    handleAPIError(error);
+  }
+}
+
+// 전역 객체로 내보내기
+window.SheetsAPI = {
+  getSalesData,
+  getMonthlySalesData,
+  getProcurementData,
+  getCustomerAnalysis,
+  getRegionAnalysis,
+  getAgencyAnalysis,
+  setLoadingState,
+  handleAPIError,
+  checkAPIConfiguration,
+  testAPIs
+};
+
+// 페이지 로드시 설정 확인
+document.addEventListener('DOMContentLoaded', function() {
+  // 개발 모드에서만 설정 확인 메시지 표시
+  if (window.location.hostname === 'localhost' || window.location.hostname.includes('github.io')) {
+    setTimeout(() => {
+      checkAPIConfiguration();
+    }, 1000);
+  }
+});
