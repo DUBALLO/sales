@@ -24,14 +24,19 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">조회 연도</label>
-                    <select id="yearSelect" class="form-select bg-white border border-gray-300 rounded-md px-3 py-2 text-sm">
-                        <option value="2020">2020년</option>
-                        <option value="2021">2021년</option>
-                        <option value="2022">2022년</option>
-                        <option value="2023">2023년</option>
-                        <option value="2024">2024년</option>
-                        <option value="2025" selected>2025년</option>
-                    </select>
+                    <div class="flex gap-2">
+                        <select id="yearSelect" class="form-select bg-white border border-gray-300 rounded-md px-3 py-2 text-sm">
+                            <option value="2020">2020년</option>
+                            <option value="2021">2021년</option>
+                            <option value="2022">2022년</option>
+                            <option value="2023">2023년</option>
+                            <option value="2024">2024년</option>
+                            <option value="2025" selected>2025년</option>
+                        </select>
+                        <button id="applyBtn" class="btn btn-primary px-4 py-2 text-sm">
+                            적용
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -216,34 +221,111 @@
             document.getElementById('totalContracts').textContent = stats.totalContracts;
         }
 
-        // 실제 데이터 처리
+        // 실제 데이터 처리 (정확한 계산 로직)
         function processDashboardData(rawData, selectedYear) {
-            // 실제 Google Sheets 데이터를 처리하여 통계 계산
-            const yearData = rawData.filter(item => {
-                const date = new Date(item['주문일자'] || item['날짜'] || '2025-01-01');
-                return date.getFullYear().toString() === selectedYear;
+            const currentYear = parseInt(selectedYear);
+            const previousYear = currentYear - 1;
+            
+            // 현재 연도 데이터 필터링
+            const currentYearData = rawData.filter(item => {
+                const orderDate = parseDate(item['주문일자'] || item['날짜'] || '');
+                const invoiceDate = parseDate(item['세금계산서'] || item['세금계산서발행일'] || '');
+                
+                return (orderDate && orderDate.getFullYear() === currentYear) ||
+                       (invoiceDate && invoiceDate.getFullYear() === currentYear);
+            });
+            
+            // 전년도 데이터 필터링 (신규고객 계산용)
+            const previousYearData = rawData.filter(item => {
+                const orderDate = parseDate(item['주문일자'] || item['날짜'] || '');
+                const invoiceDate = parseDate(item['세금계산서'] || item['세금계산서발행일'] || '');
+                
+                return (orderDate && orderDate.getFullYear() === previousYear) ||
+                       (invoiceDate && invoiceDate.getFullYear() === previousYear);
             });
 
-            // 통계 계산 로직
-            const totalSales = yearData.reduce((sum, item) => {
-                const amount = parseInt(item['합계'] || item['금액'] || '0');
-                return sum + amount;
-            }, 0);
+            // 1. 총매출액 = 관급매출 + 사급매출 (세금계산서 발행된 것만)
+            let totalSales = 0;
+            currentYearData.forEach(item => {
+                const invoiceDate = parseDate(item['세금계산서'] || item['세금계산서발행일'] || '');
+                const type = item['구분'] || '';
+                
+                if (invoiceDate && invoiceDate.getFullYear() === currentYear && 
+                    (type.includes('관급') || type.includes('사급'))) {
+                    const amount = parseInt((item['합계'] || item['금액'] || '0').toString().replace(/[^\d]/g, '')) || 0;
+                    totalSales += amount;
+                }
+            });
 
-            const customers = new Set(yearData.map(item => item['거래처'] || item['customer'] || ''));
-            const totalCustomers = customers.size;
+            // 2. 총고객수 = 해당 연도에 거래가 있었던 고객 수 (중복 제거)
+            const currentYearCustomers = new Set();
+            currentYearData.forEach(item => {
+                const customer = item['거래처'] || item['customer'] || '';
+                if (customer && customer !== '거래처 없음') {
+                    currentYearCustomers.add(customer.trim());
+                }
+            });
 
-            // 간단한 신규고객 계산 (실제로는 더 복잡한 로직 필요)
-            const newCustomers = Math.floor(totalCustomers * 0.3);
+            // 3. 신규고객수 = 올해는 있지만 작년에는 없었던 고객
+            const previousYearCustomers = new Set();
+            previousYearData.forEach(item => {
+                const customer = item['거래처'] || item['customer'] || '';
+                if (customer && customer !== '거래처 없음') {
+                    previousYearCustomers.add(customer.trim());
+                }
+            });
 
-            const totalContracts = yearData.length;
+            const newCustomers = [...currentYearCustomers].filter(customer => 
+                !previousYearCustomers.has(customer)
+            );
+
+            // 4. 총계약건수 = 중복 제거한 계약명 개수
+            const uniqueContracts = new Set();
+            currentYearData.forEach(item => {
+                const contractName = item['계약명'] || item['사업명'] || item['contractName'] || '';
+                if (contractName && contractName !== '계약명 없음') {
+                    uniqueContracts.add(contractName.trim());
+                }
+            });
 
             return {
-                totalSales: new Intl.NumberFormat('ko-KR').format(totalSales) + '원',
-                totalCustomers: totalCustomers + '개',
-                newCustomers: newCustomers + '개',
-                totalContracts: totalContracts + '건'
+                totalSales: formatCurrency(totalSales),
+                totalCustomers: currentYearCustomers.size + '개',
+                newCustomers: newCustomers.length + '개',
+                totalContracts: uniqueContracts.size + '건'
             };
+        }
+
+        // 날짜 파싱 함수
+        function parseDate(dateStr) {
+            if (!dateStr) return null;
+            
+            let date = new Date(dateStr);
+            
+            // 한국식 날짜 형식 처리
+            if (isNaN(date.getTime())) {
+                if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
+                    date = new Date(dateStr);
+                } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+                    const [month, day, year] = dateStr.split('/');
+                    date = new Date(year, month - 1, day);
+                }
+            }
+            
+            return isNaN(date.getTime()) ? null : date;
+        }
+
+        // 통화 포맷 함수
+        function formatCurrency(amount) {
+            if (amount >= 100000000) {
+                return (amount / 100000000).toFixed(1) + '억원';
+            } else if (amount >= 10000000) {
+                return Math.round(amount / 10000000) + '천만원';
+            } else if (amount >= 10000) {
+                return Math.round(amount / 10000) + '만원';
+            } else {
+                return new Intl.NumberFormat('ko-KR').format(amount) + '원';
+            }
         }
 
         // 대시보드 통계 업데이트
@@ -258,8 +340,8 @@
 
         // 페이지 로드시 초기화
         document.addEventListener('DOMContentLoaded', function() {
-            // 연도 선택 변경시 데이터 다시 로드
-            document.getElementById('yearSelect').addEventListener('change', loadDashboardData);
+            // 적용 버튼 클릭시 데이터 다시 로드
+            document.getElementById('applyBtn').addEventListener('click', loadDashboardData);
             
             // 초기 데이터 로드
             loadDashboardData();
