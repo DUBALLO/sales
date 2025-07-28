@@ -1,60 +1,8 @@
-// 월별매출 현황 JavaScript (안전성 개선 + 실제 CSV 연결)
+// 월별매출 현황 JavaScript (최종 수정 버전)
 
 // 전역 변수
 let salesData = [];
 let currentDetailData = {};
-
-// Google Sheets CSV URL (실제 URL)
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSjy2slFJrAxxPO8WBmehXH4iJtcfxr-HUkvL-YXw-BIvmA1Z3kTa8DfdWVnwVl3r4jhjmHFUYIju3j/pub?output=csv';
-
-// 샘플 데이터
-const sampleData = [
-    {
-        date: '2024-01-15',
-        type: '주문',
-        contractName: '천보산 산림욕장 보완사업 관급자재',
-        customer: '경기도 양주시',
-        amount: 1500000,
-        deliveryDate: '2024-01-25',
-        invoiceDate: null
-    },
-    {
-        date: '2024-01-20',
-        type: '관급매출',
-        contractName: '의정부시 녹지조성사업',
-        customer: '의정부시',
-        amount: 2800000,
-        deliveryDate: null,
-        invoiceDate: '2024-01-25'
-    },
-    {
-        date: '2024-02-05',
-        type: '주문',
-        contractName: '서울시 한강공원 보행로 개선',
-        customer: '서울시',
-        amount: 3200000,
-        deliveryDate: '2024-02-15',
-        invoiceDate: null
-    },
-    {
-        date: '2024-02-10',
-        type: '관급매출',
-        contractName: '부천시 중앙공원 조성사업',
-        customer: '부천시',
-        amount: 4500000,
-        deliveryDate: null,
-        invoiceDate: '2024-02-15'
-    },
-    {
-        date: '2024-03-12',
-        type: '관급매출',
-        contractName: '광주 북구 문화센터 주변 정비',
-        customer: '광주 북구',
-        amount: 5200000,
-        deliveryDate: null,
-        invoiceDate: '2024-03-15'
-    }
-];
 
 // 안전한 요소 가져오기
 function $(id) {
@@ -103,39 +51,71 @@ function showAlert(message, type = 'info') {
         // 간단한 브라우저 알림
         if (type === 'error') {
             alert(`오류: ${message}`);
+        } else if (type === 'success') {
+            console.log(`✅ ${message}`);
+        } else if (type === 'warning') {
+            console.log(`⚠️ ${message}`);
         }
     }
 }
 
-// CSV 파싱 함수
-function parseCSV(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    if (lines.length === 0) {
-        throw new Error('CSV 데이터가 비어있습니다.');
+// 샘플 데이터
+const sampleData = [
+    {
+        date: '2024-01-15',
+        type: '주문',
+        contractName: '천보산 산림욕장 보완사업 관급자재',
+        customer: '경기도 양주시',
+        amount: 1500000,
+        deliveryDate: '2024-01-25',
+        invoiceDate: null
+    },
+    {
+        date: '2024-01-20',
+        type: '관급매출',
+        contractName: '의정부시 녹지조성사업',
+        customer: '의정부시',
+        amount: 2800000,
+        deliveryDate: null,
+        invoiceDate: '2024-01-25'
+    },
+    {
+        date: '2024-02-05',
+        type: '주문',
+        contractName: '서울시 한강공원 보행로 개선',
+        customer: '서울시',
+        amount: 3200000,
+        deliveryDate: '2024-02-15',
+        invoiceDate: null
+    },
+    {
+        date: '2024-02-10',
+        type: '관급매출',
+        contractName: '부천시 중앙공원 조성사업',
+        customer: '부천시',
+        amount: 4500000,
+        deliveryDate: null,
+        invoiceDate: '2024-02-15'
+    },
+    {
+        date: '2024-03-12',
+        type: '관급매출',
+        contractName: '광주 북구 문화센터 주변 정비',
+        customer: '광주 북구',
+        amount: 5200000,
+        deliveryDate: null,
+        invoiceDate: '2024-03-15'
+    },
+    {
+        date: '2024-04-07',
+        type: '사급매출',
+        contractName: '제주시 관광지 보행로 정비',
+        customer: '제주시',
+        amount: 3100000,
+        deliveryDate: null,
+        invoiceDate: '2024-04-10'
     }
-    
-    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
-    console.log('CSV 헤더:', headers);
-    
-    const data = [];
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        
-        const values = line.split(',').map(v => v.replace(/"/g, '').trim());
-        const item = {};
-        headers.forEach((header, index) => {
-            item[header] = values[index] || '';
-        });
-        
-        // 빈 행 건너뛰기
-        if (Object.values(item).every(val => !val)) continue;
-        
-        data.push(item);
-    }
-    
-    return data;
-}
+];
 
 // 날짜 파싱
 function parseDate(dateStr) {
@@ -143,10 +123,29 @@ function parseDate(dateStr) {
     
     let date = new Date(dateStr);
     
-    // 한국식 날짜 형식 처리
-    if (isNaN(date.getTime()) && /^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-        const [month, day, year] = dateStr.split('/');
-        date = new Date(year, month - 1, day);
+    // 한국식 날짜 형식 처리 (MM/DD/YYYY)
+    if (isNaN(date.getTime())) {
+        // YYYY-MM-DD 형식 시도
+        if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
+            date = new Date(dateStr);
+        }
+        // MM/DD/YYYY 형식 시도
+        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+            const [month, day, year] = dateStr.split('/');
+            date = new Date(year, month - 1, day);
+        }
+        // DD/MM/YYYY 형식 시도
+        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+            const parts = dateStr.split('/');
+            // 첫 번째 숫자가 12보다 크면 DD/MM/YYYY로 판단
+            if (parseInt(parts[0]) > 12) {
+                const [day, month, year] = parts;
+                date = new Date(year, month - 1, day);
+            } else {
+                const [month, day, year] = parts;
+                date = new Date(year, month - 1, day);
+            }
+        }
     }
     
     return isNaN(date.getTime()) ? null : date;
@@ -163,51 +162,57 @@ async function loadSalesData() {
             tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4">데이터를 불러오는 중...</td></tr>';
         }
         
-        const response = await fetch(SHEET_CSV_URL);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP 오류: ${response.status}`);
+        // sheets-api.js를 통한 데이터 로드
+        let rawData;
+        if (window.sheetsAPI) {
+            rawData = await window.sheetsAPI.loadCSVData();
+        } else {
+            throw new Error('sheets-api.js가 로드되지 않았습니다.');
         }
         
-        const csvText = await response.text();
-        console.log('CSV 로드 완료, 데이터 파싱 중...');
-        console.log('CSV 미리보기:', csvText.substring(0, 200));
-        
-        const rawData = parseCSV(csvText);
-        console.log(`${rawData.length}개의 원시 데이터 파싱 완료`);
+        console.log(`${rawData.length}개의 원시 데이터 로드 완료`);
         
         if (rawData.length === 0) {
             throw new Error('파싱된 데이터가 없습니다.');
         }
         
-        // 데이터 변환
+        // 데이터 변환 및 정제
         salesData = rawData.map((item, index) => {
             try {
-                const dateValue = item['주문일자'] || item['날짜'] || item['date'] || item['Date'];
-                const typeValue = item['구분'] || item['type'] || item['Type'] || '사급매출';
-                const contractValue = item['계약명'] || item['사업명'] || item['contractName'] || '계약명 없음';
-                const customerValue = item['거래처'] || item['수요기관'] || item['customer'] || '거래처 없음';
-                const amountValue = item['합계'] || item['금액'] || item['amount'] || '0';
+                // 다양한 필드명 지원
+                const dateValue = item['주문일자'] || item['날짜'] || item['date'] || item['Date'] || item['계약일자'];
+                const typeValue = item['구분'] || item['type'] || item['Type'] || item['분류'] || '사급매출';
+                const contractValue = item['계약명'] || item['사업명'] || item['contractName'] || item['프로젝트명'] || '계약명 없음';
+                const customerValue = item['거래처'] || item['수요기관'] || item['customer'] || item['고객명'] || '거래처 없음';
+                const amountValue = item['합계'] || item['금액'] || item['amount'] || item['총액'] || '0';
                 
-                return {
+                // 금액 파싱 (쉼표, 원화표시 제거)
+                const cleanAmount = amountValue.toString().replace(/[^\d]/g, '');
+                const parsedAmount = parseInt(cleanAmount) || 0;
+                
+                const result = {
                     date: parseDate(dateValue) || new Date(),
-                    type: typeValue,
-                    contractName: contractValue,
-                    customer: customerValue,
-                    amount: parseInt(amountValue.toString().replace(/[^\d]/g, '')) || 0,
+                    type: typeValue.trim(),
+                    contractName: contractValue.trim(),
+                    customer: customerValue.trim(),
+                    amount: parsedAmount,
                     deliveryDate: parseDate(item['납품기한'] || item['deliveryDate']),
-                    invoiceDate: parseDate(item['세금계산서'] || item['invoiceDate'])
+                    invoiceDate: parseDate(item['세금계산서'] || item['invoiceDate'] || item['발행일'])
                 };
+                
+                return result;
             } catch (error) {
                 console.warn(`데이터 변환 오류 (행 ${index + 1}):`, error);
                 return null;
             }
         }).filter(item => {
+            // 유효한 데이터만 필터링
             return item && 
                    item.date instanceof Date && 
                    !isNaN(item.date.getTime()) && 
                    item.amount > 0 &&
-                   item.contractName !== '계약명 없음';
+                   item.contractName !== '계약명 없음' &&
+                   item.customer !== '거래처 없음';
         });
         
         console.log(`${salesData.length}건의 유효한 데이터 변환 완료`);
@@ -228,6 +233,8 @@ async function loadSalesData() {
 
 // 샘플 데이터로 대체
 function loadSampleDataFallback() {
+    console.log('샘플 데이터로 전환합니다.');
+    
     salesData = sampleData.map(item => ({
         ...item,
         date: new Date(item.date),
@@ -335,7 +342,7 @@ function renderMonthlyTable(monthlyData) {
     const sortedMonths = Object.keys(monthlyData).sort();
     
     if (sortedMonths.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">데이터가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">해당 기간에 데이터가 없습니다.</td></tr>';
         updateTotalRow(totals);
         return;
     }
@@ -364,7 +371,8 @@ function renderMonthlyTable(monthlyData) {
         orderAmountCell.textContent = formatCurrency(data.order.amount);
         orderAmountCell.className = 'text-right border-r border-gray-200';
         if (data.order.amount > 0) {
-            orderAmountCell.className += ' amount-clickable cursor-pointer';
+            orderAmountCell.className += ' amount-clickable cursor-pointer text-blue-600 hover:text-blue-800';
+            orderAmountCell.title = '클릭하여 상세내역 보기';
             orderAmountCell.addEventListener('click', () => showDetail(yearMonth, 'order', '주문'));
         }
         row.appendChild(orderAmountCell);
@@ -380,7 +388,8 @@ function renderMonthlyTable(monthlyData) {
         govAmountCell.textContent = formatCurrency(data.government.amount);
         govAmountCell.className = 'text-right border-r border-gray-200';
         if (data.government.amount > 0) {
-            govAmountCell.className += ' amount-clickable cursor-pointer';
+            govAmountCell.className += ' amount-clickable cursor-pointer text-blue-600 hover:text-blue-800';
+            govAmountCell.title = '클릭하여 상세내역 보기';
             govAmountCell.addEventListener('click', () => showDetail(yearMonth, 'government', '관급매출'));
         }
         row.appendChild(govAmountCell);
@@ -396,7 +405,8 @@ function renderMonthlyTable(monthlyData) {
         privAmountCell.textContent = formatCurrency(data.private.amount);
         privAmountCell.className = 'text-right border-r border-gray-200';
         if (data.private.amount > 0) {
-            privAmountCell.className += ' amount-clickable cursor-pointer';
+            privAmountCell.className += ' amount-clickable cursor-pointer text-blue-600 hover:text-blue-800';
+            privAmountCell.title = '클릭하여 상세내역 보기';
             privAmountCell.addEventListener('click', () => showDetail(yearMonth, 'private', '사급매출'));
         }
         row.appendChild(privAmountCell);
@@ -527,13 +537,87 @@ function renderDetailTable(details, type) {
     });
 }
 
+// 데이터 새로고침
+async function refreshData() {
+    try {
+        const refreshBtn = $('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '새로고침 중...';
+        }
+        
+        // 캐시 강제 새로고침
+        if (window.sheetsAPI) {
+            await window.sheetsAPI.refreshCache();
+        }
+        
+        await loadSalesData();
+        
+        showAlert('데이터가 새로고침되었습니다.', 'success');
+        
+    } catch (error) {
+        console.error('데이터 새로고침 실패:', error);
+        showAlert('데이터 새로고침에 실패했습니다.', 'error');
+        
+    } finally {
+        const refreshBtn = $('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '새로고침';
+        }
+    }
+}
+
+// 연결 상태 확인
+async function checkConnection() {
+    try {
+        if (window.sheetsAPI) {
+            const isConnected = await window.sheetsAPI.testConnection();
+            const message = isConnected ? 
+                'Google Sheets 연결이 정상입니다.' : 
+                'Google Sheets 연결에 문제가 있습니다.';
+            const type = isConnected ? 'success' : 'warning';
+            showAlert(message, type);
+        } else {
+            showAlert('sheets-api.js가 로드되지 않았습니다.', 'error');
+        }
+    } catch (error) {
+        console.error('연결 확인 실패:', error);
+        showAlert('연결 확인 중 오류가 발생했습니다.', 'error');
+    }
+}
+
 // 전역 함수들
 window.loadSampleData = loadSalesData;  // HTML에서 호출하는 함수
 window.generateReport = generateReport;
 window.showDetail = showDetail;
+window.refreshData = refreshData;
+window.checkConnection = checkConnection;
 
 // 페이지 로드시 자동 실행
 document.addEventListener('DOMContentLoaded', function() {
     console.log('페이지 로드 완료, 데이터 로딩 시작...');
-    setTimeout(loadSalesData, 100); // 약간의 지연 후 실행
+    
+    // sheets-api.js 로드 확인
+    if (window.sheetsAPI) {
+        console.log('sheets-api.js 로드 확인됨');
+        setTimeout(loadSalesData, 100); // 약간의 지연 후 실행
+    } else {
+        console.warn('sheets-api.js가 로드되지 않음, 재시도...');
+        // 최대 3초간 재시도
+        let retryCount = 0;
+        const retryInterval = setInterval(() => {
+            if (window.sheetsAPI || retryCount >= 30) {
+                clearInterval(retryInterval);
+                if (window.sheetsAPI) {
+                    console.log('sheets-api.js 지연 로드 확인됨');
+                    loadSalesData();
+                } else {
+                    console.error('sheets-api.js 로드 실패, 샘플 데이터 사용');
+                    loadSampleDataFallback();
+                }
+            }
+            retryCount++;
+        }, 100);
+    }
 });
