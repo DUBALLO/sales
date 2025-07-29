@@ -106,7 +106,7 @@
                 <div class="mobile-full-width">
                     <label class="block text-sm font-medium text-gray-700 mb-2">조회 연도</label>
                     <div class="flex flex-col sm:flex-row gap-2 items-center justify-center lg:justify-end">
-                        <select id="yearSelect" class="form-select bg-white border border-gray-300 rounded-md px-3 py-2 text-sm appearance-none min-w-32">
+                        <select id="yearSelect" class="form-select bg-white border border-gray-300 rounded-md px-3 py-2 text-sm appearance-none min-w-32 h-10">
                             <option value="2020">2020년</option>
                             <option value="2021">2021년</option>
                             <option value="2022">2022년</option>
@@ -114,8 +114,8 @@
                             <option value="2024">2024년</option>
                             <option value="2025" selected>2025년</option>
                         </select>
-                        <button id="applyBtn" class="btn btn-primary apply-btn">
-                            적 용
+                        <button id="applyBtn" class="btn btn-primary apply-btn px-6 py-2 text-sm h-10">
+                            적용
                         </button>
                     </div>
                 </div>
@@ -125,8 +125,23 @@
 
     <!-- 메인 컨텐츠 -->
     <main class="max-w-6xl mx-auto px-4 py-8">
-        <!-- 요약 카드 (총매출액 제외) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- 요약 카드 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <!-- 총매출액 -->
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 rounded-lg">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">총매출액</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalSales">-</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- 총고객수 -->
             <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105" onclick="showCustomerDetail()">
                 <div class="flex items-center">
@@ -295,32 +310,47 @@
         function loadSampleDashboardData(year) {
             // 연도별 샘플 데이터
             const sampleStats = {
-                '2025': { totalCustomers: '23개', newCustomers: '8개', totalContracts: '67건' },
-                '2024': { totalCustomers: '47개', newCustomers: '15개', totalContracts: '156건' },
-                '2023': { totalCustomers: '41개', newCustomers: '12개', totalContracts: '134건' },
-                '2022': { totalCustomers: '35개', newCustomers: '9개', totalContracts: '98건' },
-                '2021': { totalCustomers: '31개', newCustomers: '7개', totalContracts: '87건' },
-                '2020': { totalCustomers: '28개', newCustomers: '5개', totalContracts: '72건' }
+                '2025': { totalSales: '1.8억원', totalCustomers: '23개', newCustomers: '8개', totalContracts: '67건' },
+                '2024': { totalSales: '3.2억원', totalCustomers: '47개', newCustomers: '15개', totalContracts: '156건' },
+                '2023': { totalSales: '2.8억원', totalCustomers: '41개', newCustomers: '12개', totalContracts: '134건' },
+                '2022': { totalSales: '2.1억원', totalCustomers: '35개', newCustomers: '9개', totalContracts: '98건' },
+                '2021': { totalSales: '1.9억원', totalCustomers: '31개', newCustomers: '7개', totalContracts: '87건' },
+                '2020': { totalSales: '1.5억원', totalCustomers: '28개', newCustomers: '5개', totalContracts: '72건' }
             };
 
             const stats = sampleStats[year] || sampleStats['2025'];
             
             dashboardData = stats;
             
-            // 샘플 상세 데이터
+            // 샘플 상세 데이터 (관급/사급 분류)
             detailData = {
-                customers: ['경기도 양주시', '의정부시', '서울시', '부천시', '광주 북구', '제주시'],
-                newCustomers: ['경기도 양주시', '광주 북구', '제주시'],
-                contracts: ['천보산 산림욕장 보완사업', '의정부시 녹지조성사업', '서울시 한강공원 보행로', '부천시 중앙공원 조성사업']
+                customers: {
+                    government: ['경기도 양주시', '의정부시', '서울시', '부천시'],
+                    private: ['광주 북구', '제주시', '포항시']
+                },
+                newCustomers: {
+                    government: ['경기도 양주시', '광주 북구'],
+                    private: ['제주시']
+                },
+                contracts: {
+                    government: [
+                        { customer: '경기도 양주시', contract: '천보산 산림욕장 보완사업' },
+                        { customer: '의정부시', contract: '의정부시 녹지조성사업' },
+                        { customer: '서울시', contract: '서울시 한강공원 보행로' }
+                    ],
+                    private: [
+                        { customer: '광주 북구', contract: '광주 북구 문화센터 주변 정비' },
+                        { customer: '제주시', contract: '제주시 관광지 보행로 정비' }
+                    ]
+                }
             };
             
             updateDashboardStats();
         }
 
-        // 실제 데이터 처리
+        // 실제 데이터 처리 (관급/사급 분류 포함)
         function processDashboardData(rawData, selectedYear) {
             const currentYear = parseInt(selectedYear);
-            const previousYear = currentYear - 1;
             
             // 현재 연도 데이터 필터링
             const currentYearData = rawData.filter(item => {
@@ -331,55 +361,136 @@
                        (invoiceDate && invoiceDate.getFullYear() === currentYear);
             });
             
-            // 고객 데이터 수집
-            const currentYearCustomers = new Set();
-            const uniqueContracts = new Set();
+            // 매출 데이터 수집
+            let totalSales = 0;
+            const governmentCustomers = new Set(); // 관급 거래처
+            const privateCustomers = new Set(); // 사급 거래처
+            const allCustomers = new Set(); // 전체 거래처
+            const governmentContracts = []; // 관급 계약
+            const privateContracts = []; // 사급 계약
+            const allContracts = new Set(); // 전체 계약 (중복 제거용)
             
             currentYearData.forEach(item => {
                 const customer = item['거래처'] || item['customer'] || '';
                 const contract = item['계약명'] || item['사업명'] || '';
+                const typeValue = item['구분'] || item['type'] || '';
+                const amountValue = item['합계'] || item['금액'] || '0';
+                const invoiceDate = parseDate(item['세금계산서'] || item['세금계산서발행일'] || '');
+                
+                // 매출액 계산 (세금계산서 발행된 것만)
+                if (invoiceDate && invoiceDate.getFullYear() === currentYear && 
+                    (typeValue.includes('관급') || typeValue.includes('사급'))) {
+                    const amount = parseInt(amountValue.toString().replace(/[^\d]/g, '')) || 0;
+                    totalSales += amount;
+                }
                 
                 if (customer && customer !== '거래처 없음') {
-                    currentYearCustomers.add(customer.trim());
+                    allCustomers.add(customer.trim());
+                    
+                    // 관급/사급 구분
+                    if (typeValue.includes('관급')) {
+                        governmentCustomers.add(customer.trim());
+                    } else if (typeValue.includes('사급')) {
+                        privateCustomers.add(customer.trim());
+                    }
                 }
+                
                 if (contract && contract !== '계약명 없음') {
-                    uniqueContracts.add(contract.trim());
+                    const contractKey = contract.trim();
+                    if (!allContracts.has(contractKey)) {
+                        allContracts.add(contractKey);
+                        
+                        // 관급/사급 계약 분류
+                        if (typeValue.includes('관급')) {
+                            governmentContracts.push({
+                                customer: customer.trim(),
+                                contract: contractKey
+                            });
+                        } else if (typeValue.includes('사급')) {
+                            privateContracts.push({
+                                customer: customer.trim(),
+                                contract: contractKey
+                            });
+                        }
+                    }
                 }
             });
             
-            // 신규 고객 계산
+            // 신규 고객 계산 (관급/사급 분류)
             const allPreviousCustomers = new Set();
+            const previousGovCustomers = new Set();
+            const previousPrivCustomers = new Set();
+            
             for (let year = 2020; year < currentYear; year++) {
                 rawData.forEach(item => {
                     const orderDate = parseDate(item['주문일자'] || item['날짜'] || '');
                     const invoiceDate = parseDate(item['세금계산서'] || item['세금계산서발행일'] || '');
+                    const typeValue = item['구분'] || item['type'] || '';
                     
                     if ((orderDate && orderDate.getFullYear() === year) ||
                         (invoiceDate && invoiceDate.getFullYear() === year)) {
                         const customer = item['거래처'] || item['customer'] || '';
                         if (customer && customer !== '거래처 없음') {
-                            allPreviousCustomers.add(customer.trim());
+                            const customerName = customer.trim();
+                            allPreviousCustomers.add(customerName);
+                            
+                            if (typeValue.includes('관급')) {
+                                previousGovCustomers.add(customerName);
+                            } else if (typeValue.includes('사급')) {
+                                previousPrivCustomers.add(customerName);
+                            }
                         }
                     }
                 });
             }
 
-            const newCustomers = [...currentYearCustomers].filter(customer => 
+            const newCustomers = [...allCustomers].filter(customer => 
                 !allPreviousCustomers.has(customer)
+            );
+            
+            const newGovCustomers = [...governmentCustomers].filter(customer => 
+                !previousGovCustomers.has(customer)
+            );
+            
+            const newPrivCustomers = [...privateCustomers].filter(customer => 
+                !previousPrivCustomers.has(customer)
             );
 
             return {
                 stats: {
-                    totalCustomers: currentYearCustomers.size + '개',
+                    totalSales: formatCurrency(totalSales),
+                    totalCustomers: allCustomers.size + '개',
                     newCustomers: newCustomers.length + '개',
-                    totalContracts: uniqueContracts.size + '건'
+                    totalContracts: allContracts.size + '건'
                 },
                 details: {
-                    customers: [...currentYearCustomers],
-                    newCustomers: newCustomers,
-                    contracts: [...uniqueContracts]
+                    customers: {
+                        government: [...governmentCustomers].sort(),
+                        private: [...privateCustomers].sort()
+                    },
+                    newCustomers: {
+                        government: newGovCustomers.sort(),
+                        private: newPrivCustomers.sort()
+                    },
+                    contracts: {
+                        government: governmentContracts.sort((a, b) => a.customer.localeCompare(b.customer, 'ko-KR')),
+                        private: privateContracts.sort((a, b) => a.customer.localeCompare(b.customer, 'ko-KR'))
+                    }
                 }
             };
+        }
+
+        // 통화 포맷 함수
+        function formatCurrency(amount) {
+            if (amount >= 100000000) {
+                return (amount / 100000000).toFixed(1) + '억원';
+            } else if (amount >= 10000000) {
+                return Math.round(amount / 10000000) + '천만원';
+            } else if (amount >= 10000) {
+                return Math.round(amount / 10000) + '만원';
+            } else {
+                return new Intl.NumberFormat('ko-KR').format(amount) + '원';
+            }
         }
 
         // 날짜 파싱 함수
@@ -403,6 +514,7 @@
         // 대시보드 통계 업데이트
         function updateDashboardStats() {
             if (dashboardData) {
+                document.getElementById('totalSales').textContent = dashboardData.totalSales;
                 document.getElementById('totalCustomers').textContent = dashboardData.totalCustomers;
                 document.getElementById('newCustomers').textContent = dashboardData.newCustomers;
                 document.getElementById('totalContracts').textContent = dashboardData.totalContracts;
@@ -410,20 +522,32 @@
         }
 
         // 모달 관련 함수들
-        function showModal(title, items) {
+        function showModal(title, sections) {
             document.getElementById('modalTitle').textContent = title;
             const content = document.getElementById('modalContent');
             
             content.innerHTML = '';
-            if (items.length === 0) {
+            
+            sections.forEach(section => {
+                if (section.items.length > 0) {
+                    // 섹션 제목
+                    const sectionTitle = document.createElement('div');
+                    sectionTitle.className = 'font-semibold text-gray-800 mb-2 mt-4 first:mt-0';
+                    sectionTitle.textContent = section.title;
+                    content.appendChild(sectionTitle);
+                    
+                    // 섹션 항목들
+                    section.items.forEach((item, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'detail-item pl-4';
+                        div.innerHTML = `<span class="font-medium">${index + 1}.</span> ${item}`;
+                        content.appendChild(div);
+                    });
+                }
+            });
+            
+            if (content.innerHTML === '') {
                 content.innerHTML = '<div class="text-center text-gray-500 py-4">데이터가 없습니다.</div>';
-            } else {
-                items.forEach((item, index) => {
-                    const div = document.createElement('div');
-                    div.className = 'detail-item';
-                    div.innerHTML = `<span class="font-medium">${index + 1}.</span> ${item}`;
-                    content.appendChild(div);
-                });
             }
             
             document.getElementById('detailModal').classList.add('active');
@@ -434,15 +558,106 @@
         }
 
         function showCustomerDetail() {
-            showModal('총 고객 수 상세 내역', detailData.customers);
+            const sections = [
+                {
+                    title: '관급 거래처',
+                    items: detailData.customers.government || []
+                },
+                {
+                    title: '사급 거래처',
+                    items: detailData.customers.private || []
+                }
+            ];
+            showModal('총 고객 수 상세 내역', sections);
         }
 
         function showNewCustomerDetail() {
-            showModal('신규 고객 수 상세 내역', detailData.newCustomers);
+            const sections = [
+                {
+                    title: '관급 신규 거래처',
+                    items: detailData.newCustomers.government || []
+                },
+                {
+                    title: '사급 신규 거래처',
+                    items: detailData.newCustomers.private || []
+                }
+            ];
+            showModal('신규 고객 수 상세 내역', sections);
         }
 
         function showContractDetail() {
-            showModal('총 계약 건수 상세 내역', detailData.contracts);
+            const govContractStrings = (detailData.contracts.government || []).map(item => 
+                `${item.customer} - ${item.contract}`
+            );
+            const privContractStrings = (detailData.contracts.private || []).map(item => 
+                `${item.customer} - ${item.contract}`
+            );
+            
+            const sections = [
+                {
+                    title: '관급 계약',
+                    items: govContractStrings
+                },
+                {
+                    title: '사급 계약',
+                    items: privContractStrings
+                }
+            ];
+            showModal('총 계약 건수 상세 내역', sections);
+        }            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        function showCustomerDetail() {
+            const sections = [
+                {
+                    title: '관급 거래처',
+                    items: detailData.customers.government || []
+                },
+                {
+                    title: '사급 거래처',
+                    items: detailData.customers.private || []
+                }
+            ];
+            showModal('총 고객 수 상세 내역', sections);
+        }
+
+        function showNewCustomerDetail() {
+            const sections = [
+                {
+                    title: '관급 신규 거래처',
+                    items: detailData.newCustomers.government || []
+                },
+                {
+                    title: '사급 신규 거래처',
+                    items: detailData.newCustomers.private || []
+                }
+            ];
+            showModal('신규 고객 수 상세 내역', sections);
+        }
+
+        function showContractDetail() {
+            const govContractStrings = (detailData.contracts.government || []).map(item => 
+                `${item.customer} - ${item.contract}`
+            );
+            const privContractStrings = (detailData.contracts.private || []).map(item => 
+                `${item.customer} - ${item.contract}`
+            );
+            
+            const sections = [
+                {
+                    title: '관급 계약',
+                    items: govContractStrings
+                },
+                {
+                    title: '사급 계약',
+                    items: privContractStrings
+                }
+            ];
+            showModal('총 계약 건수 상세 내역', sections);
         }
 
         // 페이지 로드시 초기화
