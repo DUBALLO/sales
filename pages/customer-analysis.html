@@ -44,6 +44,14 @@
             <p class="text-gray-600">고객별 매출 현황과 지역별, 수요기관별 분석 데이터를 확인할 수 있습니다.</p>
         </div>
 
+        <!-- 연결 상태 표시 -->
+        <div id="connectionStatus" class="mb-4 p-3 rounded-lg border hidden">
+            <div class="flex items-center">
+                <div id="statusIcon" class="w-3 h-3 rounded-full mr-2"></div>
+                <span id="statusText" class="text-sm font-medium"></span>
+            </div>
+        </div>
+
         <!-- 필터 및 검색 섹션 -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex flex-wrap items-end gap-4 mb-4">
@@ -66,19 +74,9 @@
                         <option value="2021">2021년</option>
                         <option value="2022">2022년</option>
                         <option value="2023">2023년</option>
-                        <option value="2024">2024년</option>
-                        <option value="2025" selected>2025년</option>
+                        <option value="2024" selected>2024년</option>
+                        <option value="2025">2025년</option>
                         <option value="all">전체</option>
-                    </select>
-                </div>
-                
-                <!-- 정렬 기준 -->
-                <div>
-                    <label class="form-label">정렬 기준</label>
-                    <select id="sortBy" class="form-select">
-                        <option value="amount">매출액순</option>
-                        <option value="count">건수순</option>
-                        <option value="name">이름순</option>
                     </select>
                 </div>
                 
@@ -100,12 +98,20 @@
                     </svg>
                     분석
                 </button>
+                
+                <!-- 새로고침 버튼 -->
+                <button id="refreshBtn" class="btn btn-secondary" onclick="refreshData()">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    새로고침
+                </button>
             </div>
         </div>
 
         <!-- 요약 통계 -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="bg-white rounded-lg shadow-md p-6 stats-card">
                 <div class="flex items-center">
                     <div class="p-2 bg-blue-100 rounded-lg">
                         <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,7 +125,7 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="bg-white rounded-lg shadow-md p-6 stats-card">
                 <div class="flex items-center">
                     <div class="p-2 bg-green-100 rounded-lg">
                         <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -133,7 +139,7 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="bg-white rounded-lg shadow-md p-6 stats-card">
                 <div class="flex items-center">
                     <div class="p-2 bg-purple-100 rounded-lg">
                         <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,7 +153,7 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="bg-white rounded-lg shadow-md p-6 stats-card">
                 <div class="flex items-center">
                     <div class="p-2 bg-orange-100 rounded-lg">
                         <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,18 +203,18 @@
                     <table id="customerTable" class="data-table">
                         <thead>
                             <tr>
-                                <th class="cursor-pointer" data-sort="rank">순위</th>
-                                <th class="cursor-pointer" data-sort="customer">고객명</th>
-                                <th class="cursor-pointer" data-sort="region">지역</th>
-                                <th class="cursor-pointer" data-sort="type">수요기관구분</th>
-                                <th class="cursor-pointer" data-sort="count">계약건수</th>
-                                <th class="cursor-pointer" data-sort="amount">매출액</th>
-                                <th class="cursor-pointer" data-sort="share">비중</th>
+                                <th>순위</th>
+                                <th>고객명</th>
+                                <th>지역</th>
+                                <th>수요기관구분</th>
+                                <th>계약건수</th>
+                                <th>매출액</th>
+                                <th>비중</th>
                                 <th>최근거래일</th>
                             </tr>
                         </thead>
                         <tbody id="customerTableBody">
-                            <!-- 데이터가 여기에 표시됩니다 -->
+                            <tr><td colspan="8" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -239,7 +245,7 @@
                             </tr>
                         </thead>
                         <tbody id="regionTableBody">
-                            <!-- 데이터가 여기에 표시됩니다 -->
+                            <tr><td colspan="6" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -270,7 +276,7 @@
                             </tr>
                         </thead>
                         <tbody id="typeTableBody">
-                            <!-- 데이터가 여기에 표시됩니다 -->
+                            <tr><td colspan="6" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -303,7 +309,7 @@
                             </tr>
                         </thead>
                         <tbody id="privateTableBody">
-                            <!-- 데이터가 여기에 표시됩니다 -->
+                            <tr><td colspan="8" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -313,25 +319,65 @@
 
     <!-- 스크립트 -->
     <script src="../assets/js/common.js"></script>
-    <script src="../assets/js/customer-analysis-advanced.js"></script>
+    <script src="../assets/js/sheets-api.js"></script>
+    <script src="../assets/js/customer-analysis.js"></script>
     
     <script>
+        // 전역 함수들
+        function refreshData() {
+            if (window.sheetsAPI) {
+                window.sheetsAPI.refreshCache().then(() => {
+                    if (window.CustomerAnalysis) {
+                        CustomerAnalysis.analyzeCustomers();
+                    }
+                    showAlert('데이터가 새로고침되었습니다.', 'success');
+                }).catch(error => {
+                    console.error('새로고침 실패:', error);
+                    showAlert('새로고침에 실패했습니다.', 'error');
+                });
+            } else {
+                showAlert('sheets-api가 로드되지 않았습니다.', 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            if (window.CommonUtils && CommonUtils.showAlert) {
+                CommonUtils.showAlert(message, type);
+            } else {
+                console.log(`[${type.toUpperCase()}] ${message}`);
+            }
+        }
+
+        function updateConnectionStatus(isConnected, message = '') {
+            const statusDiv = document.getElementById('connectionStatus');
+            const statusIcon = document.getElementById('statusIcon');
+            const statusText = document.getElementById('statusText');
+            
+            if (statusDiv && statusIcon && statusText) {
+                statusDiv.classList.remove('hidden');
+                
+                if (isConnected) {
+                    statusDiv.className = 'mb-4 p-3 rounded-lg border bg-green-50 border-green-200';
+                    statusIcon.className = 'w-3 h-3 rounded-full mr-2 bg-green-500';
+                    statusText.textContent = message || 'Google Sheets 연결됨';
+                    statusText.className = 'text-sm font-medium text-green-700';
+                } else {
+                    statusDiv.className = 'mb-4 p-3 rounded-lg border bg-red-50 border-red-200';
+                    statusIcon.className = 'w-3 h-3 rounded-full mr-2 bg-red-500';
+                    statusText.textContent = message || '연결 실패 - 샘플 데이터 사용중';
+                    statusText.className = 'text-sm font-medium text-red-700';
+                }
+                
+                // 5초 후 자동 숨김
+                setTimeout(() => {
+                    statusDiv.classList.add('hidden');
+                }, 5000);
+            }
+        }
+        
         // 페이지 로드시 초기화
         document.addEventListener('DOMContentLoaded', function() {
             console.log('매출처별 집계 페이지 로드 시작');
-            
-            // Advanced 모듈 로드 확인 및 초기화
-            if (window.CustomerAnalysis) {
-                console.log('CustomerAnalysis 모듈 로드 확인됨');
-                CustomerAnalysis.loadSampleData();
-            } else {
-                console.error('CustomerAnalysis 모듈이 로드되지 않았습니다.');
-                // 대안으로 기본 메시지 표시
-                document.getElementById('totalCustomers').textContent = '로드 실패';
-                document.getElementById('avgAmount').textContent = '로드 실패';
-                document.getElementById('maxShare').textContent = '로드 실패';
-                document.getElementById('newCustomers').textContent = '로드 실패';
-            }
             
             // 이벤트 리스너 설정
             const analyzeBtn = document.getElementById('analyzeBtn');
@@ -341,6 +387,7 @@
                         CustomerAnalysis.analyzeCustomers();
                     } else {
                         console.error('CustomerAnalysis 모듈을 사용할 수 없습니다.');
+                        showAlert('분석 모듈 로드 오류', 'error');
                     }
                 });
             }
@@ -362,34 +409,113 @@
             document.getElementById('exportTypeBtn').addEventListener('click', () => exportTable('type'));
             document.getElementById('exportPrivateBtn').addEventListener('click', () => exportTable('private'));
             
-            // 테이블 정렬 이벤트
-            setupTableSorting();
+            // sheets-api.js 로드 확인 및 초기화
+            if (window.sheetsAPI) {
+                console.log('sheets-api.js 로드 확인됨');
+                updateConnectionStatus(true, 'Google Sheets API 준비됨');
+                
+                // 자동으로 초기 데이터 로드
+                setTimeout(() => {
+                    if (window.CustomerAnalysis) {
+                        CustomerAnalysis.analyzeCustomers();
+                    }
+                }, 500);
+            } else {
+                console.warn('sheets-api.js가 로드되지 않음, 재시도...');
+                let retryCount = 0;
+                const retryInterval = setInterval(() => {
+                    if (window.sheetsAPI || retryCount >= 30) {
+                        clearInterval(retryInterval);
+                        if (window.sheetsAPI) {
+                            console.log('sheets-api.js 지연 로드 확인됨');
+                            updateConnectionStatus(true, 'Google Sheets API 준비됨');
+                            
+                            // CustomerAnalysis 모듈 확인
+                            if (window.CustomerAnalysis) {
+                                CustomerAnalysis.analyzeCustomers();
+                            } else {
+                                console.warn('CustomerAnalysis 모듈 대기 중...');
+                                setTimeout(() => {
+                                    if (window.CustomerAnalysis) {
+                                        CustomerAnalysis.analyzeCustomers();
+                                    } else {
+                                        console.error('CustomerAnalysis 모듈 로드 실패');
+                                        updateConnectionStatus(false, '분석 모듈 로드 실패');
+                                    }
+                                }, 1000);
+                            }
+                        } else {
+                            console.error('sheets-api.js 로드 실패, 샘플 데이터 사용');
+                            updateConnectionStatus(false, 'Google Sheets 연결 실패');
+                            
+                            // 샘플 데이터로 초기화
+                            if (window.CustomerAnalysis) {
+                                CustomerAnalysis.loadSampleData();
+                            }
+                        }
+                    }
+                    retryCount++;
+                }, 100);
+            }
         });
         
         // 탭 전환
         function showTab(tabName) {
             // 탭 버튼 활성화
             document.querySelectorAll('.analysis-tab').forEach(tab => {
-                tab.classList.remove('active', 'border-green-500', 'text-green-600');
+                tab.classList.remove('active');
+                tab.classList.remove('border-green-500', 'text-green-600');
                 tab.classList.add('border-transparent', 'text-gray-500');
             });
             
-            document.getElementById(tabName + 'Tab').classList.add('active', 'border-green-500', 'text-green-600');
-            document.getElementById(tabName + 'Tab').classList.remove('border-transparent', 'text-gray-500');
+            const activeTab = document.getElementById(tabName + 'Tab');
+            if (activeTab) {
+                activeTab.classList.add('active');
+                activeTab.classList.add('border-green-500', 'text-green-600');
+                activeTab.classList.remove('border-transparent', 'text-gray-500');
+            }
             
             // 패널 표시/숨김
             document.querySelectorAll('.tab-panel').forEach(panel => {
                 panel.classList.add('hidden');
             });
             
-            document.getElementById(tabName + 'Panel').classList.remove('hidden');
+            const activePanel = document.getElementById(tabName + 'Panel');
+            if (activePanel) {
+                activePanel.classList.remove('hidden');
+            }
         }
         
         // 검색 처리
         function handleSearch(event) {
-            const searchTerm = event.target.value;
-            // TODO: 검색 로직 구현
+            const searchTerm = event.target.value.toLowerCase();
             console.log('검색어:', searchTerm);
+            
+            // 현재 활성 탭의 테이블에서 검색
+            const activeTabs = document.querySelectorAll('.analysis-tab.active');
+            if (activeTabs.length > 0) {
+                const activeTabId = activeTabs[0].id;
+                let tableId = '';
+                
+                if (activeTabId === 'customerTab') tableId = 'customerTable';
+                else if (activeTabId === 'regionTab') tableId = 'regionTable';
+                else if (activeTabId === 'typeTab') tableId = 'typeTable';
+                else if (activeTabId === 'privateTab') tableId = 'privateTable';
+                
+                if (tableId) {
+                    const table = document.getElementById(tableId);
+                    if (table && window.CommonUtils && CommonUtils.searchTable) {
+                        CommonUtils.searchTable(searchTerm, table);
+                    } else {
+                        // 간단한 검색 구현
+                        const rows = table.querySelectorAll('tbody tr');
+                        rows.forEach(row => {
+                            const text = row.textContent.toLowerCase();
+                            row.style.display = text.includes(searchTerm) ? '' : 'none';
+                        });
+                    }
+                }
+            }
         }
         
         // 테이블 내보내기
@@ -398,21 +524,13 @@
             const filename = type === 'customer' ? '고객별매출.csv' : 
                            type === 'region' ? '지역별매출.csv' : 
                            type === 'type' ? '수요기관별매출.csv' : '사급판매매출.csv';
+            
             if (window.CommonUtils && CommonUtils.exportTableToCSV) {
                 CommonUtils.exportTableToCSV(table, filename);
+                showAlert(`${filename} 파일이 다운로드되었습니다.`, 'success');
+            } else {
+                showAlert('내보내기 기능을 사용할 수 없습니다.', 'error');
             }
-        }
-        
-        // 테이블 정렬 설정
-        function setupTableSorting() {
-            document.querySelectorAll('[data-sort]').forEach(header => {
-                header.addEventListener('click', function() {
-                    const sortBy = this.dataset.sort;
-                    const table = this.closest('table');
-                    console.log('정렬:', sortBy, table.id);
-                    // TODO: 정렬 로직 구현
-                });
-            });
         }
     </script>
 </body>
