@@ -168,4 +168,155 @@
         </div>
 
         <!-- 요약 카드 -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <!-- 총매출액 -->
+            <div id="totalSalesCard" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 rounded-lg">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">총매출액</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalSales">로딩중...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 총고객수 -->
+            <div id="totalCustomersCard" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105" onclick="showCustomerDetail()">
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-100 rounded-lg">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">총 고객 수</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalCustomers">로딩중...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 신규고객수 -->
+            <div id="newCustomersCard" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105" onclick="showNewCustomerDetail()">
+                <div class="flex items-center">
+                    <div class="p-2 bg-orange-100 rounded-lg">
+                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">신규 고객 수</p>
+                        <p class="text-2xl font-bold text-gray-900" id="newCustomers">로딩중...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 총계약건수 -->
+            <div id="totalContractsCard" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105" onclick="showContractDetail()">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 rounded-lg">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">총 계약 건수</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalContracts">로딩중...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 메뉴 카드 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 월별매출 현황 -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="p-2 bg-blue-100 rounded-lg">
+                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 ml-3">월별매출 현황</h3>
+                    </div>
+                    <p class="text-gray-600 mb-4">월별 매출 데이터를 확인하고 상세 계약 내역을 조회할 수 있습니다.</p>
+                    <ul class="text-sm text-gray-500 mb-6 space-y-1">
+                        <li>• 월별 주문/관급/사급 매출 집계</li>
+                        <li>• 금액 클릭시 해당 월 상세 계약 목록</li>
+                        <li>• 계약명, 금액, 납품기한 정보</li>
+                    </ul>
+                    <a href="./pages/monthly-sales.html" 
+                       class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                        <span>월별매출 보기</span>
+                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 매출처별 집계 -->
+            <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="p-2 bg-green-100 rounded-lg">
+                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 ml-3">매출처별 집계</h3>
+                    </div>
+                    <p class="text-gray-600 mb-4">고객별 매출 현황과 지역별, 수요기관별 분석 데이터를 확인할 수 있습니다.</p>
+                    <ul class="text-sm text-gray-500 mb-6 space-y-1">
+                        <li>• 고객별 매출 순위 (금액 + 계약 건수)</li>
+                        <li>• 지역별 매출 분석 (서울/경기/강원 등)</li>
+                        <li>• 수요기관별 분석 (군/관공서/민간)</li>
+                    </ul>
+                    <a href="./pages/customer-analysis.html" 
+                       class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200">
+                        <span>매출처별 집계 보기</span>
+                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 팝업 모달 -->
+    <div id="detailModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalTitle" class="text-lg font-semibold text-gray-900"></h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="modalContent" class="detail-list">
+                <!-- 동적으로 생성되는 리스트 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 푸터 -->
+    <footer class="bg-white border-t mt-12">
+        <div class="max-w-6xl mx-auto px-4 py-6">
+            <p class="text-center text-gray-500 text-sm">
+                © 2025 판매실적 대시보드. 모든 권리 보유.
+            </p>
+        </div>
+    </footer>
+
+    <!-- JavaScript 파일들 -->
+    <script src="./assets/js/common.js"></script>
+    <script src="./assets/js/sheets-api.js"></script>
+    <script src="./assets/js/dashboard.js"></script>
+</body>
+</html>
