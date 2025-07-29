@@ -7,6 +7,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="../assets/css/common.css" rel="stylesheet">
     <link href="../assets/css/customer-analysis.css" rel="stylesheet">
+    <style>
+        /* 드롭다운 화살표 하나만 표시 */
+        .form-select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
     <!-- 네비게이션 -->
@@ -58,7 +68,7 @@
                 <!-- 관급 품목 선택 -->
                 <div>
                     <label class="form-label">관급 품목</label>
-                    <select id="productType" class="form-select">
+                    <select id="productType" class="form-select bg-white border border-gray-300 rounded-md px-3 py-2 text-sm">
                         <option value="all">전체</option>
                         <option value="보행매트" selected>보행매트</option>
                         <option value="식생매트">식생매트</option>
@@ -69,7 +79,7 @@
                 <!-- 분석 기간 -->
                 <div>
                     <label class="form-label">분석 기간</label>
-                    <select id="analysisYear" class="form-select">
+                    <select id="analysisYear" class="form-select bg-white border border-gray-300 rounded-md px-3 py-2 text-sm">
                         <option value="2020">2020년</option>
                         <option value="2021">2021년</option>
                         <option value="2022">2022년</option>
@@ -106,6 +116,14 @@
                     </svg>
                     새로고침
                 </button>
+
+                <!-- CSV 연결 테스트 버튼 -->
+                <button id="testBtn" class="btn btn-outline" onclick="testCSVConnection()">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    CSV 연결 테스트
+                </button>
             </div>
         </div>
 
@@ -120,7 +138,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">총 고객 수</p>
-                        <p class="text-2xl font-bold text-gray-900" id="totalCustomers">-</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalCustomers">로딩중...</p>
                     </div>
                 </div>
             </div>
@@ -134,7 +152,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">평균 거래금액</p>
-                        <p class="text-2xl font-bold text-gray-900" id="avgAmount">-</p>
+                        <p class="text-2xl font-bold text-gray-900" id="avgAmount">로딩중...</p>
                     </div>
                 </div>
             </div>
@@ -148,7 +166,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">최대 고객 비중</p>
-                        <p class="text-2xl font-bold text-gray-900" id="maxShare">-</p>
+                        <p class="text-2xl font-bold text-gray-900" id="maxShare">로딩중...</p>
                     </div>
                 </div>
             </div>
@@ -162,7 +180,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">신규 고객 수</p>
-                        <p class="text-2xl font-bold text-gray-900" id="newCustomers">-</p>
+                        <p class="text-2xl font-bold text-gray-900" id="newCustomers">로딩중...</p>
                     </div>
                 </div>
             </div>
@@ -323,9 +341,45 @@
     <script src="../assets/js/customer-analysis.js"></script>
     
     <script>
+        // CSV 연결 테스트 함수
+        async function testCSVConnection() {
+            console.log('=== CSV 연결 테스트 시작 ===');
+            
+            if (!window.sheetsAPI) {
+                showAlert('sheets-api.js가 로드되지 않았습니다.', 'error');
+                return;
+            }
+            
+            try {
+                updateConnectionStatus(false, 'CSV 연결 테스트 중...');
+                
+                const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSjy2slFJrAxxPO8WBmehXH4iJtcfxr-HUkvL-YXw-BIvmA1Z3kTa8DfdWVnwVl3r4jhjmHFUYIju3j/pub?output=csv';
+                console.log('CSV URL:', csvUrl);
+                
+                const data = await window.sheetsAPI.loadCSVData();
+                console.log('로드된 데이터:', data);
+                console.log('데이터 수:', data.length);
+                
+                if (data.length > 0) {
+                    console.log('첫 번째 행 샘플:', data[0]);
+                    console.log('컬럼명들:', Object.keys(data[0]));
+                    updateConnectionStatus(true, `CSV 연결 성공 (${data.length}건)`);
+                    showAlert(`CSV 연결 성공! ${data.length}건의 데이터를 확인했습니다.`, 'success');
+                } else {
+                    throw new Error('데이터가 비어있습니다.');
+                }
+                
+            } catch (error) {
+                console.error('CSV 연결 테스트 실패:', error);
+                updateConnectionStatus(false, 'CSV 연결 실패');
+                showAlert(`CSV 연결 실패: ${error.message}`, 'error');
+            }
+        }
+
         // 전역 함수들
         function refreshData() {
             if (window.sheetsAPI) {
+                showAlert('데이터 새로고침 중...', 'info');
                 window.sheetsAPI.refreshCache().then(() => {
                     if (window.CustomerAnalysis) {
                         CustomerAnalysis.analyzeCustomers();
@@ -345,6 +399,9 @@
                 CommonUtils.showAlert(message, type);
             } else {
                 console.log(`[${type.toUpperCase()}] ${message}`);
+                if (type === 'error') {
+                    alert('오류: ' + message);
+                }
             }
         }
 
@@ -368,16 +425,18 @@
                     statusText.className = 'text-sm font-medium text-red-700';
                 }
                 
-                // 5초 후 자동 숨김
-                setTimeout(() => {
-                    statusDiv.classList.add('hidden');
-                }, 5000);
+                // 5초 후 자동 숨김 (에러가 아닌 경우에만)
+                if (isConnected) {
+                    setTimeout(() => {
+                        statusDiv.classList.add('hidden');
+                    }, 5000);
+                }
             }
         }
         
         // 페이지 로드시 초기화
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('매출처별 집계 페이지 로드 시작');
+            console.log('=== 매출처별 집계 페이지 로드 시작 ===');
             
             // 이벤트 리스너 설정
             const analyzeBtn = document.getElementById('analyzeBtn');
@@ -409,54 +468,9 @@
             document.getElementById('exportTypeBtn').addEventListener('click', () => exportTable('type'));
             document.getElementById('exportPrivateBtn').addEventListener('click', () => exportTable('private'));
             
-            // sheets-api.js 로드 확인 및 초기화
-            if (window.sheetsAPI) {
-                console.log('sheets-api.js 로드 확인됨');
-                updateConnectionStatus(true, 'Google Sheets API 준비됨');
-                
-                // 자동으로 초기 데이터 로드
-                setTimeout(() => {
-                    if (window.CustomerAnalysis) {
-                        CustomerAnalysis.analyzeCustomers();
-                    }
-                }, 500);
-            } else {
-                console.warn('sheets-api.js가 로드되지 않음, 재시도...');
-                let retryCount = 0;
-                const retryInterval = setInterval(() => {
-                    if (window.sheetsAPI || retryCount >= 30) {
-                        clearInterval(retryInterval);
-                        if (window.sheetsAPI) {
-                            console.log('sheets-api.js 지연 로드 확인됨');
-                            updateConnectionStatus(true, 'Google Sheets API 준비됨');
-                            
-                            // CustomerAnalysis 모듈 확인
-                            if (window.CustomerAnalysis) {
-                                CustomerAnalysis.analyzeCustomers();
-                            } else {
-                                console.warn('CustomerAnalysis 모듈 대기 중...');
-                                setTimeout(() => {
-                                    if (window.CustomerAnalysis) {
-                                        CustomerAnalysis.analyzeCustomers();
-                                    } else {
-                                        console.error('CustomerAnalysis 모듈 로드 실패');
-                                        updateConnectionStatus(false, '분석 모듈 로드 실패');
-                                    }
-                                }, 1000);
-                            }
-                        } else {
-                            console.error('sheets-api.js 로드 실패, 샘플 데이터 사용');
-                            updateConnectionStatus(false, 'Google Sheets 연결 실패');
-                            
-                            // 샘플 데이터로 초기화
-                            if (window.CustomerAnalysis) {
-                                CustomerAnalysis.loadSampleData();
-                            }
-                        }
-                    }
-                    retryCount++;
-                }, 100);
-            }
+            // 즉시 CSV 연결 테스트
+            console.log('초기 CSV 연결 테스트 실행...');
+            setTimeout(testCSVConnection, 1000);
         });
         
         // 탭 전환
@@ -504,9 +518,7 @@
                 
                 if (tableId) {
                     const table = document.getElementById(tableId);
-                    if (table && window.CommonUtils && CommonUtils.searchTable) {
-                        CommonUtils.searchTable(searchTerm, table);
-                    } else {
+                    if (table) {
                         // 간단한 검색 구현
                         const rows = table.querySelectorAll('tbody tr');
                         rows.forEach(row => {
