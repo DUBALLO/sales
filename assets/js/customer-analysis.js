@@ -1,22 +1,12 @@
-// 매출처별 집계 분석 JavaScript (수정 버전)
+// 매출처별 집계 분석 JavaScript (디버깅 강화 버전)
 
 // 전역 변수
-let governmentData = []; // 관급 데이터 (조달데이터)
-let privateSalesData = []; // 사급 데이터 (판매실적 데이터)
+let governmentData = []; // 관급 데이터
+let privateSalesData = []; // 사급 데이터
 let customerData = [];
 let regionData = [];
 let typeData = [];
 let privateCustomerData = [];
-
-// 조달데이터 시트 URL들
-const PROCUREMENT_URLS = {
-    '보행매트': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSplrmlhekVgQLbcCpHLX8d2HBNAErwj-UknKUZVI5KCMen-kUCWXlRONPR6oc0Wj1zd6FP-EfRaFeU/pub?output=csv',
-    '식생매트': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_JIdgWP0WcM1Eb5gw29tmBymlk_KicHDmVyZAAnHrViIKGlLLZzpx950H1vI7rFpc0K_0nFmO8BT1/pub?output=csv',
-    '논슬립': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQBfSqfw_9hUtZddet8YWQTRZxiQlo9jIPWZLs1wKTlpv9mb5pGfmrf75vbOy63u4eHvzlrI_S3TLmc/pub?output=csv'
-};
-
-// 판매실적 데이터 URL (기존)
-const SALES_DATA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSjy2slFJrAxxPO8WBmehXH4iJtcfxr-HUkvL-YXw-BIvmA1Z3kTa8DfdWVnwVl3r4jhjmHFUYIju3j/pub?output=csv';
 
 // 안전한 요소 가져오기
 function $(id) {
@@ -61,151 +51,95 @@ function parseDate(dateStr) {
     return isNaN(date.getTime()) ? null : date;
 }
 
-// CSV 데이터 로드 함수
-async function loadCSVData(url) {
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const csvText = await response.text();
-        return parseCSV(csvText);
-    } catch (error) {
-        console.warn(`CSV 로드 실패 (${url}):`, error.message);
-        return [];
-    }
+// 금액 파싱 함수
+function parseAmount(amountStr) {
+    if (!amountStr) return 0;
+    const cleanAmount = amountStr.toString().replace(/[^\d]/g, '');
+    return parseInt(cleanAmount) || 0;
 }
 
-// CSV 파싱 함수
-function parseCSV(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    if (lines.length === 0) return [];
-
-    const headers = parseCSVLine(lines[0]);
-    const data = [];
+// 지역 추출 함수
+function extractRegion(customerName) {
+    if (!customerName) return '기타';
     
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const values = parseCSVLine(line);
-        const item = {};
-        
-        headers.forEach((header, index) => {
-            item[header] = values[index] || '';
-        });
-
-        // 빈 행 건너뛰기
-        if (Object.values(item).every(val => !val || val.trim() === '')) {
-            continue;
-        }
-
-        data.push(item);
-    }
-
-    return data;
-}
-
-// CSV 라인 파싱
-function parseCSVLine(line) {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
+    const regionMap = {
+        '서울': '서울특별시',
+        '경기': '경기도',
+        '강원': '강원도',
+        '충북': '충청북도',
+        '충남': '충청남도',
+        '전북': '전라북도',
+        '전남': '전라남도',
+        '경북': '경상북도',
+        '경남': '경상남도',
+        '제주': '제주특별자치도',
+        '부산': '부산광역시',
+        '대구': '대구광역시',
+        '인천': '인천광역시',
+        '광주': '광주광역시',
+        '대전': '대전광역시',
+        '울산': '울산광역시'
+    };
     
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        
-        if (char === '"') {
-            if (inQuotes && line[i + 1] === '"') {
-                current += '"';
-                i++;
-            } else {
-                inQuotes = !inQuotes;
-            }
-        } else if (char === ',' && !inQuotes) {
-            result.push(current.trim());
-            current = '';
-        } else {
-            current += char;
+    for (const [key, value] of Object.entries(regionMap)) {
+        if (customerName.includes(key)) {
+            return value;
         }
     }
     
-    result.push(current.trim());
-    return result;
+    return '기타';
 }
 
-// 사급 판매실적 데이터 로드 함수
-async function loadPrivateSalesData() {
-    console.log('사급 판매실적 데이터 로드 중...');
-    try {
-        // sheets-api.js 사용
-        if (window.sheetsAPI) {
-            const rawData = await window.sheetsAPI.loadCSVData();
-            // 사급매출만 필터링
-            return rawData.filter(item => {
-                const typeValue = item['구분'] || item['type'] || '';
-                return typeValue.includes('사급');
-            });
-        } else {
-            // 직접 로드
-            return await loadCSVData(SALES_DATA_URL);
-        }
-    } catch (error) {
-        console.warn('사급 판매실적 데이터 로드 실패:', error);
-        return [];
-    }
-}
-
-// 샘플 데이터 생성 (테스트용)
+// 샘플 데이터 생성
 function generateSampleData() {
-    console.log('샘플 데이터 생성 중...');
+    console.log('=== 샘플 데이터 생성 시작 ===');
     
     // 관급 샘플 데이터
     governmentData = [
         {
-            product: '보행매트',
             customer: '경기도 양주시',
             region: '경기도',
             customerType: '지방자치단체',
             amount: 15000000,
             contractDate: '2024-01-15',
-            contractName: '천보산 산림욕장 보완사업'
+            contractName: '천보산 산림욕장 보완사업',
+            product: '보행매트'
         },
         {
-            product: '보행매트',
             customer: '의정부시',
             region: '경기도',
             customerType: '지방자치단체',
             amount: 28000000,
             contractDate: '2024-02-10',
-            contractName: '의정부시 녹지조성사업'
+            contractName: '의정부시 녹지조성사업',
+            product: '보행매트'
         },
         {
-            product: '식생매트',
             customer: '서울시',
             region: '서울특별시',
             customerType: '지방자치단체',
             amount: 32000000,
             contractDate: '2024-02-05',
-            contractName: '서울시 한강공원 보행로 개선'
+            contractName: '서울시 한강공원 보행로 개선',
+            product: '식생매트'
         },
         {
-            product: '논슬립',
             customer: '부천시',
             region: '경기도',
             customerType: '지방자치단체',
             amount: 45000000,
             contractDate: '2024-03-12',
-            contractName: '부천시 중앙공원 조성사업'
+            contractName: '부천시 중앙공원 조성사업',
+            product: '논슬립'
         },
         {
-            product: '보행매트',
             customer: '춘천시',
             region: '강원도',
             customerType: '지방자치단체',
             amount: 22000000,
             contractDate: '2024-03-20',
-            contractName: '춘천시 공원 조성사업'
+            contractName: '춘천시 공원 조성사업',
+            product: '보행매트'
         }
     ];
 
@@ -236,65 +170,68 @@ function generateSampleData() {
             contractName: '포항시 영일대 해안 보행로'
         }
     ];
+    
+    console.log('샘플 데이터 생성 완료');
+    console.log('관급 데이터:', governmentData.length, '건');
+    console.log('사급 데이터:', privateSalesData.length, '건');
 }
 
 // 메인 분석 함수
 async function analyzeCustomers() {
     try {
-        console.log('고객 분석 시작...');
+        console.log('=== 고객 분석 시작 ===');
         
         // 로딩 상태 표시
         showLoadingState(true);
         
-        // 데이터 로드 시도
-        try {
-            if (window.sheetsAPI) {
-                console.log('sheets-api.js를 통한 데이터 로드 시도...');
+        // 실제 데이터 로드 시도
+        let useRealData = false;
+        
+        if (window.sheetsAPI) {
+            try {
+                console.log('sheets-api를 통한 실제 데이터 로드 시도...');
                 const rawData = await window.sheetsAPI.loadCSVData();
-                console.log('sheets-api에서 로드된 데이터:', rawData.length, '건');
+                console.log('sheets-api에서 로드된 원시 데이터:', rawData.length, '건');
                 
-                // 관급/사급 분류
-                governmentData = rawData.filter(item => {
-                    const typeValue = item['구분'] || item['type'] || '';
-                    return typeValue.includes('관급');
-                }).map(item => ({
-                    customer: item['거래처'] || item['customer'] || '',
-                    region: extractRegion(item['거래처'] || item['customer'] || ''),
-                    customerType: '지방자치단체',
-                    amount: parseAmount(item['합계'] || item['금액'] || '0'),
-                    contractDate: item['주문일자'] || item['날짜'] || '',
-                    contractName: item['계약명'] || item['사업명'] || '',
-                    product: item['품목'] || '기타'
-                }));
+                if (rawData && rawData.length > 0) {
+                    console.log('첫 번째 행 샘플:', rawData[0]);
+                    console.log('컬럼명들:', Object.keys(rawData[0]));
+                    
+                    // 실제 데이터 파싱
+                    parseRealData(rawData);
+                    useRealData = true;
+                    
+                    console.log('실제 데이터 파싱 완료');
+                    console.log('관급 데이터:', governmentData.length, '건');
+                    console.log('사급 데이터:', privateSalesData.length, '건');
+                    
+                    if (governmentData.length === 0 && privateSalesData.length === 0) {
+                        throw new Error('파싱된 데이터가 없습니다.');
+                    }
+                } else {
+                    throw new Error('로드된 데이터가 비어있습니다.');
+                }
                 
-                privateSalesData = rawData.filter(item => {
-                    const typeValue = item['구분'] || item['type'] || '';
-                    return typeValue.includes('사급');
-                }).map(item => ({
-                    customer: item['거래처'] || item['customer'] || '',
-                    region: extractRegion(item['거래처'] || item['customer'] || ''),
-                    customerType: '민간',
-                    amount: parseAmount(item['합계'] || item['금액'] || '0'),
-                    contractDate: item['주문일자'] || item['날짜'] || '',
-                    contractName: item['계약명'] || item['사업명'] || ''
-                }));
-                
-                console.log('분류된 데이터 - 관급:', governmentData.length, '사급:', privateSalesData.length);
-            } else {
-                throw new Error('sheets-api.js 로드되지 않음');
+            } catch (error) {
+                console.warn('실제 데이터 로드 실패:', error.message);
+                useRealData = false;
             }
-            
-            if (governmentData.length === 0 && privateSalesData.length === 0) {
-                throw new Error('데이터가 비어있음');
-            }
-        } catch (error) {
-            console.warn('실제 데이터 로드 실패, 샘플 데이터 사용:', error);
+        } else {
+            console.warn('sheets-api.js가 로드되지 않음');
+            useRealData = false;
+        }
+        
+        // 실제 데이터 로드 실패시 샘플 데이터 사용
+        if (!useRealData) {
+            console.log('샘플 데이터 사용');
             generateSampleData();
         }
         
         // 필터링 및 분석
         const selectedYear = $('analysisYear')?.value || '2024';
         const selectedProduct = $('productType')?.value || '보행매트';
+        
+        console.log('분석 조건 - 연도:', selectedYear, '품목:', selectedProduct);
         
         // 관급 데이터 분석
         analyzeGovernmentData(selectedYear, selectedProduct);
@@ -308,64 +245,107 @@ async function analyzeCustomers() {
         // 테이블 렌더링
         renderAllTables();
         
-        console.log('고객 분석 완료');
-        showAlert('고객 분석이 완료되었습니다.', 'success');
+        console.log('=== 고객 분석 완료 ===');
+        
+        const message = useRealData ? 
+            `실제 데이터 분석 완료 (관급: ${governmentData.length}건, 사급: ${privateSalesData.length}건)` :
+            '샘플 데이터로 분석 완료';
+        showAlert(message, useRealData ? 'success' : 'warning');
         
     } catch (error) {
         console.error('고객 분석 오류:', error);
-        showAlert('분석 중 오류가 발생했습니다.', 'error');
+        showAlert('분석 중 오류가 발생했습니다: ' + error.message, 'error');
     } finally {
         showLoadingState(false);
     }
 }
 
-// 금액 파싱 함수
-function parseAmount(amountStr) {
-    if (!amountStr) return 0;
-    const cleanAmount = amountStr.toString().replace(/[^\d]/g, '');
-    return parseInt(cleanAmount) || 0;
-}
-
-// 지역 추출 함수
-function extractRegion(customerName) {
-    if (customerName.includes('서울')) return '서울특별시';
-    if (customerName.includes('경기')) return '경기도';
-    if (customerName.includes('강원')) return '강원도';
-    if (customerName.includes('충북')) return '충청북도';
-    if (customerName.includes('충남')) return '충청남도';
-    if (customerName.includes('전북')) return '전라북도';
-    if (customerName.includes('전남')) return '전라남도';
-    if (customerName.includes('경북')) return '경상북도';
-    if (customerName.includes('경남')) return '경상남도';
-    if (customerName.includes('제주')) return '제주특별자치도';
-    if (customerName.includes('부산')) return '부산광역시';
-    if (customerName.includes('대구')) return '대구광역시';
-    if (customerName.includes('인천')) return '인천광역시';
-    if (customerName.includes('광주')) return '광주광역시';
-    if (customerName.includes('대전')) return '대전광역시';
-    if (customerName.includes('울산')) return '울산광역시';
-    return '기타';
+// 실제 데이터 파싱 함수
+function parseRealData(rawData) {
+    console.log('=== 실제 데이터 파싱 시작 ===');
+    
+    governmentData = [];
+    privateSalesData = [];
+    
+    rawData.forEach((item, index) => {
+        try {
+            // 구분 필드 확인
+            const typeValue = item['구분'] || item['type'] || item['Type'] || '';
+            const customer = (item['거래처'] || item['customer'] || item['Customer'] || '').trim();
+            const contractName = (item['계약명'] || item['사업명'] || item['contractName'] || '').trim();
+            const amountValue = item['합계'] || item['금액'] || item['amount'] || '0';
+            const dateValue = item['주문일자'] || item['날짜'] || item['date'] || '';
+            const product = item['품목'] || item['product'] || '';
+            
+            // 디버깅 로그 (처음 3개 행만)
+            if (index < 3) {
+                console.log(`행 ${index + 1}:`, {
+                    구분: typeValue,
+                    거래처: customer,
+                    계약명: contractName,
+                    금액: amountValue,
+                    날짜: dateValue,
+                    품목: product
+                });
+            }
+            
+            // 빈 데이터 제외
+            if (!customer || customer === '거래처 없음') return;
+            
+            const amount = parseAmount(amountValue);
+            if (amount <= 0) return;
+            
+            const baseData = {
+                customer: customer,
+                region: extractRegion(customer),
+                customerType: '지방자치단체', // 기본값
+                amount: amount,
+                contractDate: dateValue,
+                contractName: contractName || '계약명 없음',
+                product: product || '기타'
+            };
+            
+            // 관급/사급 분류
+            if (typeValue.includes('관급')) {
+                governmentData.push(baseData);
+            } else if (typeValue.includes('사급')) {
+                privateSalesData.push({
+                    ...baseData,
+                    customerType: '민간'
+                });
+            }
+            
+        } catch (error) {
+            console.warn(`행 ${index + 1} 파싱 오류:`, error.message);
+        }
+    });
+    
+    console.log('데이터 파싱 완료');
+    console.log(`관급: ${governmentData.length}건, 사급: ${privateSalesData.length}건`);
 }
 
 // 관급 데이터 분석
 function analyzeGovernmentData(selectedYear, selectedProduct) {
-    console.log(`관급 데이터 분석: ${selectedYear}년, ${selectedProduct}`);
+    console.log(`=== 관급 데이터 분석: ${selectedYear}년, ${selectedProduct} ===`);
     
-    // 연도 및 품목 필터링
-    let filteredData = governmentData;
+    let filteredData = [...governmentData];
     
+    // 연도 필터링
     if (selectedYear !== 'all') {
         const year = parseInt(selectedYear);
         filteredData = filteredData.filter(item => {
             const date = parseDate(item.contractDate || '');
             return date && date.getFullYear() === year;
         });
+        console.log(`연도 필터링 후: ${filteredData.length}건`);
     }
     
+    // 품목 필터링
     if (selectedProduct !== 'all') {
         filteredData = filteredData.filter(item => 
             item.product === selectedProduct
         );
+        console.log(`품목 필터링 후: ${filteredData.length}건`);
     }
     
     // 고객별 집계
@@ -376,10 +356,9 @@ function analyzeGovernmentData(selectedYear, selectedProduct) {
 
 // 사급 데이터 분석
 function analyzePrivateData(selectedYear) {
-    console.log(`사급 데이터 분석: ${selectedYear}년`);
+    console.log(`=== 사급 데이터 분석: ${selectedYear}년 ===`);
     
-    // 연도 필터링
-    let filteredData = privateSalesData;
+    let filteredData = [...privateSalesData];
     
     if (selectedYear !== 'all') {
         const year = parseInt(selectedYear);
@@ -387,14 +366,16 @@ function analyzePrivateData(selectedYear) {
             const date = parseDate(item.contractDate || '');
             return date && date.getFullYear() === year;
         });
+        console.log(`사급 연도 필터링 후: ${filteredData.length}건`);
     }
     
-    // 사급 고객별 집계
     analyzePrivateCustomerData(filteredData);
 }
 
 // 고객별 데이터 분석
 function analyzeCustomerData(data) {
+    console.log('=== 고객별 데이터 분석 ===');
+    
     const customerMap = new Map();
     
     data.forEach(item => {
@@ -433,6 +414,8 @@ function analyzeCustomerData(data) {
         item.rank = index + 1;
         item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
     });
+    
+    console.log(`고객별 분석 완료: ${customerData.length}개 고객`);
 }
 
 // 지역별 데이터 분석
@@ -563,9 +546,14 @@ function updateSummaryStats() {
     const totalAmount = customerData.reduce((sum, item) => sum + item.amount, 0);
     const avgAmount = totalCustomers > 0 ? totalAmount / totalCustomers : 0;
     const maxShare = customerData.length > 0 ? customerData[0].share : 0;
-    
-    // 신규 고객 계산 (간단한 예시)
     const newCustomers = Math.floor(totalCustomers * 0.2); // 20%를 신규로 가정
+    
+    console.log('요약 통계 업데이트:', {
+        totalCustomers,
+        avgAmount,
+        maxShare,
+        newCustomers
+    });
     
     // DOM 업데이트
     const elements = {
@@ -583,6 +571,7 @@ function updateSummaryStats() {
 
 // 모든 테이블 렌더링
 function renderAllTables() {
+    console.log('=== 모든 테이블 렌더링 ===');
     renderCustomerTable();
     renderRegionTable();
     renderTypeTable();
@@ -597,7 +586,7 @@ function renderCustomerTable() {
     tbody.innerHTML = '';
     
     if (customerData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">데이터가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">고객 데이터가 없습니다.</td></tr>';
         return;
     }
     
@@ -620,6 +609,8 @@ function renderCustomerTable() {
         
         tbody.appendChild(row);
     });
+    
+    console.log(`고객별 테이블 렌더링 완료: ${customerData.length}행`);
 }
 
 // 지역별 테이블 렌더링
@@ -630,7 +621,7 @@ function renderRegionTable() {
     tbody.innerHTML = '';
     
     if (regionData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-8">데이터가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-8">지역 데이터가 없습니다.</td></tr>';
         return;
     }
     
@@ -649,6 +640,8 @@ function renderRegionTable() {
         
         tbody.appendChild(row);
     });
+    
+    console.log(`지역별 테이블 렌더링 완료: ${regionData.length}행`);
 }
 
 // 수요기관별 테이블 렌더링
@@ -659,7 +652,7 @@ function renderTypeTable() {
     tbody.innerHTML = '';
     
     if (typeData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-8">데이터가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-8">수요기관 데이터가 없습니다.</td></tr>';
         return;
     }
     
@@ -680,6 +673,8 @@ function renderTypeTable() {
         
         tbody.appendChild(row);
     });
+    
+    console.log(`수요기관별 테이블 렌더링 완료: ${typeData.length}행`);
 }
 
 // 사급판매 테이블 렌더링
@@ -690,7 +685,7 @@ function renderPrivateTable() {
     tbody.innerHTML = '';
     
     if (privateCustomerData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">데이터가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">사급판매 데이터가 없습니다.</td></tr>';
         return;
     }
     
@@ -713,6 +708,8 @@ function renderPrivateTable() {
         
         tbody.appendChild(row);
     });
+    
+    console.log(`사급판매 테이블 렌더링 완료: ${privateCustomerData.length}행`);
 }
 
 // 수요기관 구분별 배지 클래스 반환
@@ -738,24 +735,71 @@ function showLoadingState(show) {
     const analyzeBtn = $('analyzeBtn');
     if (analyzeBtn) {
         analyzeBtn.disabled = show;
-        analyzeBtn.textContent = show ? '분석 중...' : '분석';
+        analyzeBtn.innerHTML = show 
+            ? '<div class="loading-spinner"></div>분석 중...' 
+            : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+               </svg>분석`;
     }
+    
+    // 통계 카드 로딩 상태
+    const statElements = ['totalCustomers', 'avgAmount', 'maxShare', 'newCustomers'];
+    statElements.forEach(id => {
+        const element = $(id);
+        if (element) {
+            element.textContent = show ? '로딩중...' : element.textContent;
+        }
+    });
 }
 
 // 알림 표시
 function showAlert(message, type = 'info') {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    
     if (window.CommonUtils && CommonUtils.showAlert) {
         CommonUtils.showAlert(message, type);
     } else {
-        console.log(`[${type.toUpperCase()}] ${message}`);
+        // 간단한 대체 알림
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-message`;
+        alertDiv.innerHTML = `
+            <span>${message}</span>
+            <button type="button" class="float-right text-lg leading-none" onclick="this.parentElement.remove()">×</button>
+        `;
+        alertDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            ${type === 'error' ? 'background-color: #fecaca; color: #991b1b; border: 1px solid #f87171;' :
+              type === 'success' ? 'background-color: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;' :
+              type === 'warning' ? 'background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d;' :
+              'background-color: #dbeafe; color: #1e40af; border: 1px solid #93c5fd;'}
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            if (alertDiv.parentElement) {
+                alertDiv.remove();
+            }
+        }, 5000);
     }
 }
 
 // 샘플 데이터 로드 (기존 함수 호환성)
 function loadSampleData() {
-    console.log('샘플 데이터로 초기화');
+    console.log('=== 샘플 데이터로 초기화 ===');
     generateSampleData();
-    analyzeCustomers();
+    
+    // 분석 실행
+    setTimeout(() => {
+        analyzeCustomers();
+    }, 100);
 }
 
 // 전역 객체에 함수들 할당
@@ -765,4 +809,4 @@ window.CustomerAnalysis = {
     generateSampleData: generateSampleData
 };
 
-console.log('CustomerAnalysis 모듈 로드 완료');
+console.log('=== CustomerAnalysis 모듈 로드 완료 ===');
