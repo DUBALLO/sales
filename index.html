@@ -28,7 +28,15 @@
                 margin-top: 1rem;
                 padding: 0.75rem 1.5rem;
                 font-size: 1rem;
+                writing-mode: horizontal-tb !important;
+                text-orientation: mixed !important;
             }
+        }
+        
+        /* 버튼 텍스트 가로 방향 강제 설정 */
+        .apply-btn {
+            writing-mode: horizontal-tb !important;
+            text-orientation: mixed !important;
         }
         
         /* 팝업 모달 스타일 */
@@ -114,7 +122,7 @@
                             <option value="2024">2024년</option>
                             <option value="2025" selected>2025년</option>
                         </select>
-                        <button id="applyBtn" class="btn btn-primary apply-btn px-6 py-2 text-sm h-10">
+                        <button id="applyBtn" class="btn btn-primary apply-btn px-6 py-2 text-sm h-10" style="writing-mode: horizontal-tb;">
                             적용
                         </button>
                     </div>
@@ -278,9 +286,9 @@
         // 전역 변수
         let dashboardData = [];
         let detailData = {
-            customers: [],
-            newCustomers: [],
-            contracts: []
+            customers: { government: [], private: [] },
+            newCustomers: { government: [], private: [] },
+            contracts: { government: [], private: [] }
         };
 
         // 연도별 대시보드 데이터 로드
@@ -302,6 +310,7 @@
                 }
             } catch (error) {
                 console.error('대시보드 데이터 로드 실패:', error);
+                console.log('샘플 데이터로 전환');
                 loadSampleDashboardData(selectedYear);
             }
         }
@@ -662,8 +671,13 @@
 
         // 페이지 로드시 초기화
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('대시보드 페이지 로드 시작');
+            
             // 적용 버튼 클릭시 데이터 다시 로드
-            document.getElementById('applyBtn').addEventListener('click', loadDashboardData);
+            document.getElementById('applyBtn').addEventListener('click', function() {
+                console.log('적용 버튼 클릭됨');
+                loadDashboardData();
+            });
             
             // 모달 외부 클릭시 닫기
             document.getElementById('detailModal').addEventListener('click', function(e) {
@@ -680,6 +694,7 @@
             });
             
             // 초기 데이터 로드
+            console.log('초기 데이터 로드 시작');
             loadDashboardData();
         });
     </script>
