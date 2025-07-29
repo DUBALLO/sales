@@ -1,4 +1,4 @@
-// 월별매출 현황 JavaScript (최종 수정 버전)
+// 월별매출 현황 JavaScript (수정된 버전)
 
 // 전역 변수
 let salesData = [];
@@ -48,7 +48,6 @@ function showAlert(message, type = 'info') {
         CommonUtils.showAlert(message, type);
     } else {
         console.log(`[${type.toUpperCase()}] ${message}`);
-        // 간단한 브라우저 알림
         if (type === 'error') {
             alert(`오류: ${message}`);
         } else if (type === 'success') {
@@ -68,7 +67,8 @@ const sampleData = [
         customer: '경기도 양주시',
         amount: 1500000,
         deliveryDate: '2024-01-25',
-        invoiceDate: null
+        invoiceDate: null,
+        item: '식생매트' // 품목 추가
     },
     {
         date: '2024-01-20',
@@ -77,7 +77,8 @@ const sampleData = [
         customer: '의정부시',
         amount: 2800000,
         deliveryDate: null,
-        invoiceDate: '2024-01-25'
+        invoiceDate: '2024-01-25',
+        item: '고정핀'
     },
     {
         date: '2024-02-05',
@@ -86,7 +87,8 @@ const sampleData = [
         customer: '서울시',
         amount: 3200000,
         deliveryDate: '2024-02-15',
-        invoiceDate: null
+        invoiceDate: null,
+        item: '식생매트'
     },
     {
         date: '2024-02-10',
@@ -95,7 +97,8 @@ const sampleData = [
         customer: '부천시',
         amount: 4500000,
         deliveryDate: null,
-        invoiceDate: '2024-02-15'
+        invoiceDate: '2024-02-15',
+        item: '보행매트'
     },
     {
         date: '2024-03-12',
@@ -104,7 +107,8 @@ const sampleData = [
         customer: '광주 북구',
         amount: 5200000,
         deliveryDate: null,
-        invoiceDate: '2024-03-15'
+        invoiceDate: '2024-03-15',
+        item: '식생매트'
     },
     {
         date: '2024-04-07',
@@ -113,7 +117,8 @@ const sampleData = [
         customer: '제주시',
         amount: 3100000,
         deliveryDate: null,
-        invoiceDate: '2024-04-10'
+        invoiceDate: '2024-04-10',
+        item: '고정핀'
     }
 ];
 
@@ -186,6 +191,8 @@ async function loadSalesData() {
                 const customerValue = item['거래처'] || item['수요기관'] || item['customer'] || item['고객명'] || '거래처 없음';
                 const amountValue = item['합계'] || item['금액'] || item['amount'] || item['총액'] || '0';
                 const invoiceDateValue = item['세금계산서'] || item['invoiceDate'] || item['발행일'] || item['세금계산서발행일'];
+                // 품목 필드 추가 (G열)
+                const itemValue = item['품목'] || item['제품'] || item['item'] || item['상품명'] || '';
                 
                 // 금액 파싱 (쉼표, 원화표시 제거)
                 const cleanAmount = amountValue.toString().replace(/[^\d]/g, '');
@@ -216,7 +223,8 @@ async function loadSalesData() {
                     customer: customerValue.trim(),
                     amount: parsedAmount,
                     orderDate: orderDate,
-                    invoiceDate: invoiceDate
+                    invoiceDate: invoiceDate,
+                    item: itemValue.trim() // 품목 추가
                 };
                 
                 // 결과 배열 (한 행에서 여러 타입 생성 가능)
@@ -590,20 +598,26 @@ function hideDetailSection() {
     }
 }
 
-// 상세 테이블 렌더링 (계약명별 합치기)
+// 상세 테이블 렌더링 (수정된 버전 - 품목 + 등 표시)
 function renderDetailTable(details, type) {
     const tbody = $('detailTableBody');
     if (!tbody) return;
     
     tbody.innerHTML = '';
     
-    // 계약명별로 데이터 합치기
+    // 계약명별로 데이터 합치기 및 품목 처리
     const mergedData = {};
     details.forEach(item => {
         const key = `${item.contractName}-${item.customer}`;
         if (mergedData[key]) {
-            // 기존 항목에 금액 합산
+            // 기존 항목에 금액 합산 및 품목 비교
             mergedData[key].amount += item.amount;
+            // 더 큰 금액을 가진 품목으로 업데이트
+            if (item.amount > mergedData[key].maxAmount) {
+                mergedData[key].mainItem = item.item || '';
+                mergedData[key].maxAmount = item.amount;
+            }
+            mergedData[key].hasMultipleItems = true;
         } else {
             // 새 항목 추가
             mergedData[key] = {
@@ -611,7 +625,10 @@ function renderDetailTable(details, type) {
                 customer: item.customer,
                 amount: item.amount,
                 type: item.type,
-                displayDate: item.displayDate || item.invoiceDate || item.date
+                displayDate: item.displayDate || item.invoiceDate || item.date,
+                mainItem: item.item || '',
+                maxAmount: item.amount,
+                hasMultipleItems: false
             };
         }
     });
@@ -622,6 +639,16 @@ function renderDetailTable(details, type) {
     sortedData.forEach((item, index) => {
         const row = document.createElement('tr');
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        
+        // 주문 상세내역인 경우 '상태' 컬럼을 계약명 앞에 추가
+        if (type === 'order') {
+            // 상태 (주문/납품완료)
+            const statusCell = document.createElement('td');
+            let badgeClass = item.type === '주문' ? 'badge-primary' : 'badge-success';
+            statusCell.innerHTML = `<span class="badge ${badgeClass}">${item.type}</span>`;
+            statusCell.className = 'text-center';
+            row.appendChild(statusCell);
+        }
         
         // 계약명
         const contractCell = document.createElement('td');
@@ -654,18 +681,15 @@ function renderDetailTable(details, type) {
         dateCell.className = 'text-center';
         row.appendChild(dateCell);
         
-        // 구분
-        const typeCell = document.createElement('td');
-        let badgeClass = 'badge-gray';
-        switch (item.type) {
-            case '주문': badgeClass = 'badge-primary'; break;
-            case '납품완료': badgeClass = 'badge-success'; break;
-            case '관급매출': badgeClass = 'badge-success'; break;
-            case '사급매출': badgeClass = 'badge-warning'; break;
+        // 품목 (수정된 부분)
+        const itemCell = document.createElement('td');
+        let itemText = item.mainItem || '-';
+        if (item.hasMultipleItems && item.mainItem) {
+            itemText += ' 등';
         }
-        typeCell.innerHTML = `<span class="badge ${badgeClass}">${item.type}</span>`;
-        typeCell.className = 'text-center';
-        row.appendChild(typeCell);
+        itemCell.textContent = itemText;
+        itemCell.className = 'text-center';
+        row.appendChild(itemCell);
         
         tbody.appendChild(row);
     });
