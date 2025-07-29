@@ -1,4 +1,4 @@
-// 월별매출 현황 JavaScript (수정된 버전)
+// 월별매출 현황 JavaScript (오류 수정 버전)
 
 // 전역 변수
 let salesData = [];
@@ -13,7 +13,7 @@ function $(id) {
     return element;
 }
 
-// 포맷팅 함수들 (CommonUtils 없이도 작동)
+// 포맷팅 함수들
 function formatNumber(number) {
     if (window.CommonUtils && CommonUtils.formatNumber) {
         return CommonUtils.formatNumber(number);
@@ -50,10 +50,6 @@ function showAlert(message, type = 'info') {
         console.log(`[${type.toUpperCase()}] ${message}`);
         if (type === 'error') {
             alert(`오류: ${message}`);
-        } else if (type === 'success') {
-            console.log(`✅ ${message}`);
-        } else if (type === 'warning') {
-            console.log(`⚠️ ${message}`);
         }
     }
 }
@@ -68,7 +64,7 @@ const sampleData = [
         amount: 1500000,
         deliveryDate: '2024-01-25',
         invoiceDate: null,
-        item: '식생매트' // 품목 추가
+        item: '식생매트'
     },
     {
         date: '2024-01-20',
@@ -128,46 +124,28 @@ function parseDate(dateStr) {
     
     let date = new Date(dateStr);
     
-    // 한국식 날짜 형식 처리 (MM/DD/YYYY)
     if (isNaN(date.getTime())) {
-        // YYYY-MM-DD 형식 시도
         if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
             date = new Date(dateStr);
-        }
-        // MM/DD/YYYY 형식 시도
-        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
             const [month, day, year] = dateStr.split('/');
             date = new Date(year, month - 1, day);
-        }
-        // DD/MM/YYYY 형식 시도
-        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
-            const parts = dateStr.split('/');
-            // 첫 번째 숫자가 12보다 크면 DD/MM/YYYY로 판단
-            if (parseInt(parts[0]) > 12) {
-                const [day, month, year] = parts;
-                date = new Date(year, month - 1, day);
-            } else {
-                const [month, day, year] = parts;
-                date = new Date(year, month - 1, day);
-            }
         }
     }
     
     return isNaN(date.getTime()) ? null : date;
 }
 
-// 실제 CSV 데이터 로드
+// CSV 데이터 로드
 async function loadSalesData() {
     try {
         console.log('CSV 데이터 로드 시작...');
         
-        // 로딩 메시지 표시
         const tbody = $('monthlyTableBody');
         if (tbody) {
             tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4">데이터를 불러오는 중...</td></tr>';
         }
         
-        // sheets-api.js를 통한 데이터 로드
         let rawData;
         if (window.sheetsAPI) {
             rawData = await window.sheetsAPI.loadCSVData();
@@ -181,41 +159,28 @@ async function loadSalesData() {
             throw new Error('파싱된 데이터가 없습니다.');
         }
         
-        // 데이터 변환 및 정제
+        // 데이터 변환
         salesData = rawData.map((item, index) => {
             try {
-                // 다양한 필드명 지원
-                const dateValue = item['주문일자'] || item['날짜'] || item['date'] || item['Date'] || item['계약일자'];
-                const typeValue = item['구분'] || item['type'] || item['Type'] || item['분류']; // 구분 필드
-                const contractValue = item['계약명'] || item['사업명'] || item['contractName'] || item['프로젝트명'] || '계약명 없음';
-                const customerValue = item['거래처'] || item['수요기관'] || item['customer'] || item['고객명'] || '거래처 없음';
-                const amountValue = item['합계'] || item['금액'] || item['amount'] || item['총액'] || '0';
-                const invoiceDateValue = item['세금계산서'] || item['invoiceDate'] || item['발행일'] || item['세금계산서발행일'];
-                // 품목 필드 추가 (G열)
-                const itemValue = item['품목'] || item['제품'] || item['item'] || item['상품명'] || '';
+                const dateValue = item['주문일자'] || item['날짜'] || item['date'] || '';
+                const typeValue = item['구분'] || item['type'] || '';
+                const contractValue = item['계약명'] || item['사업명'] || '계약명 없음';
+                const customerValue = item['거래처'] || item['수요기관'] || '거래처 없음';
+                const amountValue = item['합계'] || item['금액'] || '0';
+                const invoiceDateValue = item['세금계산서'] || item['발행일'] || '';
+                const itemValue = item['품목'] || item['제품'] || '';
                 
-                // 금액 파싱 (쉼표, 원화표시 제거)
                 const cleanAmount = amountValue.toString().replace(/[^\d]/g, '');
                 const parsedAmount = parseInt(cleanAmount) || 0;
                 
-                // 주문일자와 세금계산서 발행일자 파싱
                 const orderDate = parseDate(dateValue);
                 const invoiceDate = parseDate(invoiceDateValue);
                 
-                // 구분 결정 로직
                 let finalType = '';
-                if (orderDate) {
-                    // 주문일자가 있으면 무조건 주문 데이터도 생성
-                    // 하지만 매출 구분도 있다면 별도로 처리
-                }
-                
-                // 매출 구분이 있는 경우 처리
-                if (typeValue && (typeValue.includes('관급') || typeValue.includes('사급'))) {
-                    if (typeValue.includes('관급')) {
-                        finalType = '관급매출';
-                    } else if (typeValue.includes('사급')) {
-                        finalType = '사급매출';
-                    }
+                if (typeValue.includes('관급')) {
+                    finalType = '관급매출';
+                } else if (typeValue.includes('사급')) {
+                    finalType = '사급매출';
                 }
                 
                 const baseItem = {
@@ -224,21 +189,13 @@ async function loadSalesData() {
                     amount: parsedAmount,
                     orderDate: orderDate,
                     invoiceDate: invoiceDate,
-                    item: itemValue.trim() // 품목 추가
+                    item: itemValue.trim()
                 };
                 
-                // 결과 배열 (한 행에서 여러 타입 생성 가능)
                 const results = [];
                 
-                // 1. 주문일자가 있으면 항상 데이터 생성
                 if (orderDate) {
-                    // 세금계산서 발행일자가 있으면 '납품완료', 없으면 '주문'
-                    let orderStatus = '주문'; // 기본값
-                    
-                    if (invoiceDate) {
-                        orderStatus = '납품완료';
-                    }
-                    
+                    let orderStatus = invoiceDate ? '납품완료' : '주문';
                     results.push({
                         ...baseItem,
                         date: orderDate,
@@ -247,7 +204,6 @@ async function loadSalesData() {
                     });
                 }
                 
-                // 2. 매출 구분이 있고 세금계산서 발행일자가 있으면 매출 데이터 생성
                 if (finalType && invoiceDate) {
                     results.push({
                         ...baseItem,
@@ -263,7 +219,6 @@ async function loadSalesData() {
                 return [];
             }
         }).flat().filter(item => {
-            // 유효한 데이터만 필터링
             return item && 
                    item.date instanceof Date && 
                    !isNaN(item.date.getTime()) && 
@@ -347,31 +302,26 @@ function initializeMonthlyData(startDate, endDate) {
     return monthlyData;
 }
 
-// 데이터 집계 (수정된 로직)
+// 데이터 집계
 function aggregateData(monthlyData, startDate, endDate) {
-    // 계약명별 카운트 추적용 객체
     const contractCounts = {};
     
     salesData.forEach(item => {
         let targetDate = null;
         
-        // 구분별 기준 날짜 설정
         switch (item.type) {
             case '주문':
             case '납품완료':
-                // 주문/납품완료: 주문일자(orderDate) 기준
                 targetDate = item.orderDate || item.date;
                 break;
             case '관급매출':
             case '사급매출':
-                // 매출: 세금계산서 발행일자(invoiceDate) 기준
                 targetDate = item.invoiceDate || item.date;
                 break;
             default:
                 targetDate = item.date;
         }
         
-        // 기준 날짜가 선택된 기간 내에 있는지 확인
         if (targetDate && targetDate >= startDate && targetDate <= endDate) {
             const yearMonth = getYearMonth(targetDate.getFullYear(), targetDate.getMonth() + 1);
             
@@ -381,7 +331,6 @@ function aggregateData(monthlyData, startDate, endDate) {
                 switch (item.type) {
                     case '주문':
                     case '납품완료':
-                        // 계약명별 건수 카운트 (중복 제거)
                         if (!contractCounts[contractKey]) {
                             monthlyData[yearMonth].order.count++;
                             contractCounts[contractKey] = true;
@@ -389,12 +338,11 @@ function aggregateData(monthlyData, startDate, endDate) {
                         monthlyData[yearMonth].order.amount += item.amount;
                         monthlyData[yearMonth].order.details.push({
                             ...item,
-                            displayDate: targetDate // 표시용 날짜 (주문일자)
+                            displayDate: targetDate
                         });
                         break;
                         
                     case '관급매출':
-                        // 계약명별 건수 카운트 (중복 제거)
                         if (!contractCounts[contractKey]) {
                             monthlyData[yearMonth].government.count++;
                             contractCounts[contractKey] = true;
@@ -402,12 +350,11 @@ function aggregateData(monthlyData, startDate, endDate) {
                         monthlyData[yearMonth].government.amount += item.amount;
                         monthlyData[yearMonth].government.details.push({
                             ...item,
-                            displayDate: targetDate // 표시용 날짜 (세금계산서 발행일자)
+                            displayDate: targetDate
                         });
                         break;
                         
                     case '사급매출':
-                        // 계약명별 건수 카운트 (중복 제거)
                         if (!contractCounts[contractKey]) {
                             monthlyData[yearMonth].private.count++;
                             contractCounts[contractKey] = true;
@@ -415,7 +362,7 @@ function aggregateData(monthlyData, startDate, endDate) {
                         monthlyData[yearMonth].private.amount += item.amount;
                         monthlyData[yearMonth].private.details.push({
                             ...item,
-                            displayDate: targetDate // 표시용 날짜 (세금계산서 발행일자)
+                            displayDate: targetDate
                         });
                         break;
                 }
@@ -514,7 +461,7 @@ function renderMonthlyTable(monthlyData) {
         }
         row.appendChild(privAmountCell);
         
-        // 합계 (관급매출 + 사급매출만, 주문 제외)
+        // 합계
         const totalAmount = data.government.amount + data.private.amount;
         const totalCell = document.createElement('td');
         totalCell.textContent = formatCurrency(totalAmount);
@@ -554,8 +501,44 @@ function updateTotalRow(totals) {
     if (elements.totalPrivCount) elements.totalPrivCount.textContent = formatNumber(totals.privCount);
     if (elements.totalPrivAmount) elements.totalPrivAmount.textContent = formatCurrency(totals.privAmount);
     
-    const grandTotal = totals.govAmount + totals.privAmount; // 주문 제외
+    const grandTotal = totals.govAmount + totals.privAmount;
     if (elements.grandTotal) elements.grandTotal.textContent = formatCurrency(grandTotal);
+}
+
+// 상세 테이블 헤더 업데이트
+function updateDetailTableHeader(type) {
+    // 기존 테이블 헤더 찾기
+    const table = $('detailTable');
+    if (!table) return;
+    
+    let headerRow = table.querySelector('thead tr');
+    if (!headerRow) {
+        const thead = table.querySelector('thead') || table.createTHead();
+        headerRow = thead.insertRow();
+    }
+    
+    headerRow.innerHTML = '';
+    
+    if (type === 'order') {
+        // 주문 상세내역: 상태, 계약명, 거래처, 금액, 날짜, 품목
+        headerRow.innerHTML = `
+            <th>상태</th>
+            <th>계약명</th>
+            <th>거래처</th>
+            <th>금액</th>
+            <th>날짜</th>
+            <th>품목</th>
+        `;
+    } else {
+        // 관급/사급 매출 상세내역: 계약명, 거래처, 금액, 날짜, 품목
+        headerRow.innerHTML = `
+            <th>계약명</th>
+            <th>거래처</th>
+            <th>금액</th>
+            <th>날짜</th>
+            <th>품목</th>
+        `;
+    }
 }
 
 // 상세 내역 표시
@@ -575,6 +558,9 @@ function showDetail(yearMonth, type, typeName) {
         detailTitle.textContent = `${monthName} ${typeName} 상세 내역 (${details.length}건)`;
     }
     
+    // 테이블 헤더 업데이트
+    updateDetailTableHeader(type);
+    
     renderDetailTable(details, type);
     
     const detailSection = $('detailSection');
@@ -582,44 +568,27 @@ function showDetail(yearMonth, type, typeName) {
         detailSection.classList.remove('hidden');
         detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    
-    // X 버튼 이벤트 리스너 추가
-    const closeBtn = $('closeDetailBtn');
-    if (closeBtn) {
-        closeBtn.onclick = hideDetailSection;
-    }
 }
 
-// 상세내역 섹션 숨기기
-function hideDetailSection() {
-    const detailSection = $('detailSection');
-    if (detailSection) {
-        detailSection.classList.add('hidden');
-    }
-}
-
-// 상세 테이블 렌더링 (수정된 버전 - 품목 + 등 표시)
+// 상세 테이블 렌더링
 function renderDetailTable(details, type) {
     const tbody = $('detailTableBody');
     if (!tbody) return;
     
     tbody.innerHTML = '';
     
-    // 계약명별로 데이터 합치기 및 품목 처리
+    // 계약명별로 데이터 합치기
     const mergedData = {};
     details.forEach(item => {
         const key = `${item.contractName}-${item.customer}`;
         if (mergedData[key]) {
-            // 기존 항목에 금액 합산 및 품목 비교
             mergedData[key].amount += item.amount;
-            // 더 큰 금액을 가진 품목으로 업데이트
             if (item.amount > mergedData[key].maxAmount) {
                 mergedData[key].mainItem = item.item || '';
                 mergedData[key].maxAmount = item.amount;
             }
             mergedData[key].hasMultipleItems = true;
         } else {
-            // 새 항목 추가
             mergedData[key] = {
                 contractName: item.contractName,
                 customer: item.customer,
@@ -633,16 +602,15 @@ function renderDetailTable(details, type) {
         }
     });
     
-    // 합쳐진 데이터를 배열로 변환하고 금액순 정렬
+    // 배열로 변환하고 금액순 정렬
     const sortedData = Object.values(mergedData).sort((a, b) => b.amount - a.amount);
     
     sortedData.forEach((item, index) => {
         const row = document.createElement('tr');
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
         
-        // 주문 상세내역인 경우 '상태' 컬럼을 계약명 앞에 추가
+        // 주문 상세내역인 경우 '상태' 컬럼을 맨 앞에 추가
         if (type === 'order') {
-            // 상태 (주문/납품완료)
             const statusCell = document.createElement('td');
             let badgeClass = item.type === '주문' ? 'badge-primary' : 'badge-success';
             statusCell.innerHTML = `<span class="badge ${badgeClass}">${item.type}</span>`;
@@ -669,19 +637,12 @@ function renderDetailTable(details, type) {
         
         // 날짜
         const dateCell = document.createElement('td');
-        let dateText = '';
-        if (type === 'order') {
-            // 주문: 주문일자 표시
-            dateText = item.displayDate ? formatDate(item.displayDate) : '-';
-        } else {
-            // 관급매출, 사급매출: 세금계산서 발행일자 표시
-            dateText = item.displayDate ? formatDate(item.displayDate) : '-';
-        }
+        const dateText = item.displayDate ? formatDate(item.displayDate) : '-';
         dateCell.textContent = dateText;
         dateCell.className = 'text-center';
         row.appendChild(dateCell);
         
-        // 품목 (수정된 부분)
+        // 품목
         const itemCell = document.createElement('td');
         let itemText = item.mainItem || '-';
         if (item.hasMultipleItems && item.mainItem) {
@@ -695,196 +656,12 @@ function renderDetailTable(details, type) {
     });
 }
 
-// 인쇄 기능 추가
-function printReport() {
-    const printWindow = window.open('', '_blank');
-    const currentDate = new Date().toLocaleDateString('ko-KR');
-    
-    // 현재 선택된 기간 정보
-    const startYear = $('startYear')?.value || '2025';  
-    const startMonth = $('startMonth')?.value || '1';
-    const endYear = $('endYear')?.value || '2025';
-    const endMonth = $('endMonth')?.value || '12';
-    
-    const periodText = `${startYear}년 ${startMonth}월 ~ ${endYear}년 ${endMonth}월`;
-    
-    // 월별 테이블 HTML 복사
-    const monthlyTable = document.getElementById('monthlyTable');
-    const monthlyTableHTML = monthlyTable ? monthlyTable.outerHTML : '<p>테이블 데이터가 없습니다.</p>';
-    
-    // 상세 테이블 HTML (있는 경우)
-    const detailSection = document.getElementById('detailSection');
-    const hasDetailData = detailSection && !detailSection.classList.contains('hidden');
-    const detailHTML = hasDetailData ? `
-        <div style="page-break-before: always;">
-            <h2 style="color: #374151; margin-bottom: 1rem;">${document.getElementById('detailTitle')?.textContent || '상세 내역'}</h2>
-            ${document.getElementById('detailTable')?.outerHTML || ''}
-        </div>
-    ` : '';
-    
-    const printHTML = `
-        <!DOCTYPE html>
-        <html lang="ko">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>월별매출 현황 - ${periodText}</title>
-            <style>
-                @page {
-                    size: A4;
-                    margin: 20mm;
-                }
-                
-                * {
-                    box-sizing: border-box;
-                }
-                
-                body {
-                    font-family: 'Malgun Gothic', '맑은 고딕', Arial, sans-serif;
-                    font-size: 12px;
-                    line-height: 1.4;
-                    color: #333;
-                    margin: 0;
-                    padding: 0;
-                }
-                
-                .header {
-                    text-align: center;
-                    margin-bottom: 30px;
-                    border-bottom: 2px solid #333;
-                    padding-bottom: 15px;
-                }
-                
-                .header h1 {
-                    margin: 0;
-                    font-size: 24px;
-                    color: #333;
-                }
-                
-                .header .period {
-                    margin: 5px 0;
-                    font-size: 16px;
-                    color: #666;
-                }
-                
-                .header .print-date {
-                    margin: 0;
-                    font-size: 12px;
-                    color: #999;
-                }
-                
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-bottom: 20px;
-                    font-size: 11px;
-                }
-                
-                th, td {
-                    border: 1px solid #ddd;
-                    padding: 8px;
-                    text-align: center;
-                    vertical-align: middle;
-                }
-                
-                th {
-                    background-color: #f8f9fa;
-                    font-weight: bold;
-                    color: #333;
-                }
-                
-                .text-right {
-                    text-align: right;
-                }
-                
-                .font-medium {
-                    font-weight: 600;
-                }
-                
-                .font-bold {
-                    font-weight: bold;
-                }
-                
-                .amount {
-                    color: #059669;
-                    font-weight: 600;
-                }
-                
-                .bg-gray-100 {
-                    background-color: #f3f4f6;
-                }
-                
-                .badge {
-                    display: inline-block;
-                    padding: 2px 6px;
-                    border-radius: 4px;
-                    font-size: 10px;
-                    font-weight: 500;
-                }
-                
-                .badge-primary {
-                    background-color: #dbeafe;
-                    color: #1e40af;
-                }
-                
-                .badge-success {
-                    background-color: #d1fae5;
-                    color: #065f46;
-                }
-                
-                .badge-warning {
-                    background-color: #fef3c7;
-                    color: #92400e;
-                }
-                
-                .no-print {
-                    display: none;
-                }
-                
-                @media print {
-                    body { 
-                        font-size: 11px; 
-                    }
-                    
-                    table { 
-                        font-size: 10px; 
-                    }
-                    
-                    th, td { 
-                        padding: 6px; 
-                    }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>월별매출 현황</h1>
-                <p class="period">기간: ${periodText}</p>
-                <p class="print-date">출력일: ${currentDate}</p>
-            </div>
-            
-            <div class="content">
-                ${monthlyTableHTML}
-                ${detailHTML}
-            </div>
-            
-            <script>
-                window.onload = function() {
-                    setTimeout(function() {
-                        window.print();
-                    }, 500);
-                    
-                    window.onafterprint = function() {
-                        window.close();
-                    };
-                };
-            </script>
-        </body>
-        </html>
-    `;
-    
-    printWindow.document.write(printHTML);
-    printWindow.document.close();
+// 상세내역 섹션 숨기기
+function hideDetailSection() {
+    const detailSection = $('detailSection');
+    if (detailSection) {
+        detailSection.classList.add('hidden');
+    }
 }
 
 // 데이터 새로고침
@@ -896,13 +673,11 @@ async function refreshData() {
             refreshBtn.textContent = '새로고침 중...';
         }
         
-        // 캐시 강제 새로고침
         if (window.sheetsAPI) {
             await window.sheetsAPI.refreshCache();
         }
         
         await loadSalesData();
-        
         showAlert('데이터가 새로고침되었습니다.', 'success');
         
     } catch (error) {
@@ -937,26 +712,36 @@ async function checkConnection() {
     }
 }
 
-// 전역 함수들
-window.loadSampleData = loadSalesData;  // HTML에서 호출하는 함수
+// 인쇄 기능
+function printReport() {
+    window.print();
+}
+
+// 전역 함수 노출
+window.loadSampleData = loadSalesData;
 window.generateReport = generateReport;
 window.showDetail = showDetail;
 window.refreshData = refreshData;
 window.checkConnection = checkConnection;
-window.printReport = printReport;  // 인쇄 기능 추가
-window.hideDetailSection = hideDetailSection;  // X 버튼 기능 추가
+window.printReport = printReport;
+window.hideDetailSection = hideDetailSection;
 
 // 페이지 로드시 자동 실행
 document.addEventListener('DOMContentLoaded', function() {
     console.log('페이지 로드 완료, 데이터 로딩 시작...');
     
-    // sheets-api.js 로드 확인
+    // 이벤트 리스너 설정
+    const searchBtn = $('searchBtn');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', generateReport);
+    }
+    
+    // sheets-api.js 로드 확인 및 데이터 로드
     if (window.sheetsAPI) {
         console.log('sheets-api.js 로드 확인됨');
-        setTimeout(loadSalesData, 100); // 약간의 지연 후 실행
+        setTimeout(loadSalesData, 100);
     } else {
         console.warn('sheets-api.js가 로드되지 않음, 재시도...');
-        // 최대 3초간 재시도
         let retryCount = 0;
         const retryInterval = setInterval(() => {
             if (window.sheetsAPI || retryCount >= 30) {
