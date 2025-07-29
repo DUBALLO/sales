@@ -11,21 +11,102 @@
         body {
             font-family: 'Noto Sans KR', sans-serif;
         }
+        
+        /* 모바일 반응형 개선 */
+        @media (max-width: 768px) {
+            .mobile-stack {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .mobile-full-width {
+                width: 100%;
+                text-align: center;
+            }
+            
+            .apply-btn {
+                margin-top: 1rem;
+                padding: 0.75rem 1.5rem;
+                font-size: 1rem;
+            }
+        }
+        
+        /* 팝업 모달 스타일 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            transform: scale(0.9);
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+        
+        /* 리스트 스타일 */
+        .detail-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .detail-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+            transition: background-color 0.2s ease;
+        }
+        
+        .detail-item:hover {
+            background-color: #f9fafb;
+        }
+        
+        .detail-item:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
     <!-- 헤더 -->
     <header class="bg-white shadow-sm border-b">
         <div class="max-w-6xl mx-auto px-4 py-6">
-            <div class="flex justify-between items-center">
-                <div>
+            <!-- 모바일 친화적 레이아웃 -->
+            <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center space-y-4 lg:space-y-0">
+                <!-- 제목 섹션 -->
+                <div class="mobile-full-width">
                     <h1 class="text-3xl font-bold text-gray-900">판매실적 대시보드</h1>
                     <p class="text-gray-600 mt-2">매출 현황과 고객 분석을 한눈에 확인하세요</p>
                 </div>
-                <div>
+                
+                <!-- 조회 연도 섹션 -->
+                <div class="mobile-full-width">
                     <label class="block text-sm font-medium text-gray-700 mb-2">조회 연도</label>
-                    <div class="flex gap-2">
-                        <select id="yearSelect" class="form-select bg-white border border-gray-300 rounded-md px-3 py-2 text-sm appearance-none">
+                    <div class="flex flex-col sm:flex-row gap-2 items-center justify-center lg:justify-end">
+                        <select id="yearSelect" class="form-select bg-white border border-gray-300 rounded-md px-3 py-2 text-sm appearance-none min-w-32">
                             <option value="2020">2020년</option>
                             <option value="2021">2021년</option>
                             <option value="2022">2022년</option>
@@ -33,8 +114,8 @@
                             <option value="2024">2024년</option>
                             <option value="2025" selected>2025년</option>
                         </select>
-                        <button id="applyBtn" class="btn btn-primary px-6 py-2 text-sm">
-                            적용
+                        <button id="applyBtn" class="btn btn-primary apply-btn">
+                            적 용
                         </button>
                     </div>
                 </div>
@@ -44,25 +125,10 @@
 
     <!-- 메인 컨텐츠 -->
     <main class="max-w-6xl mx-auto px-4 py-8">
-        <!-- 요약 카드 -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <!-- 총매출액 -->
-            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105">
-                <div class="flex items-center">
-                    <div class="p-2 bg-blue-100 rounded-lg">
-                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                        </svg>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">총매출액</p>
-                        <p class="text-2xl font-bold text-gray-900" id="totalSales">-</p>
-                    </div>
-                </div>
-            </div>
-
+        <!-- 요약 카드 (총매출액 제외) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <!-- 총고객수 -->
-            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105">
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105" onclick="showCustomerDetail()">
                 <div class="flex items-center">
                     <div class="p-2 bg-green-100 rounded-lg">
                         <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,14 +136,14 @@
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">총고객수</p>
+                        <p class="text-sm font-medium text-gray-600">총 고객 수</p>
                         <p class="text-2xl font-bold text-gray-900" id="totalCustomers">-</p>
                     </div>
                 </div>
             </div>
 
             <!-- 신규고객수 -->
-            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105">
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105" onclick="showNewCustomerDetail()">
                 <div class="flex items-center">
                     <div class="p-2 bg-orange-100 rounded-lg">
                         <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,14 +151,14 @@
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">신규고객수</p>
+                        <p class="text-sm font-medium text-gray-600">신규 고객 수</p>
                         <p class="text-2xl font-bold text-gray-900" id="newCustomers">-</p>
                     </div>
                 </div>
             </div>
 
             <!-- 총계약건수 -->
-            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105">
+            <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-105" onclick="showContractDetail()">
                 <div class="flex items-center">
                     <div class="p-2 bg-purple-100 rounded-lg">
                         <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,7 +166,7 @@
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">총계약건수</p>
+                        <p class="text-sm font-medium text-gray-600">총 계약 건수</p>
                         <p class="text-2xl font-bold text-gray-900" id="totalContracts">-</p>
                     </div>
                 </div>
@@ -165,6 +231,23 @@
         </div>
     </main>
 
+    <!-- 팝업 모달 -->
+    <div id="detailModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalTitle" class="text-lg font-semibold text-gray-900"></h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="modalContent" class="detail-list">
+                <!-- 동적으로 생성되는 리스트 -->
+            </div>
+        </div>
+    </div>
+
     <!-- 푸터 -->
     <footer class="bg-white border-t mt-12">
         <div class="max-w-6xl mx-auto px-4 py-6">
@@ -179,6 +262,11 @@
     <script>
         // 전역 변수
         let dashboardData = [];
+        let detailData = {
+            customers: [],
+            newCustomers: [],
+            contracts: []
+        };
 
         // 연도별 대시보드 데이터 로드
         async function loadDashboardData() {
@@ -189,7 +277,9 @@
                 // Google Sheets 데이터 로드
                 if (window.sheetsAPI) {
                     const rawData = await window.sheetsAPI.loadCSVData();
-                    dashboardData = processDashboardData(rawData, selectedYear);
+                    const result = processDashboardData(rawData, selectedYear);
+                    dashboardData = result.stats;
+                    detailData = result.details;
                     updateDashboardStats();
                 } else {
                     // 샘플 데이터 사용
@@ -205,23 +295,29 @@
         function loadSampleDashboardData(year) {
             // 연도별 샘플 데이터
             const sampleStats = {
-                '2025': { totalSales: '1.8억원', totalCustomers: '23개', newCustomers: '8개', totalContracts: '67건' },
-                '2024': { totalSales: '3.2억원', totalCustomers: '47개', newCustomers: '15개', totalContracts: '156건' },
-                '2023': { totalSales: '2.8억원', totalCustomers: '41개', newCustomers: '12개', totalContracts: '134건' },
-                '2022': { totalSales: '2.1억원', totalCustomers: '35개', newCustomers: '9개', totalContracts: '98건' },
-                '2021': { totalSales: '1.9억원', totalCustomers: '31개', newCustomers: '7개', totalContracts: '87건' },
-                '2020': { totalSales: '1.5억원', totalCustomers: '28개', newCustomers: '5개', totalContracts: '72건' }
+                '2025': { totalCustomers: '23개', newCustomers: '8개', totalContracts: '67건' },
+                '2024': { totalCustomers: '47개', newCustomers: '15개', totalContracts: '156건' },
+                '2023': { totalCustomers: '41개', newCustomers: '12개', totalContracts: '134건' },
+                '2022': { totalCustomers: '35개', newCustomers: '9개', totalContracts: '98건' },
+                '2021': { totalCustomers: '31개', newCustomers: '7개', totalContracts: '87건' },
+                '2020': { totalCustomers: '28개', newCustomers: '5개', totalContracts: '72건' }
             };
 
             const stats = sampleStats[year] || sampleStats['2025'];
             
-            document.getElementById('totalSales').textContent = stats.totalSales;
-            document.getElementById('totalCustomers').textContent = stats.totalCustomers;
-            document.getElementById('newCustomers').textContent = stats.newCustomers;
-            document.getElementById('totalContracts').textContent = stats.totalContracts;
+            dashboardData = stats;
+            
+            // 샘플 상세 데이터
+            detailData = {
+                customers: ['경기도 양주시', '의정부시', '서울시', '부천시', '광주 북구', '제주시'],
+                newCustomers: ['경기도 양주시', '광주 북구', '제주시'],
+                contracts: ['천보산 산림욕장 보완사업', '의정부시 녹지조성사업', '서울시 한강공원 보행로', '부천시 중앙공원 조성사업']
+            };
+            
+            updateDashboardStats();
         }
 
-        // 실제 데이터 처리 (정확한 계산 로직)
+        // 실제 데이터 처리
         function processDashboardData(rawData, selectedYear) {
             const currentYear = parseInt(selectedYear);
             const previousYear = currentYear - 1;
@@ -235,38 +331,23 @@
                        (invoiceDate && invoiceDate.getFullYear() === currentYear);
             });
             
-            // 전년도 데이터 필터링 (신규고객 계산용)
-            const previousYearData = rawData.filter(item => {
-                const orderDate = parseDate(item['주문일자'] || item['날짜'] || '');
-                const invoiceDate = parseDate(item['세금계산서'] || item['세금계산서발행일'] || '');
-                
-                return (orderDate && orderDate.getFullYear() === previousYear) ||
-                       (invoiceDate && invoiceDate.getFullYear() === previousYear);
-            });
-
-            // 1. 총매출액 = 관급매출 + 사급매출 (세금계산서 발행된 것만)
-            let totalSales = 0;
-            currentYearData.forEach(item => {
-                const invoiceDate = parseDate(item['세금계산서'] || item['세금계산서발행일'] || '');
-                const type = item['구분'] || '';
-                
-                if (invoiceDate && invoiceDate.getFullYear() === currentYear && 
-                    (type.includes('관급') || type.includes('사급'))) {
-                    const amount = parseInt((item['합계'] || item['금액'] || '0').toString().replace(/[^\d]/g, '')) || 0;
-                    totalSales += amount;
-                }
-            });
-
-            // 2. 총고객수 = 해당 연도에 거래가 있었던 고객 수 (중복 제거)
+            // 고객 데이터 수집
             const currentYearCustomers = new Set();
+            const uniqueContracts = new Set();
+            
             currentYearData.forEach(item => {
                 const customer = item['거래처'] || item['customer'] || '';
+                const contract = item['계약명'] || item['사업명'] || '';
+                
                 if (customer && customer !== '거래처 없음') {
                     currentYearCustomers.add(customer.trim());
                 }
+                if (contract && contract !== '계약명 없음') {
+                    uniqueContracts.add(contract.trim());
+                }
             });
-
-            // 3. 신규고객수 = 2020년부터 해당 연도까지 처음 등장한 고객
+            
+            // 신규 고객 계산
             const allPreviousCustomers = new Set();
             for (let year = 2020; year < currentYear; year++) {
                 rawData.forEach(item => {
@@ -287,20 +368,17 @@
                 !allPreviousCustomers.has(customer)
             );
 
-            // 4. 총계약건수 = 중복 제거한 계약명 개수
-            const uniqueContracts = new Set();
-            currentYearData.forEach(item => {
-                const contractName = item['계약명'] || item['사업명'] || item['contractName'] || '';
-                if (contractName && contractName !== '계약명 없음') {
-                    uniqueContracts.add(contractName.trim());
-                }
-            });
-
             return {
-                totalSales: formatCurrency(totalSales),
-                totalCustomers: currentYearCustomers.size + '개',
-                newCustomers: newCustomers.length + '개',
-                totalContracts: uniqueContracts.size + '건'
+                stats: {
+                    totalCustomers: currentYearCustomers.size + '개',
+                    newCustomers: newCustomers.length + '개',
+                    totalContracts: uniqueContracts.size + '건'
+                },
+                details: {
+                    customers: [...currentYearCustomers],
+                    newCustomers: newCustomers,
+                    contracts: [...uniqueContracts]
+                }
             };
         }
 
@@ -310,7 +388,6 @@
             
             let date = new Date(dateStr);
             
-            // 한국식 날짜 형식 처리
             if (isNaN(date.getTime())) {
                 if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
                     date = new Date(dateStr);
@@ -323,33 +400,69 @@
             return isNaN(date.getTime()) ? null : date;
         }
 
-        // 통화 포맷 함수
-        function formatCurrency(amount) {
-            if (amount >= 100000000) {
-                return (amount / 100000000).toFixed(1) + '억원';
-            } else if (amount >= 10000000) {
-                return Math.round(amount / 10000000) + '천만원';
-            } else if (amount >= 10000) {
-                return Math.round(amount / 10000) + '만원';
-            } else {
-                return new Intl.NumberFormat('ko-KR').format(amount) + '원';
-            }
-        }
-
         // 대시보드 통계 업데이트
         function updateDashboardStats() {
             if (dashboardData) {
-                document.getElementById('totalSales').textContent = dashboardData.totalSales;
                 document.getElementById('totalCustomers').textContent = dashboardData.totalCustomers;
                 document.getElementById('newCustomers').textContent = dashboardData.newCustomers;
                 document.getElementById('totalContracts').textContent = dashboardData.totalContracts;
             }
         }
 
+        // 모달 관련 함수들
+        function showModal(title, items) {
+            document.getElementById('modalTitle').textContent = title;
+            const content = document.getElementById('modalContent');
+            
+            content.innerHTML = '';
+            if (items.length === 0) {
+                content.innerHTML = '<div class="text-center text-gray-500 py-4">데이터가 없습니다.</div>';
+            } else {
+                items.forEach((item, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'detail-item';
+                    div.innerHTML = `<span class="font-medium">${index + 1}.</span> ${item}`;
+                    content.appendChild(div);
+                });
+            }
+            
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        function showCustomerDetail() {
+            showModal('총 고객 수 상세 내역', detailData.customers);
+        }
+
+        function showNewCustomerDetail() {
+            showModal('신규 고객 수 상세 내역', detailData.newCustomers);
+        }
+
+        function showContractDetail() {
+            showModal('총 계약 건수 상세 내역', detailData.contracts);
+        }
+
         // 페이지 로드시 초기화
         document.addEventListener('DOMContentLoaded', function() {
             // 적용 버튼 클릭시 데이터 다시 로드
             document.getElementById('applyBtn').addEventListener('click', loadDashboardData);
+            
+            // 모달 외부 클릭시 닫기
+            document.getElementById('detailModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeModal();
+                }
+            });
+            
+            // ESC 키로 모달 닫기
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+            });
             
             // 초기 데이터 로드
             loadDashboardData();
