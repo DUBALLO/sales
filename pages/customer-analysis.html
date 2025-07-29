@@ -47,19 +47,32 @@
         <!-- 필터 및 검색 섹션 -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex flex-wrap items-end gap-4 mb-4">
+                <!-- 관급 품목 선택 -->
+                <div>
+                    <label class="form-label">관급 품목</label>
+                    <select id="productType" class="form-select">
+                        <option value="all">전체</option>
+                        <option value="보행매트" selected>보행매트</option>
+                        <option value="식생매트">식생매트</option>
+                        <option value="논슬립">논슬립</option>
+                    </select>
+                </div>
+                
+                <!-- 분석 기간 -->
                 <div>
                     <label class="form-label">분석 기간</label>
-                    <div class="flex gap-2">
-                        <select id="analysisYear" class="form-select">
-                            <option value="2020">2020년</option>
-                            <option value="2021">2021년</option>
-                            <option value="2022">2022년</option>
-                            <option value="2023">2023년</option>
-                            <option value="2024" selected>2024년</option>
-                            <option value="all">전체</option>
-                        </select>
-                    </div>
+                    <select id="analysisYear" class="form-select">
+                        <option value="2020">2020년</option>
+                        <option value="2021">2021년</option>
+                        <option value="2022">2022년</option>
+                        <option value="2023">2023년</option>
+                        <option value="2024">2024년</option>
+                        <option value="2025" selected>2025년</option>
+                        <option value="all">전체</option>
+                    </select>
                 </div>
+                
+                <!-- 정렬 기준 -->
                 <div>
                     <label class="form-label">정렬 기준</label>
                     <select id="sortBy" class="form-select">
@@ -68,6 +81,8 @@
                         <option value="name">이름순</option>
                     </select>
                 </div>
+                
+                <!-- 검색 -->
                 <div class="flex-1">
                     <label class="form-label">검색</label>
                     <div class="search-box">
@@ -77,6 +92,8 @@
                         </svg>
                     </div>
                 </div>
+                
+                <!-- 분석 버튼 -->
                 <button id="analyzeBtn" class="btn btn-primary">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
@@ -158,13 +175,16 @@
                     <button id="typeTab" class="analysis-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                         수요기관별 분석
                     </button>
+                    <button id="privateTab" class="analysis-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        사급판매
+                    </button>
                 </nav>
             </div>
 
             <!-- 고객별 순위 탭 -->
             <div id="customerPanel" class="tab-panel p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">고객별 매출 순위</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">고객별 매출 순위 (관급)</h3>
                     <button id="exportCustomerBtn" class="btn btn-secondary btn-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -197,7 +217,7 @@
             <!-- 지역별 분석 탭 -->
             <div id="regionPanel" class="tab-panel p-6 hidden">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">지역별 매출 분석</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">지역별 매출 분석 (관급)</h3>
                     <button id="exportRegionBtn" class="btn btn-secondary btn-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -228,7 +248,7 @@
             <!-- 수요기관별 분석 탭 -->
             <div id="typePanel" class="tab-panel p-6 hidden">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">수요기관별 매출 분석</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">수요기관별 매출 분석 (관급)</h3>
                     <button id="exportTypeBtn" class="btn btn-secondary btn-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -255,32 +275,92 @@
                     </table>
                 </div>
             </div>
+
+            <!-- 사급판매 탭 -->
+            <div id="privatePanel" class="tab-panel p-6 hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">사급판매 매출 분석 (전체 품목)</h3>
+                    <button id="exportPrivateBtn" class="btn btn-secondary btn-sm">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        CSV 내보내기
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table id="privateTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>순위</th>
+                                <th>고객명</th>
+                                <th>지역</th>
+                                <th>수요기관구분</th>
+                                <th>계약건수</th>
+                                <th>매출액</th>
+                                <th>비중</th>
+                                <th>최근거래일</th>
+                            </tr>
+                        </thead>
+                        <tbody id="privateTableBody">
+                            <!-- 데이터가 여기에 표시됩니다 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </main>
 
     <!-- 스크립트 -->
     <script src="../assets/js/common.js"></script>
-    <script src="../assets/js/customer-analysis.js"></script>
+    <script src="../assets/js/customer-analysis-advanced.js"></script>
     
     <script>
         // 페이지 로드시 초기화
         document.addEventListener('DOMContentLoaded', function() {
-            // 샘플 데이터 로드 및 분석
-            loadSampleData();
+            console.log('매출처별 집계 페이지 로드 시작');
+            
+            // Advanced 모듈 로드 확인 및 초기화
+            if (window.CustomerAnalysis) {
+                console.log('CustomerAnalysis 모듈 로드 확인됨');
+                CustomerAnalysis.loadSampleData();
+            } else {
+                console.error('CustomerAnalysis 모듈이 로드되지 않았습니다.');
+                // 대안으로 기본 메시지 표시
+                document.getElementById('totalCustomers').textContent = '로드 실패';
+                document.getElementById('avgAmount').textContent = '로드 실패';
+                document.getElementById('maxShare').textContent = '로드 실패';
+                document.getElementById('newCustomers').textContent = '로드 실패';
+            }
             
             // 이벤트 리스너 설정
-            document.getElementById('analyzeBtn').addEventListener('click', analyzeCustomers);
-            document.getElementById('searchInput').addEventListener('input', handleSearch);
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            if (analyzeBtn) {
+                analyzeBtn.addEventListener('click', function() {
+                    if (window.CustomerAnalysis) {
+                        CustomerAnalysis.analyzeCustomers();
+                    } else {
+                        console.error('CustomerAnalysis 모듈을 사용할 수 없습니다.');
+                    }
+                });
+            }
+            
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', handleSearch);
+            }
             
             // 탭 이벤트
             document.getElementById('customerTab').addEventListener('click', () => showTab('customer'));
             document.getElementById('regionTab').addEventListener('click', () => showTab('region'));
             document.getElementById('typeTab').addEventListener('click', () => showTab('type'));
+            document.getElementById('privateTab').addEventListener('click', () => showTab('private'));
             
             // 내보내기 이벤트
             document.getElementById('exportCustomerBtn').addEventListener('click', () => exportTable('customer'));
             document.getElementById('exportRegionBtn').addEventListener('click', () => exportTable('region'));
             document.getElementById('exportTypeBtn').addEventListener('click', () => exportTable('type'));
+            document.getElementById('exportPrivateBtn').addEventListener('click', () => exportTable('private'));
             
             // 테이블 정렬 이벤트
             setupTableSorting();
@@ -309,14 +389,18 @@
         function handleSearch(event) {
             const searchTerm = event.target.value;
             // TODO: 검색 로직 구현
+            console.log('검색어:', searchTerm);
         }
         
         // 테이블 내보내기
         function exportTable(type) {
             const table = document.getElementById(type + 'Table');
             const filename = type === 'customer' ? '고객별매출.csv' : 
-                           type === 'region' ? '지역별매출.csv' : '수요기관별매출.csv';
-            CommonUtils.exportTableToCSV(table, filename);
+                           type === 'region' ? '지역별매출.csv' : 
+                           type === 'type' ? '수요기관별매출.csv' : '사급판매매출.csv';
+            if (window.CommonUtils && CommonUtils.exportTableToCSV) {
+                CommonUtils.exportTableToCSV(table, filename);
+            }
         }
         
         // 테이블 정렬 설정
@@ -325,6 +409,7 @@
                 header.addEventListener('click', function() {
                     const sortBy = this.dataset.sort;
                     const table = this.closest('table');
+                    console.log('정렬:', sortBy, table.id);
                     // TODO: 정렬 로직 구현
                 });
             });
