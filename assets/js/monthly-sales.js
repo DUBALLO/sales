@@ -1,4 +1,4 @@
-// 월별매출 현황 JavaScript (오류 수정 버전)
+// 월별매출 현황 JavaScript (중복 제거 완벽 수정 버전)
 
 // 전역 변수
 let salesData = [];
@@ -561,7 +561,7 @@ function updateDetailTableHeader(type) {
     }
 }
 
-// 상세 내역 표시
+// 상세 내역 표시 - 🎯 중복 제거 완벽 수정 버전
 function showDetail(yearMonth, type, typeName) {
     const [year, month] = yearMonth.split('-');
     const monthName = `${year}년 ${parseInt(month)}월`;
@@ -573,15 +573,17 @@ function showDetail(yearMonth, type, typeName) {
         return;
     }
     
-    const detailTitle = $('detailTitle');
-    if (detailTitle) {
-        detailTitle.textContent = `${monthName} ${typeName} 상세 내역 (${details.length}건)`;
-    }
-    
     // 테이블 헤더 업데이트
     updateDetailTableHeader(type);
     
-    renderDetailTable(details, type);
+    // 상세 테이블 렌더링하고 실제 계약 건수 받기
+    const actualContractCount = renderDetailTable(details, type);
+    
+    // 제목 업데이트 - 실제 계약 건수로 수정
+    const detailTitle = $('detailTitle');
+    if (detailTitle) {
+        detailTitle.textContent = `${monthName} ${typeName} 상세 내역 (${actualContractCount}건)`;
+    }
     
     const detailSection = $('detailSection');
     if (detailSection) {
@@ -590,41 +592,44 @@ function showDetail(yearMonth, type, typeName) {
     }
 }
 
-// 상세 테이블 렌더링
+// 상세 테이블 렌더링 - 🎯 중복 제거 완벽 수정 버전
 function renderDetailTable(details, type) {
     const tbody = $('detailTableBody');
-    if (!tbody) return;
+    if (!tbody) return 0;
     
     tbody.innerHTML = '';
     
-    console.log('상세 테이블 렌더링 시작, 데이터:', details); // 디버깅용
+    console.log('상세 테이블 렌더링 시작, 원시 데이터:', details.length, '건');
     
-    // 계약명별로 데이터 합치기
+    // 계약명별로 데이터 합치기 (개선된 로직)
     const mergedData = {};
     details.forEach(item => {
         const key = `${item.contractName}-${item.customer}`;
         
-        // 디버깅: 각 아이템의 품목 정보 확인
-        console.log('아이템 품목 정보:', {
-            contractName: item.contractName,
-            item: item.item,
-            amount: item.amount
-        });
-        
         if (mergedData[key]) {
+            // 기존 계약에 금액 합치기
             mergedData[key].amount += item.amount;
-            // 더 큰 금액을 가진 품목으로 업데이트
+            
+            // 품목 수집 (중복 제거)
+            if (item.item && item.item.trim() !== '' && !mergedData[key].allItems.includes(item.item.trim())) {
+                mergedData[key].allItems.push(item.item.trim());
+            }
+            
+            // 더 큰 금액을 가진 품목을 메인으로 설정
             if (item.amount > mergedData[key].maxAmount) {
                 mergedData[key].mainItem = item.item || '';
                 mergedData[key].maxAmount = item.amount;
-                console.log(`${key}의 메인 품목 업데이트:`, item.item, '금액:', item.amount);
             }
-            mergedData[key].hasMultipleItems = true;
-            // 모든 품목 수집 (중복 제거용)
-            if (item.item && !mergedData[key].allItems.includes(item.item)) {
-                mergedData[key].allItems.push(item.item);
+            
+            // 최신 날짜로 업데이트
+            const currentDate = mergedData[key].displayDate;
+            const newDate = item.displayDate || item.invoiceDate || item.date;
+            if (!currentDate || (newDate && newDate > currentDate)) {
+                mergedData[key].displayDate = newDate;
             }
+            
         } else {
+            // 새 계약 생성
             mergedData[key] = {
                 contractName: item.contractName,
                 customer: item.customer,
@@ -633,18 +638,17 @@ function renderDetailTable(details, type) {
                 displayDate: item.displayDate || item.invoiceDate || item.date,
                 mainItem: item.item || '',
                 maxAmount: item.amount,
-                hasMultipleItems: false,
-                allItems: item.item ? [item.item] : [] // 모든 품목 리스트
+                allItems: (item.item && item.item.trim() !== '') ? [item.item.trim()] : []
             };
-            console.log(`${key} 새로 생성, 품목:`, item.item);
         }
     });
     
     // 배열로 변환하고 금액순 정렬
     const sortedData = Object.values(mergedData).sort((a, b) => b.amount - a.amount);
     
-    console.log('합쳐진 데이터:', sortedData); // 디버깅용
+    console.log(`중복 제거 완료: ${details.length}건 → ${sortedData.length}건`);
     
+    // 테이블 행 생성
     sortedData.forEach((item, index) => {
         const row = document.createElement('tr');
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
@@ -682,33 +686,45 @@ function renderDetailTable(details, type) {
         dateCell.className = 'text-center';
         row.appendChild(dateCell);
         
-        // 품목 (개선된 로직)
+        // 품목 (개선된 표시 로직)
         const itemCell = document.createElement('td');
-        let itemText = '';
-        
-        if (item.allItems.length === 0) {
-            itemText = '-';
-        } else if (item.allItems.length === 1) {
-            itemText = item.allItems[0] || '-';
-        } else {
-            // 여러 품목이 있는 경우
-            if (item.mainItem) {
-                itemText = item.mainItem + ' 등';
-            } else {
-                // 메인 품목이 없으면 첫 번째 품목 사용
-                itemText = (item.allItems[0] || '') + ' 등';
-            }
-        }
+        let itemText = generateItemDisplayText(item.allItems);
         
         itemCell.textContent = itemText;
         itemCell.className = 'text-center';
-        itemCell.title = item.allItems.length > 1 ? `포함된 품목: ${item.allItems.join(', ')}` : ''; // 툴팁으로 전체 품목 표시
+        
+        // 툴팁으로 전체 품목 표시 (여러 품목인 경우)
+        if (item.allItems.length > 1) {
+            itemCell.title = `포함된 품목: ${item.allItems.join(', ')}`;
+            itemCell.style.cursor = 'help';
+        }
+        
         row.appendChild(itemCell);
-        
-        console.log(`행 ${index + 1} 품목 표시:`, itemText, '전체품목:', item.allItems); // 디버깅용
-        
         tbody.appendChild(row);
     });
+    
+    // 실제 계약 건수 반환
+    return sortedData.length;
+}
+
+// 품목 표시 텍스트 생성 함수 - 🎯 새로 추가
+function generateItemDisplayText(allItems) {
+    if (!allItems || allItems.length === 0) {
+        return '-';
+    }
+    
+    // 빈 문자열 제거
+    const validItems = allItems.filter(item => item && item.trim() !== '');
+    
+    if (validItems.length === 0) {
+        return '-';
+    } else if (validItems.length === 1) {
+        return validItems[0];
+    } else {
+        // 여러 품목인 경우: "보행매트 등 3개"
+        const mainItem = validItems[0];
+        return `${mainItem} 등 ${validItems.length}개`;
+    }
 }
 
 // 상세내역 섹션 숨기기
