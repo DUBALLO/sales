@@ -6,9 +6,19 @@
  */
 class SheetsAPI {
     constructor() {
-        // 실제 구글시트 CSV URL
-        this.csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSjy2slFJrAxxPO8WBmehXH4iJtcfxr-HUkvL-YXw-BIvmA1Z3kTa8DfdWVnwVl3r4jhjmHFUYIju3j/pub?output=csv';
-        
+        this.csvUrls = {
+            // 기존: 월별매출용
+            monthlySales: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSjy2slFJrAxxPO8WBmehXH4iJtcfxr-HUkvL-YXw-BIvmA1Z3kTa8DfdWVnwVl3r4jhjmHFUYIju3j/pub?output=csv',
+            
+            // 신규: 나라장터 조달데이터용 
+            procurement: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSplrmlhekVgQLbcCpHLX8d2HBNAErwj-UknKUZVI5KCMen-kUCWXlRONPR6oc0Wj1zd6FP-EfRaFeU/pub?output=csv'
+        };
+        }
+            // 새 메서드 추가
+            async loadProcurementData() {
+            return this.loadCSVData(this.csvUrls.procurement);
+            }
+        }
         // 백업 방법들
         this.corsProxies = [
             'https://api.allorigins.win/raw?url=',
