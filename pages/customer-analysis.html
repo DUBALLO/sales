@@ -5,129 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>매출처별 집계 - 판매실적 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
-        
-        body { font-family: 'Noto Sans KR', sans-serif; }
-
-        .form-select {
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-            background-position: right 0.5rem center;
-            background-repeat: no-repeat;
-            background-size: 1.5em 1.5em;
-            padding-right: 2.5rem;
-        }
-
-        .analysis-tab {
-            transition: all 0.3s ease-in-out;
-            position: relative;
-        }
-
-        .analysis-tab.active {
-            color: #059669 !important;
-            border-color: #059669 !important;
-            background-color: #f0fdf4;
-        }
-
-        .analysis-tab.active::before {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background-color: #059669;
-        }
-
-        .stats-card {
-            transition: all 0.3s ease-in-out;
-            border-left: 4px solid transparent;
-        }
-
-        .stats-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
-        }
-
-        .stats-card:nth-child(1) { border-left-color: #3b82f6; }
-        .stats-card:nth-child(2) { border-left-color: #10b981; }
-        .stats-card:nth-child(3) { border-left-color: #8b5cf6; }
-        .stats-card:nth-child(4) { border-left-color: #f59e0b; }
-
-        .data-table {
-            border-collapse: separate;
-            border-spacing: 0;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        .data-table th {
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            font-weight: 600;
-            color: #374151;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .data-table tbody tr:hover {
-            background-color: #f0fdf4 !important;
-            transform: scale(1.005);
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
-        }
-
-        .rank-1 { background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%); font-weight: 700; }
-        .rank-2 { background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%); font-weight: 600; }
-        .rank-3 { background: linear-gradient(135deg, #fefce8 0%, #fde047 100%); font-weight: 600; }
-
-        .share-critical { color: #dc2626 !important; font-weight: 700 !important; }
-        .share-high { color: #ea580c !important; font-weight: 600 !important; }
-        .share-medium { color: #d97706 !important; font-weight: 500 !important; }
-        .share-low { color: #059669; }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .badge-primary { background-color: #dbeafe; color: #1e40af; }
-        .badge-success { background-color: #d1fae5; color: #065f46; }
-        .badge-warning { background-color: #fef3c7; color: #92400e; }
-        .badge-purple { background-color: #ede9fe; color: #6b21a8; }
-
-        .connection-indicator {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .connection-success { background-color: #d1fae5; color: #065f46; border: 1px solid #10b981; }
-        .connection-error { background-color: #fecaca; color: #991b1b; border: 1px solid #ef4444; }
-        .connection-testing { background-color: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 0.5rem;
-            animation: pulse 2s infinite;
-        }
-
-        @media (max-width: 768px) {
-            .mobile-hidden { display: none; }
-            .data-table { font-size: 0.75rem; }
-            .data-table th, .data-table td { padding: 0.5rem 0.25rem; }
-        }
-    </style>
+    <link href="../assets/css/common.css" rel="stylesheet">
+    <link href="../assets/css/customer-analysis.css" rel="stylesheet">
+    <script src="../assets/js/sheets-api.js"></script>
 </head>
 <body class="bg-gray-50">
     <!-- 네비게이션 -->
@@ -140,10 +20,18 @@
                     <span class="text-green-600 font-medium">매출처별 집계</span>
                 </div>
                 <div class="flex space-x-2">
-                    <div id="connectionStatus" class="connection-indicator connection-testing">
-                        <div class="status-dot status-testing"></div>
-                        Cloudflare D1 연결 중...
-                    </div>
+                    <a href="../index.html" class="nav-link">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        홈
+                    </a>
+                    <a href="./monthly-sales.html" class="nav-link">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        월별매출 현황
+                    </a>
                 </div>
             </div>
         </div>
@@ -154,50 +42,72 @@
         <!-- 페이지 헤더 -->
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900 mb-2">매출처별 집계</h1>
-            <p class="text-gray-600">두발로 주식회사 고객별 매출 현황과 지역별 분석 (Cloudflare D1 연동)</p>
+            <p class="text-gray-600">두발로 주식회사 고객별 매출 현황과 지역별, 수요기관별 분석 데이터를 확인할 수 있습니다.</p>
+        </div>
+
+        <!-- 연결 상태 표시 -->
+        <div id="connectionStatus" class="mb-4 p-3 rounded-lg border hidden">
+            <div class="flex items-center">
+                <div id="statusIcon" class="w-3 h-3 rounded-full mr-2"></div>
+                <span id="statusText" class="text-sm font-medium"></span>
+            </div>
         </div>
 
         <!-- 필터 및 검색 섹션 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="filter-section bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex flex-wrap items-end gap-4 mb-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">분석 기간</label>
-                    <select id="analysisYear" class="form-select bg-white border border-gray-300 rounded-md px-3 py-2 text-sm">
+                    <label class="form-label">분석 기간</label>
+                    <select id="analysisYear" class="form-select">
+                        <option value="2020">2020년</option>
+                        <option value="2021">2021년</option>
+                        <option value="2022">2022년</option>
+                        <option value="2023">2023년</option>
                         <option value="2024" selected>2024년</option>
                         <option value="2025">2025년</option>
-                        <option value="2023">2023년</option>
                         <option value="all">전체</option>
                     </select>
                 </div>
                 
+                <div>
+                    <label class="form-label">품목</label>
+                    <select id="productType" class="form-select">
+                        <option value="all">전체</option>
+                        <option value="보행매트" selected>보행매트</option>
+                        <option value="식생매트">식생매트</option>
+                        <option value="논슬립">논슬립</option>
+                        <option value="고정핀">고정핀</option>
+                    </select>
+                </div>
+                
                 <div class="flex-1">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">검색</label>
-                    <div class="relative">
-                        <input type="text" id="searchInput" class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-md" placeholder="고객명으로 검색...">
-                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <label class="form-label">검색</label>
+                    <div class="search-box relative">
+                        <input type="text" id="searchInput" class="form-input search-input" placeholder="고객명으로 검색...">
+                        <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
                     </div>
                 </div>
                 
-                <button id="analyzeBtn" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition">
+                <button id="analyzeBtn" class="btn btn-success">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                     </svg>
                     분석
                 </button>
                 
-                <button id="syncBtn" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+                <button id="refreshBtn" class="btn btn-secondary">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                     </svg>
-                    데이터 동기화
+                    새로고침
                 </button>
             </div>
         </div>
 
         <!-- 요약 통계 -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 stats-grid">
             <div class="bg-white rounded-lg shadow-md p-6 stats-card">
                 <div class="flex items-center">
                     <div class="p-2 bg-blue-100 rounded-lg">
@@ -207,7 +117,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">총 고객 수</p>
-                        <p class="text-2xl font-bold text-gray-900" id="totalCustomers">연결 중...</p>
+                        <p class="text-2xl font-bold text-gray-900" id="totalCustomers">로딩중...</p>
                     </div>
                 </div>
             </div>
@@ -220,8 +130,8 @@
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">총 매출액</p>
-                        <p class="text-2xl font-bold text-gray-900" id="totalAmount">연결 중...</p>
+                        <p class="text-sm font-medium text-gray-600">평균 거래액</p>
+                        <p class="text-2xl font-bold text-gray-900" id="avgAmount">로딩중...</p>
                     </div>
                 </div>
             </div>
@@ -235,7 +145,7 @@
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">최대 고객 비중</p>
-                        <p class="text-2xl font-bold text-gray-900" id="maxShare">연결 중...</p>
+                        <p class="text-2xl font-bold text-gray-900" id="maxShare">로딩중...</p>
                     </div>
                 </div>
             </div>
@@ -244,12 +154,12 @@
                 <div class="flex items-center">
                     <div class="p-2 bg-orange-100 rounded-lg">
                         <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">평균 계약액</p>
-                        <p class="text-2xl font-bold text-gray-900" id="avgAmount">연결 중...</p>
+                        <p class="text-sm font-medium text-gray-600">신규 고객 수</p>
+                        <p class="text-2xl font-bold text-gray-900" id="newCustomers">로딩중...</p>
                     </div>
                 </div>
             </div>
@@ -265,8 +175,11 @@
                     <button id="regionTab" class="analysis-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                         지역별 분석
                     </button>
-                    <button id="monthlyTab" class="analysis-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                        월별 현황
+                    <button id="typeTab" class="analysis-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        수요기관별 분석
+                    </button>
+                    <button id="privateTab" class="analysis-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        사급판매
                     </button>
                 </nav>
             </div>
@@ -274,8 +187,8 @@
             <!-- 고객별 순위 탭 -->
             <div id="customerPanel" class="tab-panel p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">고객별 매출 순위 (두발로 주식회사)</h3>
-                    <button id="exportCustomerBtn" class="inline-flex items-center px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition text-sm">
+                    <h3 class="text-lg font-semibold text-gray-900">고객별 매출 순위</h3>
+                    <button id="exportCustomerBtn" class="btn btn-secondary btn-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
@@ -283,21 +196,22 @@
                     </button>
                 </div>
                 
-                <div class="overflow-x-auto">
-                    <table id="customerTable" class="data-table w-full">
+                <div class="overflow-x-auto table-scroll">
+                    <table id="customerTable" class="data-table">
                         <thead>
                             <tr>
-                                <th class="px-4 py-3 text-center">순위</th>
-                                <th class="px-4 py-3 text-left">고객명</th>
-                                <th class="px-4 py-3 text-center mobile-hidden">지역</th>
-                                <th class="px-4 py-3 text-center">계약건수</th>
-                                <th class="px-4 py-3 text-right">매출액</th>
-                                <th class="px-4 py-3 text-right">비중</th>
-                                <th class="px-4 py-3 text-center mobile-hidden">최근거래일</th>
+                                <th class="text-center">순위</th>
+                                <th class="text-left">고객명</th>
+                                <th class="text-center tablet-hidden">지역</th>
+                                <th class="text-center">수요기관</th>
+                                <th class="text-center">계약건수</th>
+                                <th class="text-right">매출액</th>
+                                <th class="text-right">비중</th>
+                                <th class="text-center mobile-hidden">최근거래일</th>
                             </tr>
                         </thead>
                         <tbody id="customerTableBody">
-                            <tr><td colspan="7" class="text-center py-8 text-gray-500">데이터 동기화 버튼을 클릭하세요</td></tr>
+                            <tr><td colspan="8" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -307,7 +221,7 @@
             <div id="regionPanel" class="tab-panel p-6 hidden">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">지역별 매출 분석</h3>
-                    <button id="exportRegionBtn" class="inline-flex items-center px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition text-sm">
+                    <button id="exportRegionBtn" class="btn btn-secondary btn-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
@@ -315,49 +229,84 @@
                     </button>
                 </div>
                 
-                <div class="overflow-x-auto">
-                    <table id="regionTable" class="data-table w-full">
+                <div class="overflow-x-auto table-scroll">
+                    <table id="regionTable" class="data-table">
                         <thead>
                             <tr>
-                                <th class="px-4 py-3 text-left">지역</th>
-                                <th class="px-4 py-3 text-center">고객수</th>
-                                <th class="px-4 py-3 text-center">계약건수</th>
-                                <th class="px-4 py-3 text-right">매출액</th>
-                                <th class="px-4 py-3 text-right">비중</th>
-                                <th class="px-4 py-3 text-right mobile-hidden">평균거래액</th>
+                                <th class="text-left">지역</th>
+                                <th class="text-center">고객수</th>
+                                <th class="text-center">계약건수</th>
+                                <th class="text-right">매출액</th>
+                                <th class="text-right">비중</th>
+                                <th class="text-right tablet-hidden">평균거래액</th>
                             </tr>
                         </thead>
                         <tbody id="regionTableBody">
-                            <tr><td colspan="6" class="text-center py-8 text-gray-500">데이터 동기화 버튼을 클릭하세요</td></tr>
+                            <tr><td colspan="6" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- 월별 현황 탭 -->
-            <div id="monthlyPanel" class="tab-panel p-6 hidden">
+            <!-- 수요기관별 분석 탭 -->
+            <div id="typePanel" class="tab-panel p-6 hidden">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">월별 매출 현황</h3>
-                    <button id="exportMonthlyBtn" class="inline-flex items-center px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition text-sm">
+                    <h3 class="text-lg font-semibold text-gray-900">수요기관별 분석</h3>
+                    <button id="exportTypeBtn" class="btn btn-secondary btn-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01-2 2z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
                         CSV 내보내기
                     </button>
                 </div>
                 
-                <div class="overflow-x-auto">
-                    <table id="monthlyTable" class="data-table w-full">
+                <div class="overflow-x-auto table-scroll">
+                    <table id="typeTable" class="data-table">
                         <thead>
                             <tr>
-                                <th class="px-4 py-3 text-center">년월</th>
-                                <th class="px-4 py-3 text-center">계약건수</th>
-                                <th class="px-4 py-3 text-right">매출액</th>
-                                <th class="px-4 py-3 text-center mobile-hidden">주요 고객</th>
+                                <th class="text-left">수요기관</th>
+                                <th class="text-center">고객수</th>
+                                <th class="text-center">계약건수</th>
+                                <th class="text-right">매출액</th>
+                                <th class="text-right">비중</th>
+                                <th class="text-right tablet-hidden">평균거래액</th>
                             </tr>
                         </thead>
-                        <tbody id="monthlyTableBody">
-                            <tr><td colspan="4" class="text-center py-8 text-gray-500">데이터 동기화 버튼을 클릭하세요</td></tr>
+                        <tbody id="typeTableBody">
+                            <tr><td colspan="6" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 사급판매 탭 -->
+            <div id="privatePanel" class="tab-panel p-6 hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">사급판매 현황</h3>
+                    <button id="exportPrivateBtn" class="btn btn-secondary btn-sm">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        CSV 내보내기
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto table-scroll">
+                    <table id="privateTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="text-center">순위</th>
+                                <th class="text-left">고객명</th>
+                                <th class="text-center tablet-hidden">지역</th>
+                                <th class="text-center">수요기관</th>
+                                <th class="text-center">계약건수</th>
+                                <th class="text-right">매출액</th>
+                                <th class="text-right">비중</th>
+                                <th class="text-center mobile-hidden">최근거래일</th>
+                            </tr>
+                        </thead>
+                        <tbody id="privateTableBody">
+                            <tr><td colspan="8" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -365,594 +314,126 @@
         </div>
     </main>
 
+    <!-- 스크립트 -->
+    <script src="../assets/js/common.js"></script>
+    <script src="../assets/js/customer-analysis.js"></script>
+    
     <script>
-        // 전역 변수
-        let rawSheetData = [];
-        let currentData = {
-            customers: [],
-            regions: [],
-            monthly: [],
-            summary: {}
-        };
-
-        // 유틸리티 함수들
-        function formatCurrency(amount) {
-            if (!amount && amount !== 0) return '-';
-            return new Intl.NumberFormat('ko-KR').format(amount) + '원';
-        }
-
-        function formatNumber(number) {
-            if (!number && number !== 0) return '-';
-            return new Intl.NumberFormat('ko-KR').format(number);
-        }
-
-        function formatDate(dateStr) {
-            if (!dateStr) return '-';
-            const date = new Date(dateStr);
-            return isNaN(date.getTime()) ? '-' : date.toLocaleDateString('ko-KR');
-        }
-
-        // 연결 상태 업데이트
-        function updateConnectionStatus(status, message) {
-            const statusElement = document.getElementById('connectionStatus');
-            const statusClasses = {
-                testing: 'connection-testing',
-                success: 'connection-success', 
-                error: 'connection-error'
-            };
+        // 페이지 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('매출처별 집계 페이지 로드 완료');
             
-            statusElement.className = `connection-indicator ${statusClasses[status]}`;
-            statusElement.innerHTML = `
-                <div class="status-dot status-${status}"></div>
-                ${message}
-            `;
-        }
-
-        // 데이터 동기화 (구글 시트 → 필터링)
-        async function syncData() {
-            try {
-                updateConnectionStatus('testing', '구글 시트에서 데이터 가져오는 중...');
-                
-                const syncBtn = document.getElementById('syncBtn');
-                syncBtn.disabled = true;
-                syncBtn.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>동기화 중...';
-                
-                // 구글 시트 CSV 직접 접근
-                const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vSplrmlhekVgQLbcCpHLX8d2HBNAErwj-UknKUZVI5KCMen-kUCWXlRONPR6oc0Wj1zd6FP-EfRaFeU/pub?output=csv', {
-                    mode: 'cors'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`시트 접근 실패: ${response.status}`);
+            // 탭 전환 이벤트
+            const tabs = ['customer', 'region', 'type', 'private'];
+            tabs.forEach(tab => {
+                const tabBtn = document.getElementById(tab + 'Tab');
+                if (tabBtn) {
+                    tabBtn.addEventListener('click', () => showTab(tab));
                 }
-                
-                const csvText = await response.text();
-                console.log('CSV 데이터 크기:', csvText.length);
-                
-                // CSV 파싱 및 '두발로 주식회사' 필터링
-                const filteredData = processCSVData(csvText);
-                console.log(`필터링된 데이터: ${filteredData.length}건`);
-                
-                if (filteredData.length === 0) {
-                    throw new Error('두발로 주식회사 데이터를 찾을 수 없습니다.');
-                }
-                
-                rawSheetData = filteredData;
-                currentData = analyzeData(filteredData);
-                renderAllTables();
-                
-                updateConnectionStatus('success', `동기화 완료: ${filteredData.length}건`);
-                showAlert(`데이터 동기화 완료! ${filteredData.length}건의 두발로 주식회사 데이터를 로드했습니다.`, 'success');
-                
-            } catch (error) {
-                console.error('동기화 오류:', error);
-                updateConnectionStatus('error', '동기화 실패 - 샘플 데이터 사용');
-                showAlert('동기화 실패: ' + error.message + ' (샘플 데이터로 표시)', 'warning');
-                
-                // 샘플 데이터로 대체
-                loadSampleData();
-            } finally {
-                const syncBtn = document.getElementById('syncBtn');
-                syncBtn.disabled = false;
-                syncBtn.innerHTML = `
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                    데이터 동기화
-                `;
-            }
-        }
-
-        // CSV 데이터 처리 ('두발로 주식회사'만 필터링)
-        function processCSVData(csvText) {
-            const lines = csvText.split('\n').filter(line => line.trim());
-            if (lines.length === 0) {
-                throw new Error('CSV 데이터가 비어있습니다.');
+            });
+            
+            // 분석 버튼 이벤트
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            if (analyzeBtn && window.CustomerAnalysis) {
+                analyzeBtn.addEventListener('click', window.CustomerAnalysis.analyzeCustomers);
             }
             
-            const headers = parseCSVLine(lines[0]);
-            console.log('CSV 헤더:', headers);
-            
-            const filteredData = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-                const values = parseCSVLine(lines[i]);
-                if (values.length < headers.length) continue;
-                
-                const row = {};
-                headers.forEach((header, index) => {
-                    row[header] = values[index] || '';
-                });
-                
-                // '두발로 주식회사' 필터링
-                const company = row['업체명'] || row['회사명'] || row['거래처'] || row['공급업체'] || '';
-                if (company.includes('두발로') || company.includes('두발로 주식회사')) {
-                    filteredData.push(row);
-                }
-            }
-            
-            console.log(`전체 ${lines.length - 1}행 중 두발로 주식회사: ${filteredData.length}행`);
-            return filteredData;
-        }
-
-        // CSV 라인 파싱
-        function parseCSVLine(line) {
-            const result = [];
-            let current = '';
-            let inQuotes = false;
-            
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                
-                if (char === '"') {
-                    if (inQuotes && line[i + 1] === '"') {
-                        current += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
+            // 새로고침 버튼 이벤트
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (refreshBtn && window.sheetsAPI) {
+                refreshBtn.addEventListener('click', async () => {
+                    try {
+                        await window.sheetsAPI.refreshCache();
+                        if (window.CustomerAnalysis) {
+                            window.CustomerAnalysis.analyzeCustomers();
+                        }
+                    } catch (error) {
+                        console.error('새로고침 실패:', error);
                     }
-                } else if (char === ',' && !inQuotes) {
-                    result.push(current.trim());
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            
-            result.push(current.trim());
-            return result;
-        }
-
-        // 데이터 분석
-        function analyzeData(rawData) {
-            const selectedYear = document.getElementById('analysisYear').value;
-            
-            // 연도 필터링
-            let filteredData = rawData;
-            if (selectedYear !== 'all') {
-                filteredData = rawData.filter(row => {
-                    const date = row['주문일자'] || row['날짜'] || row['계약일'] || '';
-                    return date.includes(selectedYear);
                 });
             }
             
-            console.log(`분석 대상 데이터: ${filteredData.length}건 (${selectedYear}년)`);
+            // 검색 이벤트
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', handleSearch);
+            }
             
-            // 고객별 집계
-            const customerMap = new Map();
-            const regionMap = new Map();
-            const monthlyMap = new Map();
+            // 내보내기 이벤트
+            document.getElementById('exportCustomerBtn')?.addEventListener('click', () => 
+                exportTable('customerTable', '고객별_매출순위.csv'));
+            document.getElementById('exportRegionBtn')?.addEventListener('click', () => 
+                exportTable('regionTable', '지역별_매출분석.csv'));
+            document.getElementById('exportTypeBtn')?.addEventListener('click', () => 
+                exportTable('typeTable', '수요기관별_분석.csv'));
+            document.getElementById('exportPrivateBtn')?.addEventListener('click', () => 
+                exportTable('privateTable', '사급판매_현황.csv'));
             
-            filteredData.forEach(row => {
-                const customer = (row['수요기관'] || row['거래처'] || row['발주처'] || '').trim();
-                const amountStr = row['금액'] || row['계약금액'] || row['합계'] || '0';
-                const amount = parseInt(amountStr.toString().replace(/[^\d]/g, '')) || 0;
-                const date = row['주문일자'] || row['날짜'] || row['계약일'] || '';
-                const contractName = row['계약명'] || row['사업명'] || '';
-                const region = extractRegion(customer);
-                
-                if (!customer || amount <= 0) return;
-                
-                // 고객별 집계
-                if (!customerMap.has(customer)) {
-                    customerMap.set(customer, {
-                        customer: customer,
-                        region: region,
-                        count: 0,
-                        amount: 0,
-                        lastDate: date,
-                        contracts: []
-                    });
-                }
-                const customerData = customerMap.get(customer);
-                customerData.count++;
-                customerData.amount += amount;
-                customerData.contracts.push(contractName);
-                if (date > customerData.lastDate) customerData.lastDate = date;
-                
-                // 지역별 집계
-                if (!regionMap.has(region)) {
-                    regionMap.set(region, {
-                        region: region,
-                        customerCount: new Set(),
-                        contractCount: 0,
-                        amount: 0
-                    });
-                }
-                const regionData = regionMap.get(region);
-                regionData.customerCount.add(customer);
-                regionData.contractCount++;
-                regionData.amount += amount;
-                
-                // 월별 집계
-                if (date.length >= 7) {
-                    const yearMonth = date.substring(0, 7); // YYYY-MM
-                    if (!monthlyMap.has(yearMonth)) {
-                        monthlyMap.set(yearMonth, {
-                            yearMonth: yearMonth,
-                            count: 0,
-                            amount: 0,
-                            customers: new Set(),
-                            topCustomer: { name: '', amount: 0 }
-                        });
+            // 초기 데이터 로드 시도
+            if (window.CustomerAnalysis) {
+                console.log('고객 분석 모듈 확인됨, 초기 분석 시작');
+                window.CustomerAnalysis.analyzeCustomers();
+            } else {
+                console.warn('CustomerAnalysis 모듈이 로드되지 않음');
+                // 모듈 로드 대기
+                const checkInterval = setInterval(() => {
+                    if (window.CustomerAnalysis) {
+                        clearInterval(checkInterval);
+                        console.log('CustomerAnalysis 모듈 로드 확인, 분석 시작');
+                        window.CustomerAnalysis.analyzeCustomers();
                     }
-                    const monthlyData = monthlyMap.get(yearMonth);
-                    monthlyData.count++;
-                    monthlyData.amount += amount;
-                    monthlyData.customers.add(customer);
-                    
-                    // 해당 월 최대 고객 찾기
-                    if (amount > monthlyData.topCustomer.amount) {
-                        monthlyData.topCustomer = { name: customer, amount: amount };
-                    }
-                }
-            });
-            
-            // 배열 변환 및 정렬
-            const customers = Array.from(customerMap.values())
-                .sort((a, b) => b.amount - a.amount)
-                .map((item, index) => ({ ...item, rank: index + 1 }));
-            
-            const regions = Array.from(regionMap.values())
-                .map(item => ({
-                    ...item,
-                    customerCount: item.customerCount.size,
-                    avgAmount: item.contractCount > 0 ? item.amount / item.contractCount : 0
-                }))
-                .sort((a, b) => b.amount - a.amount);
-            
-            const monthly = Array.from(monthlyMap.values())
-                .map(item => ({
-                    ...item,
-                    customerCount: item.customers.size,
-                    mainCustomer: item.topCustomer.name
-                }))
-                .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
-            
-            // 비중 계산
-            const totalAmount = customers.reduce((sum, item) => sum + item.amount, 0);
-            customers.forEach(item => {
-                item.share = totalAmount > 0 ? (item.amount / totalAmount * 100) : 0;
-            });
-            regions.forEach(item => {
-                item.share = totalAmount > 0 ? (item.amount / totalAmount * 100) : 0;
-            });
-            
-            return {
-                customers: customers,
-                regions: regions,
-                monthly: monthly,
-                summary: {
-                    totalCustomers: customers.length,
-                    totalAmount: totalAmount,
-                    avgAmount: customers.length > 0 ? totalAmount / customers.length : 0,
-                    maxShare: customers.length > 0 ? customers[0].share : 0
-                }
-            };
-        }
-
-        // 지역 추출
-        function extractRegion(customerName) {
-            if (!customerName) return '기타';
-            
-            const regionMap = {
-                '서울': '서울특별시', '경기': '경기도', '강원': '강원도',
-                '충북': '충청북도', '충남': '충청남도', '전북': '전라북도', '전남': '전라남도',
-                '경북': '경상북도', '경남': '경상남도', '제주': '제주특별자치도',
-                '부산': '부산광역시', '대구': '대구광역시', '인천': '인천광역시',
-                '광주': '광주광역시', '대전': '대전광역시', '울산': '울산광역시'
-            };
-            
-            for (const [key, value] of Object.entries(regionMap)) {
-                if (customerName.includes(key)) return value;
+                }, 100);
+                
+                // 5초 후 타임아웃
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    console.error('CustomerAnalysis 모듈 로드 실패');
+                }, 5000);
             }
-            return '기타';
-        }
-
-        // 요약 통계 업데이트
-        function updateSummaryStats() {
-            const { summary } = currentData;
-            
-            document.getElementById('totalCustomers').textContent = formatNumber(summary.totalCustomers) + '개';
-            document.getElementById('totalAmount').textContent = formatCurrency(summary.totalAmount);
-            document.getElementById('maxShare').textContent = summary.maxShare.toFixed(1) + '%';
-            document.getElementById('avgAmount').textContent = formatCurrency(Math.round(summary.avgAmount));
-        }
-
-        // 모든 테이블 렌더링
-        function renderAllTables() {
-            updateSummaryStats();
-            renderCustomerTable();
-            renderRegionTable();
-            renderMonthlyTable();
-        }
-
-        // 고객별 테이블 렌더링
-        function renderCustomerTable() {
-            const tbody = document.getElementById('customerTableBody');
-            tbody.innerHTML = '';
-            
-            if (currentData.customers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">해당 조건의 데이터가 없습니다.</td></tr>';
-                return;
-            }
-            
-            currentData.customers.forEach((customer, index) => {
-                const row = document.createElement('tr');
-                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                
-                // 순위별 특별 스타일
-                if (customer.rank <= 3) {
-                    row.classList.add(`rank-${customer.rank}`);
-                }
-                
-                // 비중별 색상 클래스
-                let shareClass = 'share-low';
-                if (customer.share >= 30) shareClass = 'share-critical';
-                else if (customer.share >= 20) shareClass = 'share-high';
-                else if (customer.share >= 10) shareClass = 'share-medium';
-                
-                row.innerHTML = `
-                    <td class="px-4 py-3 text-center font-medium">${customer.rank}</td>
-                    <td class="px-4 py-3 font-medium">${customer.customer}</td>
-                    <td class="px-4 py-3 text-center mobile-hidden">${customer.region}</td>
-                    <td class="px-4 py-3 text-center">${formatNumber(customer.count)}</td>
-                    <td class="px-4 py-3 text-right font-medium text-green-600">${formatCurrency(customer.amount)}</td>
-                    <td class="px-4 py-3 text-right font-medium ${shareClass}">${customer.share.toFixed(1)}%</td>
-                    <td class="px-4 py-3 text-center mobile-hidden">${formatDate(customer.lastDate)}</td>
-                `;
-                
-                tbody.appendChild(row);
-            });
-        }
-
-        // 지역별 테이블 렌더링
-        function renderRegionTable() {
-            const tbody = document.getElementById('regionTableBody');
-            tbody.innerHTML = '';
-            
-            if (currentData.regions.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">해당 조건의 데이터가 없습니다.</td></tr>';
-                return;
-            }
-            
-            currentData.regions.forEach((region, index) => {
-                const row = document.createElement('tr');
-                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                
-                row.innerHTML = `
-                    <td class="px-4 py-3 font-medium">${region.region}</td>
-                    <td class="px-4 py-3 text-center">${formatNumber(region.customerCount)}</td>
-                    <td class="px-4 py-3 text-center">${formatNumber(region.contractCount)}</td>
-                    <td class="px-4 py-3 text-right font-medium text-green-600">${formatCurrency(region.amount)}</td>
-                    <td class="px-4 py-3 text-right">${region.share.toFixed(1)}%</td>
-                    <td class="px-4 py-3 text-right mobile-hidden">${formatCurrency(Math.round(region.avgAmount))}</td>
-                `;
-                
-                tbody.appendChild(row);
-            });
-        }
-
-        // 월별 테이블 렌더링
-        function renderMonthlyTable() {
-            const tbody = document.getElementById('monthlyTableBody');
-            tbody.innerHTML = '';
-            
-            if (currentData.monthly.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">해당 조건의 데이터가 없습니다.</td></tr>';
-                return;
-            }
-            
-            currentData.monthly.forEach((month, index) => {
-                const row = document.createElement('tr');
-                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-                
-                const [year, monthNum] = month.yearMonth.split('-');
-                const displayMonth = `${year}년 ${parseInt(monthNum)}월`;
-                
-                row.innerHTML = `
-                    <td class="px-4 py-3 text-center font-medium">${displayMonth}</td>
-                    <td class="px-4 py-3 text-center">${formatNumber(month.count)}</td>
-                    <td class="px-4 py-3 text-right font-medium text-green-600">${formatCurrency(month.amount)}</td>
-                    <td class="px-4 py-3 text-center mobile-hidden">${month.mainCustomer || '-'}</td>
-                `;
-                
-                tbody.appendChild(row);
-            });
-        }
-
-        // 탭 전환
+        });
+        
+        // 탭 전환 함수
         function showTab(tabName) {
-            // 탭 버튼 활성화
+            // 모든 탭 비활성화
             document.querySelectorAll('.analysis-tab').forEach(tab => {
                 tab.classList.remove('active');
             });
             
+            // 선택된 탭 활성화
             document.getElementById(tabName + 'Tab').classList.add('active');
             
-            // 패널 표시/숨김
+            // 모든 패널 숨김
             document.querySelectorAll('.tab-panel').forEach(panel => {
                 panel.classList.add('hidden');
             });
             
+            // 선택된 패널 표시
             document.getElementById(tabName + 'Panel').classList.remove('hidden');
         }
-
-        // 검색 기능
+        
+        // 검색 함수
         function handleSearch() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const activePanel = document.querySelector('.tab-panel:not(.hidden)');
-            const table = activePanel.querySelector('table tbody');
+            const table = activePanel?.querySelector('table tbody');
             
-            Array.from(table.querySelectorAll('tr')).forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
-            });
+            if (table) {
+                Array.from(table.querySelectorAll('tr')).forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                });
+            }
         }
-
-        // 샘플 데이터 로드 (연결 실패시)
-        function loadSampleData() {
-            console.log('샘플 데이터 로드');
-            
-            const sampleCustomers = [
-                { customer: '경기도 양주시', region: '경기도', amount: 15000000, count: 3, lastDate: '2024-01-15' },
-                { customer: '의정부시', region: '경기도', amount: 28000000, count: 5, lastDate: '2024-02-10' },
-                { customer: '서울시', region: '서울특별시', amount: 32000000, count: 4, lastDate: '2024-02-05' },
-                { customer: '부천시', region: '경기도', amount: 45000000, count: 7, lastDate: '2024-03-12' },
-                { customer: '춘천시', region: '강원도', amount: 22000000, count: 2, lastDate: '2024-03-20' }
-            ];
-            
-            // 샘플 데이터로 분석
-            const totalAmount = sampleCustomers.reduce((sum, item) => sum + item.amount, 0);
-            
-            currentData = {
-                customers: sampleCustomers.map((item, index) => ({
-                    ...item,
-                    rank: index + 1,
-                    share: (item.amount / totalAmount * 100)
-                })),
-                regions: [
-                    { region: '경기도', customerCount: 3, contractCount: 15, amount: 88000000, share: 60.3, avgAmount: 5866667 },
-                    { region: '서울특별시', customerCount: 1, contractCount: 4, amount: 32000000, share: 21.9, avgAmount: 8000000 },
-                    { region: '강원도', customerCount: 1, contractCount: 2, amount: 22000000, share: 15.1, avgAmount: 11000000 }
-                ],
-                monthly: [
-                    { yearMonth: '2024-01', count: 3, amount: 15000000, mainCustomer: '경기도 양주시' },
-                    { yearMonth: '2024-02', count: 9, amount: 60000000, mainCustomer: '서울시' },
-                    { yearMonth: '2024-03', count: 9, amount: 67000000, mainCustomer: '부천시' }
-                ],
-                summary: {
-                    totalCustomers: sampleCustomers.length,
-                    totalAmount: totalAmount,
-                    avgAmount: totalAmount / sampleCustomers.length,
-                    maxShare: 31.0
-                }
-            };
-            
-            renderAllTables();
-        }
-
-        // 알림 표시
-        function showAlert(message, type = 'info') {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full`;
-            
-            const bgColor = {
-                success: 'bg-green-100 border-green-400 text-green-700',
-                error: 'bg-red-100 border-red-400 text-red-700',
-                warning: 'bg-yellow-100 border-yellow-400 text-yellow-700',
-                info: 'bg-blue-100 border-blue-400 text-blue-700'
-            };
-            
-            alertDiv.className += ` ${bgColor[type]} border-l-4`;
-            alertDiv.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <span>${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-lg leading-none hover:text-gray-600">×</button>
-                </div>
-            `;
-            
-            document.body.appendChild(alertDiv);
-            
-            // 애니메이션
-            setTimeout(() => alertDiv.classList.remove('translate-x-full'), 100);
-            
-            // 5초 후 자동 제거
-            setTimeout(() => {
-                if (alertDiv.parentElement) {
-                    alertDiv.classList.add('translate-x-full');
-                    setTimeout(() => alertDiv.remove(), 300);
-                }
-            }, 5000);
-        }
-
-        // CSV 내보내기
+        
+        // CSV 내보내기 함수
         function exportTable(tableId, filename) {
-            const table = document.getElementById(tableId);
-            const rows = Array.from(table.querySelectorAll('tr'));
-            
-            const csv = rows.map(row => {
-                const cells = Array.from(row.querySelectorAll('th, td'));
-                return cells.map(cell => {
-                    const text = cell.textContent.trim();
-                    return text.includes(',') ? `"${text}"` : text;
-                }).join(',');
-            }).join('\n');
-            
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            link.click();
-            URL.revokeObjectURL(link.href);
-            
-            showAlert(`${filename} 파일이 다운로드되었습니다.`, 'success');
+            if (window.CommonUtils && CommonUtils.exportTableToCSV) {
+                const table = document.getElementById(tableId);
+                CommonUtils.exportTableToCSV(table, filename);
+            } else {
+                alert('내보내기 기능을 사용할 수 없습니다.');
+            }
         }
-
-        // 페이지 초기화
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('매출처별 집계 (Cloudflare D1 연동) 페이지 로드');
-            
-            // 탭 이벤트
-            document.getElementById('customerTab').addEventListener('click', () => showTab('customer'));
-            document.getElementById('regionTab').addEventListener('click', () => showTab('region'));
-            document.getElementById('monthlyTab').addEventListener('click', () => showTab('monthly'));
-            
-            // 분석 버튼
-            document.getElementById('analyzeBtn').addEventListener('click', () => {
-                if (rawSheetData.length > 0) {
-                    currentData = analyzeData(rawSheetData);
-                    renderAllTables();
-                    showAlert('분석이 완료되었습니다.', 'success');
-                } else {
-                    showAlert('먼저 데이터 동기화를 실행해주세요.', 'warning');
-                }
-            });
-            
-            // 동기화 버튼
-            document.getElementById('syncBtn').addEventListener('click', syncData);
-            
-            // 검색 이벤트
-            document.getElementById('searchInput').addEventListener('input', handleSearch);
-            
-            // 내보내기 이벤트
-            document.getElementById('exportCustomerBtn').addEventListener('click', () => 
-                exportTable('customerTable', '두발로_고객별매출분석.csv'));
-            document.getElementById('exportRegionBtn').addEventListener('click', () => 
-                exportTable('regionTable', '두발로_지역별매출분석.csv'));
-            document.getElementById('exportMonthlyBtn').addEventListener('click', () => 
-                exportTable('monthlyTable', '두발로_월별매출현황.csv'));
-            
-            // 자동 초기화: 샘플 데이터부터 표시
-            console.log('샘플 데이터로 초기화...');
-            loadSampleData();
-            
-            // 1초 후 실제 데이터 동기화 시도
-            setTimeout(() => {
-                console.log('실제 데이터 동기화 시도...');
-                syncData();
-            }, 1000);
-        });
     </script>
 </body>
 </html>
