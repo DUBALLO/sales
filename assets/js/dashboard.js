@@ -111,7 +111,7 @@ async function loadDashboardData() {
                     throw new Error('Google Sheets 연결 테스트 실패');
                 }
 
-                const rawData = await window.sheetsAPI.loadCSVData();
+                const rawData = await window.sheetsAPI.loadCSVData('monthlySales'); 
                 console.log('Google Sheets 데이터 로드 성공:', rawData.length, '건');
                 
                 if (!rawData || rawData.length === 0) {
