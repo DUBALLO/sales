@@ -1,4 +1,4 @@
-// 매출처별 집계 분석 JavaScript (디버깅 강화 버전)
+// 매출처별 집계 분석 JavaScript (컬럼명 교정 버전)
 
 // 전역 변수
 let governmentData = []; // 관급 데이터
@@ -197,7 +197,7 @@ async function analyzeCustomers() {
                     console.log('첫 번째 행 샘플:', rawData[0]);
                     console.log('컬럼명들:', Object.keys(rawData[0]));
                     
-                    // 실제 데이터 파싱
+                    // 실제 데이터 파싱 (수정된 버전)
                     parseRealData(rawData);
                     useRealData = true;
                     
@@ -260,36 +260,49 @@ async function analyzeCustomers() {
     }
 }
 
-// 실제 데이터 파싱 함수
+// 🎯 수정된 실제 데이터 파싱 함수 (올바른 컬럼명 사용)
 function parseRealData(rawData) {
-    console.log('=== 실제 데이터 파싱 시작 ===');
+    console.log('=== 실제 데이터 파싱 시작 (컬럼명 교정) ===');
     
     governmentData = [];
     privateSalesData = [];
     
+    // 컬럼명 확인
+    const firstRow = rawData[0];
+    console.log('사용 가능한 컬럼들:', Object.keys(firstRow));
+    
+    let dubaloCount = 0;
+    
     rawData.forEach((item, index) => {
         try {
-            // 두발로 주식회사 데이터만 필터링
+            // 🎯 올바른 컬럼명 사용: '업체' (업체명, 회사명, 거래처 등이 아님)
             const company = (item['업체'] || '').trim();
-            if (company !== '두발로 주식회사') return; // 두발로가 아니면 건너뛰기
-
-            // 나라장터 조달 데이터 매핑
+            
+            // 두발로 주식회사 데이터만 필터링
+            if (company !== '두발로 주식회사') return;
+            
+            dubaloCount++;
+            
+            // 나라장터 조달 데이터 매핑 (올바른 컬럼명들)
             const customer = (item['수요기관명'] || '').trim();
             const contractName = (item['계약명'] || '').trim();
             const amountValue = item['공급금액'] || '0';
             const dateValue = item['기준일자'] || '';
             const product = (item['세부품명'] || '').trim();
             const region = (item['수요기관지역'] || '').trim();
+            const customerType = item['소관구분'] || '지방자치단체'; // 소관구분이 고객 유형
             
             // 디버깅 로그 (처음 3개 행만)
-            if (index < 3) {
-                console.log(`행 ${index + 1}:`, {
-                    구분: typeValue,
-                    거래처: customer,
+            if (dubaloCount <= 3) {
+                console.log(`두발로 데이터 ${dubaloCount}:`, {
+                    업체: company,
+                    수요기관: customer,
                     계약명: contractName,
                     금액: amountValue,
                     날짜: dateValue,
-                    품목: product
+                    품목: product,
+                    지역: region,
+                    소관구분: customerType
                 });
             }
             
@@ -302,22 +315,16 @@ function parseRealData(rawData) {
             const baseData = {
                 customer: customer,
                 region: extractRegion(customer),
-                customerType: '지방자치단체', // 기본값
+                customerType: customerType, // 실제 소관구분 사용
                 amount: amount,
                 contractDate: dateValue,
                 contractName: contractName || '계약명 없음',
                 product: product || '기타'
             };
             
-            // 관급/사급 분류
-            if (typeValue.includes('관급')) {
-                governmentData.push(baseData);
-            } else if (typeValue.includes('사급')) {
-                privateSalesData.push({
-                    ...baseData,
-                    customerType: '민간'
-                });
-            }
+            // 🎯 임시로 모든 데이터를 관급으로 분류 (구분 컬럼이 명확하지 않음)
+            // 추후 계약유형이나 다른 기준으로 관급/사급 구분 가능
+            governmentData.push(baseData);
             
         } catch (error) {
             console.warn(`행 ${index + 1} 파싱 오류:`, error.message);
@@ -325,7 +332,8 @@ function parseRealData(rawData) {
     });
     
     console.log('데이터 파싱 완료');
-    console.log(`관급: ${governmentData.length}건, 사급: ${privateSalesData.length}건`);
+    console.log(`전체 ${rawData.length}건 중 두발로 주식회사: ${dubaloCount}건`);
+    console.log(`유효한 관급 데이터: ${governmentData.length}건`);
 }
 
 // 관급 데이터 분석
@@ -339,194 +347,6 @@ function analyzeGovernmentData(selectedYear, selectedProduct) {
         const year = parseInt(selectedYear);
         filteredData = filteredData.filter(item => {
             const date = parseDate(item.contractDate || '');
-            return date && date.getFullYear() === year;
-        });
-        console.log(`연도 필터링 후: ${filteredData.length}건`);
-    }
-    
-    // 품목 필터링
-    if (selectedProduct !== 'all') {
-        filteredData = filteredData.filter(item => 
-            item.product === selectedProduct
-        );
-        console.log(`품목 필터링 후: ${filteredData.length}건`);
-    }
-    
-    // 고객별 집계
-    analyzeCustomerData(filteredData);
-    analyzeRegionData(filteredData);
-    analyzeTypeData(filteredData);
-}
-
-// 사급 데이터 분석
-function analyzePrivateData(selectedYear) {
-    console.log(`=== 사급 데이터 분석: ${selectedYear}년 ===`);
-    
-    let filteredData = [...privateSalesData];
-    
-    if (selectedYear !== 'all') {
-        const year = parseInt(selectedYear);
-        filteredData = filteredData.filter(item => {
-            const date = parseDate(item.contractDate || '');
-            return date && date.getFullYear() === year;
-        });
-        console.log(`사급 연도 필터링 후: ${filteredData.length}건`);
-    }
-    
-    analyzePrivateCustomerData(filteredData);
-}
-
-// 고객별 데이터 분석
-function analyzeCustomerData(data) {
-    console.log('=== 고객별 데이터 분석 ===');
-    
-    const customerMap = new Map();
-    
-    data.forEach(item => {
-        const customer = item.customer || '';
-        
-        if (!customerMap.has(customer)) {
-            customerMap.set(customer, {
-                customer: customer,
-                region: item.region || '',
-                customerType: item.customerType || '지방자치단체',
-                count: 0,
-                amount: 0,
-                contracts: [],
-                lastTransactionDate: null
-            });
-        }
-        
-        const customerInfo = customerMap.get(customer);
-        customerInfo.count++;
-        customerInfo.amount += item.amount || 0;
-        customerInfo.contracts.push(item);
-        
-        const date = parseDate(item.contractDate || '');
-        if (!customerInfo.lastTransactionDate || (date && date > customerInfo.lastTransactionDate)) {
-            customerInfo.lastTransactionDate = date;
-        }
-    });
-    
-    // 배열로 변환 및 정렬
-    customerData = Array.from(customerMap.values());
-    customerData.sort((a, b) => b.amount - a.amount);
-    
-    // 순위 및 비중 계산
-    const totalAmount = customerData.reduce((sum, item) => sum + item.amount, 0);
-    customerData.forEach((item, index) => {
-        item.rank = index + 1;
-        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
-    });
-    
-    console.log(`고객별 분석 완료: ${customerData.length}개 고객`);
-}
-
-// 지역별 데이터 분석
-function analyzeRegionData(data) {
-    const regionMap = new Map();
-    
-    data.forEach(item => {
-        const region = item.region || '';
-        
-        if (!regionMap.has(region)) {
-            regionMap.set(region, {
-                region: region,
-                customerCount: new Set(),
-                contractCount: 0,
-                amount: 0
-            });
-        }
-        
-        const regionInfo = regionMap.get(region);
-        regionInfo.customerCount.add(item.customer);
-        regionInfo.contractCount++;
-        regionInfo.amount += item.amount || 0;
-    });
-    
-    // 배열로 변환
-    regionData = Array.from(regionMap.values()).map(item => ({
-        region: item.region,
-        customerCount: item.customerCount.size,
-        contractCount: item.contractCount,
-        amount: item.amount,
-        avgAmount: item.contractCount > 0 ? item.amount / item.contractCount : 0
-    }));
-    
-    regionData.sort((a, b) => b.amount - a.amount);
-    
-    // 비중 계산
-    const totalAmount = regionData.reduce((sum, item) => sum + item.amount, 0);
-    regionData.forEach(item => {
-        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
-    });
-}
-
-// 수요기관별 데이터 분석
-function analyzeTypeData(data) {
-    const typeMap = new Map();
-    
-    data.forEach(item => {
-        const type = item.customerType || '지방자치단체';
-        
-        if (!typeMap.has(type)) {
-            typeMap.set(type, {
-                customerType: type,
-                customerCount: new Set(),
-                contractCount: 0,
-                amount: 0
-            });
-        }
-        
-        const typeInfo = typeMap.get(type);
-        typeInfo.customerCount.add(item.customer);
-        typeInfo.contractCount++;
-        typeInfo.amount += item.amount || 0;
-    });
-    
-    // 배열로 변환
-    typeData = Array.from(typeMap.values()).map(item => ({
-        customerType: item.customerType,
-        customerCount: item.customerCount.size,
-        contractCount: item.contractCount,
-        amount: item.amount,
-        avgAmount: item.contractCount > 0 ? item.amount / item.contractCount : 0
-    }));
-    
-    typeData.sort((a, b) => b.amount - a.amount);
-    
-    // 비중 계산
-    const totalAmount = typeData.reduce((sum, item) => sum + item.amount, 0);
-    typeData.forEach(item => {
-        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
-    });
-}
-
-// 사급 고객별 데이터 분석
-function analyzePrivateCustomerData(data) {
-    const customerMap = new Map();
-    
-    data.forEach(item => {
-        const customer = item.customer || '';
-        
-        if (!customerMap.has(customer)) {
-            customerMap.set(customer, {
-                customer: customer,
-                region: item.region || '',
-                customerType: item.customerType || '민간',
-                count: 0,
-                amount: 0,
-                contracts: [],
-                lastTransactionDate: null
-            });
-        }
-        
-        const customerInfo = customerMap.get(customer);
-        customerInfo.count++;
-        customerInfo.amount += item.amount || 0;
-        customerInfo.contracts.push(item);
-        
-        const date = parseDate(item.contractDate || '');
         if (!customerInfo.lastTransactionDate || (date && date > customerInfo.lastTransactionDate)) {
             customerInfo.lastTransactionDate = date;
         }
@@ -813,4 +633,192 @@ window.CustomerAnalysis = {
     generateSampleData: generateSampleData
 };
 
-console.log('=== CustomerAnalysis 모듈 로드 완료 ===');
+console.log('=== CustomerAnalysis 모듈 로드 완료 (컬럼명 교정) ===');(item.contractDate || '');
+            return date && date.getFullYear() === year;
+        });
+        console.log(`연도 필터링 후: ${filteredData.length}건`);
+    }
+    
+    // 품목 필터링
+    if (selectedProduct !== 'all') {
+        filteredData = filteredData.filter(item => 
+            item.product === selectedProduct
+        );
+        console.log(`품목 필터링 후: ${filteredData.length}건`);
+    }
+    
+    // 고객별 집계
+    analyzeCustomerData(filteredData);
+    analyzeRegionData(filteredData);
+    analyzeTypeData(filteredData);
+}
+
+// 사급 데이터 분석
+function analyzePrivateData(selectedYear) {
+    console.log(`=== 사급 데이터 분석: ${selectedYear}년 ===`);
+    
+    let filteredData = [...privateSalesData];
+    
+    if (selectedYear !== 'all') {
+        const year = parseInt(selectedYear);
+        filteredData = filteredData.filter(item => {
+            const date = parseDate(item.contractDate || '');
+            return date && date.getFullYear() === year;
+        });
+        console.log(`사급 연도 필터링 후: ${filteredData.length}건`);
+    }
+    
+    analyzePrivateCustomerData(filteredData);
+}
+
+// 고객별 데이터 분석
+function analyzeCustomerData(data) {
+    console.log('=== 고객별 데이터 분석 ===');
+    
+    const customerMap = new Map();
+    
+    data.forEach(item => {
+        const customer = item.customer || '';
+        
+        if (!customerMap.has(customer)) {
+            customerMap.set(customer, {
+                customer: customer,
+                region: item.region || '',
+                customerType: item.customerType || '지방자치단체',
+                count: 0,
+                amount: 0,
+                contracts: [],
+                lastTransactionDate: null
+            });
+        }
+        
+        const customerInfo = customerMap.get(customer);
+        customerInfo.count++;
+        customerInfo.amount += item.amount || 0;
+        customerInfo.contracts.push(item);
+        
+        const date = parseDate(item.contractDate || '');
+        if (!customerInfo.lastTransactionDate || (date && date > customerInfo.lastTransactionDate)) {
+            customerInfo.lastTransactionDate = date;
+        }
+    });
+    
+    // 배열로 변환 및 정렬
+    customerData = Array.from(customerMap.values());
+    customerData.sort((a, b) => b.amount - a.amount);
+    
+    // 순위 및 비중 계산
+    const totalAmount = customerData.reduce((sum, item) => sum + item.amount, 0);
+    customerData.forEach((item, index) => {
+        item.rank = index + 1;
+        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
+    });
+    
+    console.log(`고객별 분석 완료: ${customerData.length}개 고객`);
+}
+
+// 지역별 데이터 분석
+function analyzeRegionData(data) {
+    const regionMap = new Map();
+    
+    data.forEach(item => {
+        const region = item.region || '';
+        
+        if (!regionMap.has(region)) {
+            regionMap.set(region, {
+                region: region,
+                customerCount: new Set(),
+                contractCount: 0,
+                amount: 0
+            });
+        }
+        
+        const regionInfo = regionMap.get(region);
+        regionInfo.customerCount.add(item.customer);
+        regionInfo.contractCount++;
+        regionInfo.amount += item.amount || 0;
+    });
+    
+    // 배열로 변환
+    regionData = Array.from(regionMap.values()).map(item => ({
+        region: item.region,
+        customerCount: item.customerCount.size,
+        contractCount: item.contractCount,
+        amount: item.amount,
+        avgAmount: item.contractCount > 0 ? item.amount / item.contractCount : 0
+    }));
+    
+    regionData.sort((a, b) => b.amount - a.amount);
+    
+    // 비중 계산
+    const totalAmount = regionData.reduce((sum, item) => sum + item.amount, 0);
+    regionData.forEach(item => {
+        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
+    });
+}
+
+// 수요기관별 데이터 분석
+function analyzeTypeData(data) {
+    const typeMap = new Map();
+    
+    data.forEach(item => {
+        const type = item.customerType || '지방자치단체';
+        
+        if (!typeMap.has(type)) {
+            typeMap.set(type, {
+                customerType: type,
+                customerCount: new Set(),
+                contractCount: 0,
+                amount: 0
+            });
+        }
+        
+        const typeInfo = typeMap.get(type);
+        typeInfo.customerCount.add(item.customer);
+        typeInfo.contractCount++;
+        typeInfo.amount += item.amount || 0;
+    });
+    
+    // 배열로 변환
+    typeData = Array.from(typeMap.values()).map(item => ({
+        customerType: item.customerType,
+        customerCount: item.customerCount.size,
+        contractCount: item.contractCount,
+        amount: item.amount,
+        avgAmount: item.contractCount > 0 ? item.amount / item.contractCount : 0
+    }));
+    
+    typeData.sort((a, b) => b.amount - a.amount);
+    
+    // 비중 계산
+    const totalAmount = typeData.reduce((sum, item) => sum + item.amount, 0);
+    typeData.forEach(item => {
+        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
+    });
+}
+
+// 사급 고객별 데이터 분석
+function analyzePrivateCustomerData(data) {
+    const customerMap = new Map();
+    
+    data.forEach(item => {
+        const customer = item.customer || '';
+        
+        if (!customerMap.has(customer)) {
+            customerMap.set(customer, {
+                customer: customer,
+                region: item.region || '',
+                customerType: item.customerType || '민간',
+                count: 0,
+                amount: 0,
+                contracts: [],
+                lastTransactionDate: null
+            });
+        }
+        
+        const customerInfo = customerMap.get(customer);
+        customerInfo.count++;
+        customerInfo.amount += item.amount || 0;
+        customerInfo.contracts.push(item);
+        
+        const date = parseDate
