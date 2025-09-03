@@ -190,7 +190,7 @@ async function analyzeCustomers() {
         if (window.sheetsAPI) {
             try {
                 console.log('sheets-api를 통한 실제 데이터 로드 시도...');
-                const rawData = await window.sheetsAPI.loadProcurementData();
+                const rawData = await window.sheetsAPI.loadCSVData('procurement');
                 console.log('sheets-api에서 로드된 원시 데이터:', rawData.length, '건');
                 
                 if (rawData && rawData.length > 0) {
