@@ -148,9 +148,9 @@ async function loadSalesData() {
         
         let rawData;
         if (window.sheetsAPI) {
-            rawData = await window.sheetsAPI.loadCSVData();
+        rawData = await window.sheetsAPI.loadCSVData('monthlySales');
         } else {
-            throw new Error('sheets-api.js가 로드되지 않았습니다.');
+        throw new Error('sheets-api.js가 로드되지 않았습니다.');
         }
         
         console.log(`${rawData.length}개의 원시 데이터 로드 완료`);
