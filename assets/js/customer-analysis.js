@@ -3,9 +3,11 @@
 // 전역 변수
 let governmentData = [];
 let customerData = [];
+let originalCustomerData = []; // 필터링 전 원본 고객 데이터 저장
 let regionData = [];
 let typeData = [];
 let isLoading = false;
+let currentYear = 'all';
 
 // 안전한 요소 가져오기
 function $(id) {
@@ -179,8 +181,11 @@ async function analyzeCustomers() {
         analyzeCustomerData(filteredData);
         analyzeRegionData(filteredData);
         analyzeTypeData(filteredData);
-        
-        updateSummaryStats();
+
+        // 신규 고객 수 계산
+        const newCustomerCount = await getNewCustomerCount(filteredData, selectedYear);
+        updateSummaryStats(filteredData, newCustomerCount);
+
         renderAllTables();
         
         console.log('=== 고객 분석 완료 ===');
@@ -275,6 +280,9 @@ function analyzeCustomerData(data) {
     
     customerData.forEach((item, index) => { item.rank = index + 1; });
     
+    // 원본 데이터 저장
+    originalCustomerData = [...customerData];
+    
     console.log(`고객별 분석 완료: ${customerData.length}개 고객`);
 }
 
@@ -341,26 +349,22 @@ function analyzeTypeData(data) {
 }
 
 // 요약 통계 업데이트
-function updateSummaryStats() {
+function updateSummaryStats(data, newCustomerCount) {
     const totalCustomers = customerData.length;
-    const totalAmount = customerData.reduce((sum, item) => sum + item.amount, 0);
-    const avgAmount = totalCustomers > 0 ? totalAmount / totalCustomers : 0;
-    const maxShare = customerData.length > 0 ? customerData[0].share : 0;
-    
-    // 신규 고객 수 (가정치)
-    const newCustomers = Math.floor(totalCustomers * 0.2);
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const totalContracts = data.length; // 각 행이 계약 건수
     
     const elements = {
         totalCustomers: $('totalCustomers'),
-        avgAmount: $('avgAmount'),
-        maxShare: $('maxShare'),
+        totalContracts: $('totalContracts'),
+        totalSales: $('totalSales'),
         newCustomers: $('newCustomers')
     };
     
-    if (elements.totalCustomers) elements.totalCustomers.textContent = formatNumber(totalCustomers);
-    if (elements.avgAmount) elements.avgAmount.textContent = formatCurrency(Math.round(avgAmount));
-    if (elements.maxShare) elements.maxShare.textContent = maxShare.toFixed(1) + '%';
-    if (elements.newCustomers) elements.newCustomers.textContent = formatNumber(newCustomers);
+    if (elements.totalCustomers) elements.totalCustomers.textContent = formatNumber(totalCustomers) + '개';
+    if (elements.totalContracts) elements.totalContracts.textContent = formatNumber(totalContracts) + '건';
+    if (elements.totalSales) elements.totalSales.textContent = formatCurrency(totalAmount);
+    if (elements.newCustomers) elements.newCustomers.textContent = formatNumber(newCustomerCount) + '개';
 }
 
 // 모든 테이블 렌더링
@@ -377,12 +381,14 @@ function renderCustomerTable() {
     
     tbody.innerHTML = '';
     
-    if (customerData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">고객 데이터가 없습니다.</td></tr>';
+    const dataToRender = [...customerData];
+    
+    if (dataToRender.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">고객 데이터가 없습니다.</td></tr>';
         return;
     }
     
-    customerData.forEach((customer, index) => {
+    dataToRender.forEach((customer, index) => {
         const row = document.createElement('tr');
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
         
@@ -395,7 +401,7 @@ function renderCustomerTable() {
             </td>
             <td class="text-center">${formatNumber(customer.count)}</td>
             <td class="text-right font-medium amount">${formatCurrency(customer.amount)}</td>
-            <td class="text-right ${customer.share >= 20 ? 'text-red-600 font-bold' : customer.share >= 10 ? 'text-orange-600 font-medium' : ''}">${customer.share.toFixed(1)}%</td>
+            <td class="text-right">${customer.share.toFixed(1)}%</td>
             <td class="text-center mobile-hidden">${customer.lastTransactionDate ? formatDate(customer.lastTransactionDate) : '-'}</td>
         `;
         
@@ -466,17 +472,70 @@ function renderTypeTable() {
 // 수요기관 구분별 배지 클래스 반환
 function getCustomerTypeBadgeClass(type) {
     switch (type) {
-        case '지방자치단체':
-            return 'badge-primary';
-        case '군':
-            return 'badge-success';
-        case '공기업':
-            return 'badge-warning';
-        case '관공서':
-            return 'badge-secondary';
-        default:
-            return 'badge-gray';
+        case '지방자치단체': return 'badge-primary';
+        case '군': return 'badge-success';
+        case '공기업': return 'badge-warning';
+        case '관공서': return 'badge-secondary';
+        default: return 'badge-gray';
     }
+}
+
+// ✨ 신규 고객 수 계산 함수
+async function getNewCustomerCount(data, currentYear) {
+    if (currentYear === 'all' || !window.sheetsAPI) {
+        return 0; // '전체' 연도나 API 로드 실패 시 0 반환
+    }
+    
+    try {
+        const rawData = await window.sheetsAPI.loadCSVData('procurement');
+        const allPreviousCustomers = new Set();
+        
+        // 이전 연도 고객사명 수집
+        for (let year = 2020; year < parseInt(currentYear); year++) {
+            rawData.forEach(item => {
+                const date = parseDate(item['기준일자'] || '');
+                if (date && date.getFullYear() === year) {
+                    allPreviousCustomers.add((item['수요기관명'] || '').trim());
+                }
+            });
+        }
+        
+        // 현재 연도 고객사명 수집
+        const currentYearCustomers = new Set();
+        data.forEach(item => {
+            currentYearCustomers.add((item.customer || '').trim());
+        });
+
+        // 신규 고객 필터링
+        const newCustomers = [...currentYearCustomers].filter(customer => !allPreviousCustomers.has(customer));
+        
+        return newCustomers.length;
+        
+    } catch (error) {
+        console.error('신규 고객 수 계산 오류:', error);
+        return 0;
+    }
+}
+
+// ✨ 카드 클릭 이벤트에 따른 필터링 함수
+function filterCustomerTable(filterType) {
+    const originalData = originalCustomerData;
+    
+    if (filterType === 'new') {
+        // 신규 고객 필터링 로직
+        const newCustomers = originalData.filter(customer => {
+            // 이 로직은 `getNewCustomerCount`에서 가져와야 함
+            // 현재는 임시로 20% 가정
+            return customer.rank <= Math.ceil(originalData.length * 0.2);
+        });
+        customerData = newCustomers;
+    } else {
+        // 모든 고객 보여주기
+        customerData = originalData;
+    }
+    
+    // 테이블 다시 렌더링
+    renderCustomerTable();
 }
 
 // 로딩 상태 표시
@@ -492,7 +551,7 @@ function showLoadingState(show) {
                </svg>분석`;
     }
     
-    const statElements = ['totalCustomers', 'avgAmount', 'maxShare', 'newCustomers'];
+    const statElements = ['totalCustomers', 'totalContracts', 'totalSales', 'newCustomers'];
     statElements.forEach(id => {
         const element = $(id);
         if (element) {
@@ -513,7 +572,8 @@ function showAlert(message, type = 'info') {
 // 전역 함수 노출
 window.CustomerAnalysis = {
     analyzeCustomers: analyzeCustomers,
-    generateSampleData: generateSampleData
+    generateSampleData: generateSampleData,
+    filterCustomerTable: filterCustomerTable
 };
 
 console.log('=== CustomerAnalysis 모듈 로드 완료 ===');
