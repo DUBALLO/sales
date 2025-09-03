@@ -271,7 +271,7 @@ function parseRealData(rawData) {
         try {
             // 두발로 주식회사 데이터만 필터링
             const company = (item['업체'] || '').trim();
-            if (company !== '두발로 주식회사') return; // 두발로가 아니면 건너뛰
+            if (company !== '두발로 주식회사') return; // 두발로가 아니면 건너뛰기
 
             // 나라장터 조달 데이터 매핑
             const customer = (item['수요기관명'] || '').trim();
