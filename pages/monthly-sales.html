@@ -10,7 +10,6 @@
     <script src="../assets/js/sheets-api.js"></script>
 </head>
 <body class="bg-gray-50">
-    <!-- 네비게이션 -->
     <nav class="bg-white shadow-sm border-b">
         <div class="max-w-6xl mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
@@ -37,15 +36,12 @@
         </div>
     </nav>
 
-    <!-- 메인 컨텐츠 -->
     <main class="max-w-6xl mx-auto px-4 py-8">
-        <!-- 페이지 헤더 -->
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900 mb-2">월별매출 현황</h1>
             <p class="text-gray-600">월별 매출 데이터를 확인하고 금액을 클릭하여 상세 계약 내역을 조회할 수 있습니다.</p>
         </div>
 
-        <!-- 필터 섹션 -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex flex-wrap items-end gap-4">
                 <div>
@@ -124,7 +120,6 @@
             </div>
         </div>
 
-        <!-- 데이터 업로드 패널 (숨겨짐) -->
         <div id="uploadPanel" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">판매실적 데이터 업로드</h3>
             <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center" data-drop-zone>
@@ -143,7 +138,6 @@
             </div>
         </div>
 
-        <!-- 월별매출 테이블 -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-900">월별 매출 집계</h2>
@@ -183,8 +177,7 @@
                         </tr>
                     </thead>
                     <tbody id="monthlyTableBody">
-                        <!-- 데이터가 여기에 표시됩니다 -->
-                    </tbody>
+                        </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-semibold">
                             <td>합계</td>
@@ -201,7 +194,6 @@
             </div>
         </div>
 
-        <!-- 상세내역 섹션 -->
         <div id="detailSection" class="bg-white rounded-lg shadow-md p-6 hidden">
             <div class="flex justify-between items-center mb-4">
                 <h2 id="detailTitle" class="text-xl font-semibold text-gray-900">상세 계약 내역</h2>
@@ -215,19 +207,15 @@
             <div class="overflow-x-auto">
                 <table id="detailTable" class="data-table">
                     <thead>
-                        <!-- 헤더는 JavaScript에서 동적으로 생성됩니다 -->
-                    </thead>
+                        </thead>
                     <tbody id="detailTableBody">
-                        <!-- 상세 데이터가 여기에 표시됩니다 -->
-                    </tbody>
+                        </tbody>
                 </table>
             </div>
         </div>
     </main>
 
-    <!-- 스크립트 -->
     <script src="../assets/js/common.js"></script>
-    <script src="../assets/js/sheets-api.js"></script>
     <script src="../assets/js/monthly-sales.js"></script>
     
     <script>
