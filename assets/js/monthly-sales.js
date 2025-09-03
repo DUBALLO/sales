@@ -1,9 +1,10 @@
-// 월별매출 현황 JavaScript (최종 수정 버전)
+// 월별매출 현황 JavaScript (컬럼명 최종 수정본)
 
 // 전역 변수
 let salesData = [];
+let governmentSalesData = [];
+let privateSalesData = [];
 let currentDetailData = {};
-let currentYear = new Date().getFullYear();
 
 // 안전한 요소 가져오기
 function $(id) {
@@ -48,10 +49,7 @@ function showAlert(message, type = 'info') {
     if (window.CommonUtils && CommonUtils.showAlert) {
         CommonUtils.showAlert(message, type);
     } else {
-        console.log(`[${type.toUpperCase()}] ${message}`);
-        if (type === 'error') {
-            alert(`오류: ${message}`);
-        }
+        alert(message);
     }
 }
 
@@ -137,130 +135,54 @@ function parseDate(dateStr) {
     return isNaN(date.getTime()) ? null : date;
 }
 
-// CSV 데이터 로드
+// 데이터 로드 및 전처리
 async function loadSalesData() {
+    console.log('데이터 로드 중...');
+    setLoadingState(true);
+
     try {
-        console.log('CSV 데이터 로드 시작...');
-        
-        const tbody = $('monthlyTableBody');
-        if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4">데이터를 불러오는 중...</td></tr>';
+        if (!window.sheetsAPI) {
+            throw new Error("sheets-api.js가 로드되지 않았습니다.");
         }
         
-        let rawData;
-        if (window.sheetsAPI) {
-        rawData = await window.sheetsAPI.loadCSVData('monthlySales');
-        } else {
-        throw new Error('sheets-api.js가 로드되지 않았습니다.');
+        const data = await window.sheetsAPI.loadCSVData('monthlySales');
+        
+        // 필수 컬럼 존재 여부 확인
+        const requiredColumns = ['주문일자', '구분', '합계', '계약명', '거래처'];
+        const firstRow = data[0];
+        const hasRequiredColumns = requiredColumns.every(col => firstRow && firstRow.hasOwnProperty(col));
+
+        if (!hasRequiredColumns) {
+            console.error('데이터에 필수 컬럼이 누락되었습니다.');
+            throw new Error('Google Sheets 데이터 형식이 올바르지 않습니다.');
         }
-        
-        console.log(`${rawData.length}개의 원시 데이터 로드 완료`);
-        console.log('첫 번째 데이터 샘플:', rawData[0]); // 디버깅용
-        
-        if (rawData.length === 0) {
-            throw new Error('파싱된 데이터가 없습니다.');
-        }
-        
-        // 데이터 변환
-        salesData = rawData.map((item, index) => {
-            try {
-                const dateValue = item['주문일자'] || item['날짜'] || item['date'] || '';
-                const typeValue = item['구분'] || item['type'] || '';
-                const contractValue = item['계약명'] || item['사업명'] || '계약명 없음';
-                const customerValue = item['거래처'] || item['수요기관'] || '거래처 없음';
-                const amountValue = item['합계'] || item['금액'] || '0';
-                const invoiceDateValue = item['세금계산서'] || item['발행일'] || '';
-                
-                // 품목 필드 - 가능한 모든 컬럼명 확인
-                const itemValue = item['품목'] || item['제품'] || item['item'] || item['상품명'] || 
-                                item['품목명'] || item['제품명'] || item['Item'] || item['Product'] || 
-                                item['G'] || item['G열'] || item['품목(G)'] || 
-                                Object.values(item)[6] || ''; // G열은 보통 7번째 컬럼 (0부터 시작하므로 6)
-                
-                // 디버깅: 품목 데이터 로깅
-                if (index < 3) {
-                    console.log(`행 ${index + 1} 품목 데이터:`, {
-                        '품목': item['품목'],
-                        '제품': item['제품'],
-                        'item': item['item'],
-                        '상품명': item['상품명'],
-                        'G열값': Object.values(item)[6],
-                        '최종품목값': itemValue,
-                        '전체항목키': Object.keys(item)
-                    });
-                }
-                
-                const cleanAmount = amountValue.toString().replace(/[^\d]/g, '');
-                const parsedAmount = parseInt(cleanAmount) || 0;
-                
-                const orderDate = parseDate(dateValue);
-                const invoiceDate = parseDate(invoiceDateValue);
-                
-                let finalType = '';
-                if (typeValue.includes('관급')) {
-                    finalType = '관급매출';
-                } else if (typeValue.includes('사급')) {
-                    finalType = '사급매출';
-                }
-                
-                const baseItem = {
-                    contractName: contractValue.trim(),
-                    customer: customerValue.trim(),
-                    amount: parsedAmount,
-                    orderDate: orderDate,
-                    invoiceDate: invoiceDate,
-                    item: itemValue ? itemValue.trim() : '' // 품목이 빈 값인 경우 빈 문자열
-                };
-                
-                const results = [];
-                
-                if (orderDate) {
-                    let orderStatus = invoiceDate ? '납품완료' : '주문';
-                    results.push({
-                        ...baseItem,
-                        date: orderDate,
-                        type: orderStatus,
-                        invoiceDate: invoiceDate
-                    });
-                }
-                
-                if (finalType && invoiceDate) {
-                    results.push({
-                        ...baseItem,
-                        date: invoiceDate,
-                        type: finalType,
-                        invoiceDate: invoiceDate
-                    });
-                }
-                
-                return results;
-            } catch (error) {
-                console.warn(`데이터 변환 오류 (행 ${index + 1}):`, error);
-                return [];
-            }
-        }).flat().filter(item => {
-            return item && 
-                   item.date instanceof Date && 
-                   !isNaN(item.date.getTime()) && 
-                   item.amount > 0 &&
-                   item.contractName !== '계약명 없음' &&
-                   item.customer !== '거래처 없음';
-        });
-        
-        console.log(`${salesData.length}건의 유효한 데이터 변환 완료`);
-        console.log('변환된 데이터 샘플:', salesData.slice(0, 3)); // 변환된 데이터 샘플 확인
-        
-        if (salesData.length === 0) {
-            throw new Error('유효한 데이터가 없습니다.');
-        }
-        
+
+        // 데이터 파싱
+        salesData = data.map(row => ({
+            월: new Date(row.주문일자).getMonth() + 1,
+            구분: row.구분,
+            날짜: parseDate(row.주문일자),
+            판매금액: parseInt(String(row.합계).replace(/,/g, ''), 10) || 0,
+            계약명: row.계약명,
+            고객사명: row.거래처
+        }));
+
+        console.log(`총 ${salesData.length}개의 데이터 행을 불러왔습니다.`);
+
+        // 관급 및 사급 데이터 분리
+        governmentSalesData = salesData.filter(d => d.구분 === '관급');
+        privateSalesData = salesData.filter(d => d.구분 === '사급');
+
+        console.log(`관급 데이터 ${governmentSalesData.length}개, 사급 데이터 ${privateSalesData.length}개로 분리 완료.`);
+
         generateReport();
-        showAlert(`${salesData.length}건의 데이터를 성공적으로 로드했습니다.`, 'success');
-        
+
     } catch (error) {
-        console.error('CSV 로드 실패:', error);
-        showAlert(`데이터 로드 실패: ${error.message}`, 'error');
+        console.error('데이터 로드 실패:', error);
+        showAlert('데이터를 불러오는 중 오류가 발생했습니다. 샘플 데이터로 대체합니다.', 'warning');
         loadSampleDataFallback();
+    } finally {
+        setLoadingState(false);
     }
 }
 
@@ -279,81 +201,209 @@ function loadSampleDataFallback() {
     showAlert('샘플 데이터를 표시합니다. Google Sheets 연결을 확인해주세요.', 'warning');
 }
 
-// 보고서 생성
+// 리포트 생성
 function generateReport() {
-    try {
-        const startYear = parseInt($('startYear')?.value || '2024');
-        const startMonth = parseInt($('startMonth')?.value || '1');
-        const endYear = parseInt($('endYear')?.value || '2024');
-        const endMonth = parseInt($('endMonth')?.value || '12');
-        
-        const startDate = new Date(startYear, startMonth - 1, 1);
-        const endDate = new Date(endYear, endMonth, 0);
-        
-        if (startDate > endDate) {
-            showAlert('시작 기간이 종료 기간보다 늦을 수 없습니다.', 'warning');
-            return;
-        }
-        
-        const monthlyData = initializeMonthlyData(startDate, endDate);
-        aggregateData(monthlyData, startDate, endDate);
-        renderMonthlyTable(monthlyData);
-        
-    } catch (error) {
-        console.error('보고서 생성 오류:', error);
-        showAlert('보고서 생성 중 오류가 발생했습니다.', 'error');
-    }
-}
+    console.log('리포트 생성 시작...');
+    setLoadingState(true);
+    
+    const startYear = parseInt($('startYear').value);
+    const endYear = parseInt($('endYear').value);
+    const customerType = $('customerType').value;
 
-// 월별 데이터 초기화
-function initializeMonthlyData(startDate, endDate) {
-    const monthlyData = {};
-    let currentDate = new Date(startDate);
-    
-    while (currentDate <= endDate) {
-        const yearMonth = getYearMonth(currentDate.getFullYear(), currentDate.getMonth() + 1);
-        monthlyData[yearMonth] = {
-            order: { count: 0, amount: 0, details: [] },
-            government: { count: 0, amount: 0, details: [] },
-            private: { count: 0, amount: 0, details: [] }
-        };
-        currentDate.setMonth(currentDate.getMonth() + 1);
-    }
-    
-    return monthlyData;
-}
+    const filteredData = {
+        government: [],
+        private: []
+    };
 
-// 데이터 집계
-function aggregateData(monthlyData, startDate, endDate) {
-    const contractCounts = {};
-    
-    salesData.forEach(item => {
-        let targetDate = null;
-        
-        switch (item.type) {
-            case '주문':
-            case '납품완료':
-                targetDate = item.orderDate || item.date;
-                break;
-            case '관급매출':
-            case '사급매출':
-                targetDate = item.invoiceDate || item.date;
-                break;
-            default:
-                targetDate = item.date;
-        }
-        
-        if (targetDate && targetDate >= startDate && targetDate <= endDate) {
-            const yearMonth = getYearMonth(targetDate.getFullYear(), targetDate.getMonth() + 1);
+    if (customerType === 'all' || customerType === 'government') {
+        filteredData.government = governmentSalesData.filter(d => {
+            const date = new Date(d.날짜);
+            return date.getFullYear() >= startYear && date.getFullYear() <= endYear;
+        });
+    }
+
+    if (customerType === 'all' || customerType === 'private') {
+        filteredData.private = privateSalesData.filter(d => {
+            const date = new Date(d.날짜);
+            return date.getFullYear() >= startYear && date.getFullYear() <= endYear;
+        });
+    }
+
+    const monthlySummary = {};
+    function aggregateData(data, type) {
+        data.forEach(item => {
+            const date = new Date(item.날짜);
+            const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             
-            if (monthlyData[yearMonth]) {
-                const contractKey = `${yearMonth}-${item.type}-${item.contractName}`;
-                
-                switch (item.type) {
-                    case '주문':
-                    case '납품완료':
-                        if (!contractCounts[contractKey]) {
-                            monthlyData[yearMonth].order.count++;
-                            contractCounts[contractKey] = true;
-                        }
-                        monthlyData[yearMonth].order.amount += item
+            if (!monthlySummary[yearMonth]) {
+                monthlySummary[yearMonth] = {
+                    total: 0,
+                    government: 0,
+                    private: 0,
+                    contracts: []
+                };
+            }
+            monthlySummary[yearMonth].total += item.판매금액;
+            monthlySummary[yearMonth][type] += item.판매금액;
+            monthlySummary[yearMonth].contracts.push(item);
+        });
+    }
+
+    aggregateData(filteredData.government, 'government');
+    aggregateData(filteredData.private, 'private');
+    
+    renderMonthlyTable(monthlySummary, customerType);
+
+    setLoadingState(false);
+    console.log('리포트 생성 완료.');
+}
+
+// 테이블 렌더링
+function renderMonthlyTable(data, customerType) {
+    const tableBody = $('monthlyTable').querySelector('tbody');
+    const totalSalesCard = $('totalSalesCard');
+    const totalContractsCard = $('totalContractsCard');
+    
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '';
+
+    const sortedMonths = Object.keys(data).sort();
+    let totalSales = 0;
+    let totalGovSales = 0;
+    let totalPrivateSales = 0;
+    let totalContracts = 0;
+    
+    sortedMonths.forEach(month => {
+        const rowData = data[month];
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-3 whitespace-nowrap text-center text-sm font-medium text-gray-900">${month}</td>
+            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-700">${formatCurrency(rowData.total)}</td>
+            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-700">${formatCurrency(rowData.government)}</td>
+            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-700">${formatCurrency(rowData.private)}</td>
+            <td class="px-6 py-3 whitespace-nowrap text-center text-sm text-gray-700">${formatNumber(rowData.contracts.length)}건</td>
+        `;
+        tableBody.appendChild(row);
+
+        totalSales += rowData.total;
+        totalGovSales += rowData.government;
+        totalPrivateSales += rowData.private;
+        totalContracts += rowData.contracts.length;
+    });
+
+    const totalRow = document.createElement('tr');
+    totalRow.className = 'bg-gray-100 font-bold';
+    totalRow.innerHTML = `
+        <td class="px-6 py-3 whitespace-nowrap text-center text-sm text-gray-900">총 합계</td>
+        <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-green-600">${formatCurrency(totalSales)}</td>
+        <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-green-600">${formatCurrency(totalGovSales)}</td>
+        <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-green-600">${formatCurrency(totalPrivateSales)}</td>
+        <td class="px-6 py-3 whitespace-nowrap text-center text-sm text-green-600">${formatNumber(totalContracts)}건</td>
+    `;
+    tableBody.appendChild(totalRow);
+    
+    if (totalSalesCard) totalSalesCard.querySelector('p').textContent = formatCurrency(totalSales);
+    if (totalContractsCard) totalContractsCard.querySelector('p').textContent = formatNumber(totalContracts);
+    
+    hideDetailSection();
+}
+
+// 상세 내역 표시
+function showDetail(yearMonth) {
+    // 상세 내역 데이터를 찾아서 표시하는 로직 구현
+    // ...
+}
+
+// 상세 내역 섹션 숨기기
+function hideDetailSection() {
+    const detailSection = $('detailSection');
+    if (detailSection) {
+        detailSection.classList.add('hidden');
+    }
+}
+
+// 로딩 상태 표시
+function setLoadingState(show) {
+    const tableContainer = $('monthlyTableContainer');
+    if (tableContainer) {
+        if (show) {
+            tableContainer.classList.add('loading-overlay');
+        } else {
+            tableContainer.classList.remove('loading-overlay');
+        }
+    }
+}
+
+// 에러 상태 표시
+function setErrorState() {
+    const tableBody = $('monthlyTable').querySelector('tbody');
+    if (tableBody) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-red-500">데이터 로드 실패</td></tr>`;
+    }
+}
+
+// 새로고침 기능
+async function refreshData() {
+    console.log('데이터 새로고침 시작');
+    await loadSalesData();
+}
+
+// 연결 상태 테스트
+async function checkConnection() {
+    console.log('연결 상태 확인...');
+    if (window.sheetsAPI) {
+        const isConnected = await window.sheetsAPI.testConnection();
+        if (isConnected) {
+            showAlert('Google Sheets와 연결이 정상입니다.', 'success');
+        } else {
+            showAlert('Google Sheets 연결에 실패했습니다. CORS 문제일 수 있습니다.', 'error');
+        }
+    } else {
+        showAlert('sheets-api.js가 로드되지 않았습니다.', 'error');
+    }
+}
+
+// 인쇄 기능
+function printReport() {
+    window.print();
+}
+
+// 전역 함수 노출
+window.loadSalesData = loadSalesData;
+window.generateReport = generateReport;
+window.showDetail = showDetail;
+window.refreshData = refreshData;
+window.checkConnection = checkConnection;
+window.printReport = printReport;
+window.hideDetailSection = hideDetailSection;
+
+// 페이지 로드시 자동 실행
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('페이지 로드 완료, 데이터 로딩 시작...');
+    
+    const searchBtn = $('searchBtn');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', generateReport);
+    }
+    
+    if (window.sheetsAPI) {
+        console.log('sheets-api.js 로드 확인됨');
+        setTimeout(loadSalesData, 100);
+    } else {
+        console.warn('sheets-api.js가 로드되지 않음, 재시도...');
+        let retryCount = 0;
+        const retryInterval = setInterval(() => {
+            if (window.sheetsAPI || retryCount >= 30) {
+                clearInterval(retryInterval);
+                if (window.sheetsAPI) {
+                    console.log('sheets-api.js 지연 로드 확인됨');
+                    loadSalesData();
+                } else {
+                    console.error('sheets-api.js 로드 실패');
+                    setErrorState();
+                }
+            }
+        }, 100);
+    }
+});
