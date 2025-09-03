@@ -1,4 +1,4 @@
-// Google Sheets API 연결 및 CSV 로드 기능
+// Google Sheets API 연결 및 CSV 로드 기능 (수정 버전)
 
 /**
  * Google Sheets CSV 데이터 로드
@@ -7,19 +7,11 @@
 class SheetsAPI {
     constructor() {
         this.csvUrls = {
-            // 기존: 월별매출용
             monthlySales: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSjy2slFJrAxxPO8WBmehXH4iJtcfxr-HUkvL-YXw-BIvmA1Z3kTa8DfdWVnwVl3r4jhjmHFUYIju3j/pub?output=csv',
-            
-            // 신규: 나라장터 조달데이터용 
             procurement: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSplrmlhekVgQLbcCpHLX8d2HBNAErwj-UknKUZVI5KCMen-kUCWXlRONPR6oc0Wj1zd6FP-EfRaFeU/pub?output=csv'
         };
-        }
-            // 새 메서드 추가
-            async loadProcurementData() {
-            return this.loadCSVData(this.csvUrls.procurement);
-            }
-        }
-        // 백업 방법들
+        this.currentUrl = '';
+
         this.corsProxies = [
             'https://api.allorigins.win/raw?url=',
             'https://cors-anywhere.herokuapp.com/',
@@ -29,10 +21,16 @@ class SheetsAPI {
 
     /**
      * CSV 데이터 로드 (메인 메서드)
+     * @param {string} sheetType - 'monthlySales' 또는 'procurement'
      */
-    async loadCSVData() {
-        console.log('CSV 데이터 로드 시작...');
+    async loadCSVData(sheetType) {
+        if (!this.csvUrls[sheetType]) {
+            throw new Error(`유효하지 않은 시트 타입입니다: ${sheetType}`);
+        }
+        this.currentUrl = this.csvUrls[sheetType];
         
+        console(`'${sheetType}' 시트의 CSV 데이터 로드 시작...`);
+
         // 방법 1: 직접 로드 시도
         try {
             const data = await this.directLoad();
@@ -77,7 +75,7 @@ class SheetsAPI {
      * 직접 로드 시도
      */
     async directLoad() {
-        const response = await fetch(this.csvUrl, {
+        const response = await fetch(this.currentUrl, {
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -97,7 +95,7 @@ class SheetsAPI {
      * CORS 프록시를 통한 로드
      */
     async proxyLoad(proxyUrl) {
-        const url = proxyUrl + encodeURIComponent(this.csvUrl);
+        const url = proxyUrl + encodeURIComponent(this.currentUrl);
         
         const response = await fetch(url, {
             method: 'GET',
@@ -129,30 +127,26 @@ class SheetsAPI {
             throw new Error('CSV 데이터가 비어있습니다.');
         }
 
-        // 헤더 처리
         const headers = this.parseCSVLine(lines[0]);
-        console.log('CSV 헤더:', headers);
-
         const data = [];
+        
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
-
+            
             const values = this.parseCSVLine(line);
             const item = {};
-            
             headers.forEach((header, index) => {
-                item[header] = values[index] || '';
+                item[header.trim()] = values[index] ? values[index].trim() : '';
             });
 
-            // 빈 행 건너뛰기
             if (Object.values(item).every(val => !val || val.trim() === '')) {
                 continue;
             }
-
+            
             data.push(item);
         }
-
+        
         console.log(`${data.length}개의 데이터 파싱 완료`);
         return data;
     }
@@ -170,24 +164,21 @@ class SheetsAPI {
             
             if (char === '"') {
                 if (inQuotes && line[i + 1] === '"') {
-                    // 이스케이프된 따옴표
                     current += '"';
                     i++;
                 } else {
-                    // 따옴표 시작/끝
                     inQuotes = !inQuotes;
                 }
             } else if (char === ',' && !inQuotes) {
-                // 컬럼 구분자
-                result.push(current.trim());
+                result.push(current);
                 current = '';
             } else {
                 current += char;
             }
         }
         
-        result.push(current.trim());
-        return result;
+        result.push(current);
+        return result.map(s => s.trim());
     }
 
     /**
@@ -198,7 +189,7 @@ class SheetsAPI {
             const cacheData = {
                 data: data,
                 timestamp: Date.now(),
-                url: this.csvUrl
+                url: this.currentUrl
             };
             localStorage.setItem('sheets-cache', JSON.stringify(cacheData));
             console.log('데이터 캐시 저장 완료');
@@ -218,12 +209,10 @@ class SheetsAPI {
             const cacheData = JSON.parse(cached);
             const age = Date.now() - cacheData.timestamp;
             
-            // 1시간 이내의 캐시만 사용
-            if (age < 3600000 && cacheData.url === this.csvUrl) {
+            if (age < 3600000 && cacheData.url === this.currentUrl) {
                 console.log('캐시된 데이터 발견 (나이: ' + Math.round(age / 60000) + '분)');
                 return cacheData.data;
             } else {
-                // 오래된 캐시 삭제
                 localStorage.removeItem('sheets-cache');
                 return null;
             }
@@ -246,7 +235,7 @@ class SheetsAPI {
      */
     async testConnection() {
         try {
-            const response = await fetch(this.csvUrl, { 
+            const response = await fetch(this.csvUrls.monthlySales, { 
                 method: 'HEAD',
                 mode: 'no-cors'
             });
@@ -260,7 +249,8 @@ class SheetsAPI {
 // 전역 인스턴스 생성
 window.sheetsAPI = new SheetsAPI();
 
-// 전역 함수로 내보내기 (기존 코드 호환성)
-window.loadGoogleSheetsData = () => window.sheetsAPI.loadCSVData();
+// 기존 코드 호환성 유지를 위한 헬퍼 함수
+window.loadGoogleSheetsData = () => window.sheetsAPI.loadCSVData('monthlySales');
+window.loadProcurementData = () => window.sheetsAPI.loadCSVData('procurement');
 window.refreshSheetsCache = () => window.sheetsAPI.refreshCache();
 window.testSheetsConnection = () => window.sheetsAPI.testConnection();
