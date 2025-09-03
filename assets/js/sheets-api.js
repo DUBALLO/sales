@@ -29,7 +29,7 @@ class SheetsAPI {
         }
         this.currentUrl = this.csvUrls[sheetType];
         
-        console(`'${sheetType}' 시트의 CSV 데이터 로드 시작...`);
+        console.log(`'${sheetType}' 시트의 CSV 데이터 로드 시작...`);
 
         // 방법 1: 직접 로드 시도
         try {
@@ -227,7 +227,7 @@ class SheetsAPI {
      */
     async refreshCache() {
         localStorage.removeItem('sheets-cache');
-        return await this.loadCSVData();
+        return await this.loadCSVData('monthlySales');
     }
 
     /**
