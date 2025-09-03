@@ -1,4 +1,4 @@
-// 매출처별 집계 분석 JavaScript (컬럼명 교정 버전)
+// 매출처별 집계 분석 JavaScript (최종 수정 버전)
 
 // 전역 변수
 let governmentData = []; // 관급 데이터
@@ -260,14 +260,13 @@ async function analyzeCustomers() {
     }
 }
 
-// 🎯 수정된 실제 데이터 파싱 함수 (올바른 컬럼명 사용)
+// 수정된 실제 데이터 파싱 함수 (올바른 컬럼명 사용)
 function parseRealData(rawData) {
     console.log('=== 실제 데이터 파싱 시작 (컬럼명 교정) ===');
     
     governmentData = [];
     privateSalesData = [];
     
-    // 컬럼명 확인
     const firstRow = rawData[0];
     console.log('사용 가능한 컬럼들:', Object.keys(firstRow));
     
@@ -275,24 +274,20 @@ function parseRealData(rawData) {
     
     rawData.forEach((item, index) => {
         try {
-            // 🎯 올바른 컬럼명 사용: '업체' (업체명, 회사명, 거래처 등이 아님)
             const company = (item['업체'] || '').trim();
             
-            // 두발로 주식회사 데이터만 필터링
             if (company !== '두발로 주식회사') return;
             
             dubaloCount++;
             
-            // 나라장터 조달 데이터 매핑 (올바른 컬럼명들)
             const customer = (item['수요기관명'] || '').trim();
             const contractName = (item['계약명'] || '').trim();
             const amountValue = item['공급금액'] || '0';
             const dateValue = item['기준일자'] || '';
             const product = (item['세부품명'] || '').trim();
             const region = (item['수요기관지역'] || '').trim();
-            const customerType = item['소관구분'] || '지방자치단체'; // 소관구분이 고객 유형
+            const customerType = item['소관구분'] || '지방자치단체';
             
-            // 디버깅 로그 (처음 3개 행만)
             if (dubaloCount <= 3) {
                 console.log(`두발로 데이터 ${dubaloCount}:`, {
                     업체: company,
@@ -306,7 +301,6 @@ function parseRealData(rawData) {
                 });
             }
             
-            // 빈 데이터 제외
             if (!customer || customer === '거래처 없음') return;
             
             const amount = parseAmount(amountValue);
@@ -315,15 +309,13 @@ function parseRealData(rawData) {
             const baseData = {
                 customer: customer,
                 region: extractRegion(customer),
-                customerType: customerType, // 실제 소관구분 사용
+                customerType: customerType,
                 amount: amount,
                 contractDate: dateValue,
                 contractName: contractName || '계약명 없음',
                 product: product || '기타'
             };
             
-            // 🎯 임시로 모든 데이터를 관급으로 분류 (구분 컬럼이 명확하지 않음)
-            // 추후 계약유형이나 다른 기준으로 관급/사급 구분 가능
             governmentData.push(baseData);
             
         } catch (error) {
@@ -342,294 +334,15 @@ function analyzeGovernmentData(selectedYear, selectedProduct) {
     
     let filteredData = [...governmentData];
     
-    // 배열로 변환 및 정렬
-    privateCustomerData = Array.from(customerMap.values());
-    privateCustomerData.sort((a, b) => b.amount - a.amount);
-    
-    // 순위 및 비중 계산
-    const totalAmount = privateCustomerData.reduce((sum, item) => sum + item.amount, 0);
-    privateCustomerData.forEach((item, index) => {
-        item.rank = index + 1;
-        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
-    });
-}
-
-// 요약 통계 업데이트
-function updateSummaryStats() {
-    const totalCustomers = customerData.length;
-    const totalAmount = customerData.reduce((sum, item) => sum + item.amount, 0);
-    const avgAmount = totalCustomers > 0 ? totalAmount / totalCustomers : 0;
-    const maxShare = customerData.length > 0 ? customerData[0].share : 0;
-    const newCustomers = Math.floor(totalCustomers * 0.2); // 20%를 신규로 가정
-    
-    console.log('요약 통계 업데이트:', {
-        totalCustomers,
-        avgAmount,
-        maxShare,
-        newCustomers
-    });
-    
-    // DOM 업데이트
-    const elements = {
-        totalCustomers: $('totalCustomers'),
-        avgAmount: $('avgAmount'),
-        maxShare: $('maxShare'),
-        newCustomers: $('newCustomers')
-    };
-    
-    if (elements.totalCustomers) elements.totalCustomers.textContent = formatNumber(totalCustomers);
-    if (elements.avgAmount) elements.avgAmount.textContent = formatCurrency(Math.round(avgAmount));
-    if (elements.maxShare) elements.maxShare.textContent = maxShare.toFixed(1) + '%';
-    if (elements.newCustomers) elements.newCustomers.textContent = formatNumber(newCustomers);
-}
-
-// 모든 테이블 렌더링
-function renderAllTables() {
-    console.log('=== 모든 테이블 렌더링 ===');
-    renderCustomerTable();
-    renderRegionTable();
-    renderTypeTable();
-    renderPrivateTable();
-}
-
-// 고객별 테이블 렌더링
-function renderCustomerTable() {
-    const tbody = $('customerTableBody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    if (customerData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">고객 데이터가 없습니다.</td></tr>';
-        return;
-    }
-    
-    customerData.forEach((customer, index) => {
-        const row = document.createElement('tr');
-        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        
-        row.innerHTML = `
-            <td class="text-center font-medium">${customer.rank}</td>
-            <td class="font-medium">${customer.customer}</td>
-            <td>${customer.region}</td>
-            <td class="text-center">
-                <span class="badge ${getCustomerTypeBadgeClass(customer.customerType)}">${customer.customerType}</span>
-            </td>
-            <td class="text-center">${formatNumber(customer.count)}</td>
-            <td class="text-right font-medium amount">${formatCurrency(customer.amount)}</td>
-            <td class="text-right ${customer.share >= 20 ? 'text-red-600 font-bold' : customer.share >= 10 ? 'text-orange-600 font-medium' : ''}">${customer.share.toFixed(1)}%</td>
-            <td class="text-center">${customer.lastTransactionDate ? formatDate(customer.lastTransactionDate) : '-'}</td>
-        `;
-        
-        tbody.appendChild(row);
-    });
-    
-    console.log(`고객별 테이블 렌더링 완료: ${customerData.length}행`);
-}
-
-// 지역별 테이블 렌더링
-function renderRegionTable() {
-    const tbody = $('regionTableBody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    if (regionData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-8">지역 데이터가 없습니다.</td></tr>';
-        return;
-    }
-    
-    regionData.forEach((region, index) => {
-        const row = document.createElement('tr');
-        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        
-        row.innerHTML = `
-            <td class="font-medium">${region.region}</td>
-            <td class="text-center">${formatNumber(region.customerCount)}</td>
-            <td class="text-center">${formatNumber(region.contractCount)}</td>
-            <td class="text-right font-medium amount">${formatCurrency(region.amount)}</td>
-            <td class="text-right">${region.share.toFixed(1)}%</td>
-            <td class="text-right">${formatCurrency(Math.round(region.avgAmount))}</td>
-        `;
-        
-        tbody.appendChild(row);
-    });
-    
-    console.log(`지역별 테이블 렌더링 완료: ${regionData.length}행`);
-}
-
-// 수요기관별 테이블 렌더링
-function renderTypeTable() {
-    const tbody = $('typeTableBody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    if (typeData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-8">수요기관 데이터가 없습니다.</td></tr>';
-        return;
-    }
-    
-    typeData.forEach((type, index) => {
-        const row = document.createElement('tr');
-        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        
-        row.innerHTML = `
-            <td class="font-medium">
-                <span class="badge ${getCustomerTypeBadgeClass(type.customerType)}">${type.customerType}</span>
-            </td>
-            <td class="text-center">${formatNumber(type.customerCount)}</td>
-            <td class="text-center">${formatNumber(type.contractCount)}</td>
-            <td class="text-right font-medium amount">${formatCurrency(type.amount)}</td>
-            <td class="text-right">${type.share.toFixed(1)}%</td>
-            <td class="text-right">${formatCurrency(Math.round(type.avgAmount))}</td>
-        `;
-        
-        tbody.appendChild(row);
-    });
-    
-    console.log(`수요기관별 테이블 렌더링 완료: ${typeData.length}행`);
-}
-
-// 사급판매 테이블 렌더링
-function renderPrivateTable() {
-    const tbody = $('privateTableBody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    if (privateCustomerData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">사급판매 데이터가 없습니다.</td></tr>';
-        return;
-    }
-    
-    privateCustomerData.forEach((customer, index) => {
-        const row = document.createElement('tr');
-        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        
-        row.innerHTML = `
-            <td class="text-center font-medium">${customer.rank}</td>
-            <td class="font-medium">${customer.customer}</td>
-            <td>${customer.region}</td>
-            <td class="text-center">
-                <span class="badge ${getCustomerTypeBadgeClass(customer.customerType)}">${customer.customerType}</span>
-            </td>
-            <td class="text-center">${formatNumber(customer.count)}</td>
-            <td class="text-right font-medium amount">${formatCurrency(customer.amount)}</td>
-            <td class="text-right">${customer.share.toFixed(1)}%</td>
-            <td class="text-center">${customer.lastTransactionDate ? formatDate(customer.lastTransactionDate) : '-'}</td>
-        `;
-        
-        tbody.appendChild(row);
-    });
-    
-    console.log(`사급판매 테이블 렌더링 완료: ${privateCustomerData.length}행`);
-}
-
-// 수요기관 구분별 배지 클래스 반환
-function getCustomerTypeBadgeClass(type) {
-    switch (type) {
-        case '지방자치단체':
-            return 'badge-primary';
-        case '군':
-            return 'badge-success';
-        case '공기업':
-            return 'badge-warning';
-        case '관공서':
-            return 'badge-secondary';
-        case '민간':
-            return 'badge-purple';
-        default:
-            return 'badge-gray';
-    }
-}
-
-// 로딩 상태 표시
-function showLoadingState(show) {
-    const analyzeBtn = $('analyzeBtn');
-    if (analyzeBtn) {
-        analyzeBtn.disabled = show;
-        analyzeBtn.innerHTML = show 
-            ? '<div class="loading-spinner"></div>분석 중...' 
-            : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-               </svg>분석`;
-    }
-    
-    // 통계 카드 로딩 상태
-    const statElements = ['totalCustomers', 'avgAmount', 'maxShare', 'newCustomers'];
-    statElements.forEach(id => {
-        const element = $(id);
-        if (element) {
-            element.textContent = show ? '로딩중...' : element.textContent;
-        }
-    });
-}
-
-// 알림 표시
-function showAlert(message, type = 'info') {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-    
-    if (window.CommonUtils && CommonUtils.showAlert) {
-        CommonUtils.showAlert(message, type);
-    } else {
-        // 간단한 대체 알림
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-message`;
-        alertDiv.innerHTML = `
-            <span>${message}</span>
-            <button type="button" class="float-right text-lg leading-none" onclick="this.parentElement.remove()">×</button>
-        `;
-        alertDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            min-width: 300px;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            ${type === 'error' ? 'background-color: #fecaca; color: #991b1b; border: 1px solid #f87171;' :
-              type === 'success' ? 'background-color: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;' :
-              type === 'warning' ? 'background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d;' :
-              'background-color: #dbeafe; color: #1e40af; border: 1px solid #93c5fd;'}
-        `;
-        
-        document.body.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            if (alertDiv.parentElement) {
-                alertDiv.remove();
-            }
-        }, 5000);
-    }
-}
-
-// 샘플 데이터 로드 (기존 함수 호환성)
-function loadSampleData() {
-    console.log('=== 샘플 데이터로 초기화 ===');
-    generateSampleData();
-    
-    // 분석 실행
-    setTimeout(() => {
-        analyzeCustomers();
-    }, 100);
-}
-
-// 전역 객체에 함수들 할당
-window.CustomerAnalysis = {
-    analyzeCustomers: analyzeCustomers,
-    loadSampleData: loadSampleData,
-    generateSampleData: generateSampleData
-};
-
-console.log('=== CustomerAnalysis 모듈 로드 완료 (컬럼명 교정) ===');(item.contractDate || '');
+    if (selectedYear !== 'all') {
+        const year = parseInt(selectedYear);
+        filteredData = filteredData.filter(item => {
+            const date = parseDate(item.contractDate || '');
             return date && date.getFullYear() === year;
         });
         console.log(`연도 필터링 후: ${filteredData.length}건`);
     }
     
-    // 품목 필터링
     if (selectedProduct !== 'all') {
         filteredData = filteredData.filter(item => 
             item.product === selectedProduct
@@ -661,7 +374,7 @@ function analyzePrivateData(selectedYear) {
     analyzePrivateCustomerData(filteredData);
 }
 
-// 수정된 analyzeCustomerData 함수
+// 고객별 데이터 분석
 function analyzeCustomerData(data) {
     console.log('=== 고객별 데이터 분석 ===');
     
@@ -669,13 +382,13 @@ function analyzeCustomerData(data) {
     
     data.forEach(item => {
         const customer = item.customer || '';
-        const customerType = item.customerType || '지방자치단체'; // ✨ 추가된 부분 ✨
+        const customerType = item.customerType || '지방자치단체';
         
         if (!customerMap.has(customer)) {
             customerMap.set(customer, {
                 customer: customer,
                 region: item.region || '',
-                customerType: customerType, // ✨ 추가된 부분 ✨
+                customerType: customerType,
                 count: 0,
                 amount: 0,
                 contracts: [],
@@ -694,15 +407,16 @@ function analyzeCustomerData(data) {
         }
     });
     
-    // 배열로 변환 및 정렬
-    customerData = Array.from(customerMap.values());
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
+    customerData = Array.from(customerMap.values()).map(item => ({
+        ...item,
+        share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0
+    }));
+    
     customerData.sort((a, b) => b.amount - a.amount);
     
-    // 순위 및 비중 계산
-    const totalAmount = customerData.reduce((sum, item) => sum + item.amount, 0);
     customerData.forEach((item, index) => {
         item.rank = index + 1;
-        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
     });
     
     console.log(`고객별 분석 완료: ${customerData.length}개 고객`);
@@ -730,18 +444,14 @@ function analyzeRegionData(data) {
         regionInfo.amount += item.amount || 0;
     });
     
-    // 배열로 변환
     regionData = Array.from(regionMap.values()).map(item => ({
-        region: item.region,
+        ...item,
         customerCount: item.customerCount.size,
-        contractCount: item.contractCount,
-        amount: item.amount,
         avgAmount: item.contractCount > 0 ? item.amount / item.contractCount : 0
     }));
     
     regionData.sort((a, b) => b.amount - a.amount);
     
-    // 비중 계산
     const totalAmount = regionData.reduce((sum, item) => sum + item.amount, 0);
     regionData.forEach(item => {
         item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
@@ -760,56 +470,4 @@ function analyzeTypeData(data) {
                 customerType: type,
                 customerCount: new Set(),
                 contractCount: 0,
-                amount: 0
-            });
-        }
-        
-        const typeInfo = typeMap.get(type);
-        typeInfo.customerCount.add(item.customer);
-        typeInfo.contractCount++;
-        typeInfo.amount += item.amount || 0;
-    });
-    
-    // 배열로 변환
-    typeData = Array.from(typeMap.values()).map(item => ({
-        customerType: item.customerType,
-        customerCount: item.customerCount.size,
-        contractCount: item.contractCount,
-        amount: item.amount,
-        avgAmount: item.contractCount > 0 ? item.amount / item.contractCount : 0
-    }));
-    
-    typeData.sort((a, b) => b.amount - a.amount);
-    
-    // 비중 계산
-    const totalAmount = typeData.reduce((sum, item) => sum + item.amount, 0);
-    typeData.forEach(item => {
-        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
-    });
-}
-
-// 사급 고객별 데이터 분석
-function analyzePrivateCustomerData(data) {
-    const customerMap = new Map();
-    
-    data.forEach(item => {
-        const customer = item.customer || '';
-        
-        if (!customerMap.has(customer)) {
-            customerMap.set(customer, {
-                customer: customer,
-                region: item.region || '',
-                customerType: item.customerType || '민간',
-                count: 0,
-                amount: 0,
-                contracts: [],
-                lastTransactionDate: null
-            });
-        }
-        
-        const customerInfo = customerMap.get(customer);
-        customerInfo.count++;
-        customerInfo.amount += item.amount || 0;
-        customerInfo.contracts.push(item);
-        
-        const date = parseDate
+                amount:
