@@ -211,4 +211,174 @@
                     <h3 class="text-lg font-semibold text-gray-900">지역별 매출 분석</h3>
                     <button id="exportRegionBtn" class="btn btn-secondary btn-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        CSV 내보내기
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto table-scroll">
+                    <table id="regionTable" class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">지역</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">고객수</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">계약건수</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">매출액</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">비중</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tablet-hidden">평균거래액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="regionTableBody" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="6" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="typePanel" class="tab-panel p-6 hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">수요기관별 분석</h3>
+                    <button id="exportTypeBtn" class="btn btn-secondary btn-sm">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        CSV 내보내기
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto table-scroll">
+                    <table id="typeTable" class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">수요기관</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">고객수</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">계약건수</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">매출액</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">비중</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tablet-hidden">평균거래액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="typeTableBody" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="6" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="../assets/js/common.js"></script>
+    <script src="../assets/js/customer-analysis.js"></script>
+    
+    <script>
+        // 페이지 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('매출처별 집계 페이지 로드 완료');
+            
+            // 탭 전환 이벤트
+            const tabs = ['customer', 'region', 'type'];
+            tabs.forEach(tab => {
+                const tabBtn = document.getElementById(tab + 'Tab');
+                if (tabBtn) {
+                    tabBtn.addEventListener('click', () => showTab(tab));
+                }
+            });
+            
+            // 분석 버튼 이벤트
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            if (analyzeBtn && window.CustomerAnalysis) {
+                analyzeBtn.addEventListener('click', window.CustomerAnalysis.analyzeCustomers);
+            }
+            
+            // 새로고침 버튼 이벤트
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (refreshBtn && window.sheetsAPI) {
+                refreshBtn.addEventListener('click', async () => {
+                    try {
+                        await window.sheetsAPI.refreshCache();
+                        if (window.CustomerAnalysis) {
+                            window.CustomerAnalysis.analyzeCustomers();
+                        }
+                    } catch (error) {
+                        console.error('새로고침 실패:', error);
+                    }
+                });
+            }
+            
+            // 검색 이벤트
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', handleSearch);
+            }
+            
+            // 내보내기 이벤트
+            document.getElementById('exportCustomerBtn')?.addEventListener('click', () => 
+                exportTable('customerTable', '고객별_매출순위.csv'));
+            document.getElementById('exportRegionBtn')?.addEventListener('click', () => 
+                exportTable('regionTable', '지역별_매출분석.csv'));
+            document.getElementById('exportTypeBtn')?.addEventListener('click', () => 
+                exportTable('typeTable', '수요기관별_분석.csv'));
+            
+            // 초기 데이터 로드 시도
+            if (window.CustomerAnalysis) {
+                console.log('고객 분석 모듈 확인됨, 초기 분석 시작');
+                window.CustomerAnalysis.analyzeCustomers();
+            } else {
+                console.warn('CustomerAnalysis 모듈이 로드되지 않음');
+                const checkInterval = setInterval(() => {
+                    if (window.CustomerAnalysis) {
+                        clearInterval(checkInterval);
+                        console.log('CustomerAnalysis 모듈 로드 확인, 분석 시작');
+                        window.CustomerAnalysis.analyzeCustomers();
+                    }
+                }, 100);
+                
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    console.error('CustomerAnalysis 모듈 로드 실패');
+                }, 5000);
+            }
+        });
+        
+        // 탭 전환 함수
+        function showTab(tabName) {
+            document.querySelectorAll('.analysis-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.add('hidden');
+            });
+            
+            document.getElementById(tabName + 'Panel').classList.remove('hidden');
+        }
+        
+        // 검색 함수
+        function handleSearch() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const activePanel = document.querySelector('.tab-panel:not(.hidden)');
+            const table = activePanel?.querySelector('table tbody');
+            
+            if (table) {
+                Array.from(table.querySelectorAll('tr')).forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                });
+            }
+        }
+        
+        // CSV 내보내기 함수
+        function exportTable(tableId, filename) {
+            if (window.CommonUtils && CommonUtils.exportTableToCSV) {
+                const table = document.getElementById(tableId);
+                CommonUtils.exportTableToCSV(table, filename);
+            } else {
+                alert('내보내기 기능을 사용할 수 없습니다.');
+            }
+        }
+    </script>
+</body>
+</html>
