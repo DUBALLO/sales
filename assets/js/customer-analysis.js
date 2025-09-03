@@ -219,7 +219,8 @@ function parseRealData(rawData) {
                 amount: parseAmount(item['공급금액'] || '0'),
                 contractDate: item['기준일자'] || '',
                 contractName: (item['계약명'] || '').trim(),
-                product: (item['물품식별명'] || '').trim()
+                // ✨ 수정된 부분: '물품식별명' 대신 '세부품명' 사용
+                product: (item['세부품명'] || '').trim()
             };
             
             if (!baseData.customer || baseData.customer === '거래처 없음' || baseData.amount <= 0) return;
