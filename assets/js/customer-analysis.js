@@ -342,16 +342,6 @@ function analyzeGovernmentData(selectedYear, selectedProduct) {
     
     let filteredData = [...governmentData];
     
-    // 연도 필터링
-    if (selectedYear !== 'all') {
-        const year = parseInt(selectedYear);
-        filteredData = filteredData.filter(item => {
-            const date = parseDate(item.contractDate || '');
-        if (!customerInfo.lastTransactionDate || (date && date > customerInfo.lastTransactionDate)) {
-            customerInfo.lastTransactionDate = date;
-        }
-    });
-    
     // 배열로 변환 및 정렬
     privateCustomerData = Array.from(customerMap.values());
     privateCustomerData.sort((a, b) => b.amount - a.amount);
