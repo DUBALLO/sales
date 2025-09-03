@@ -1,4 +1,4 @@
-// 매출처별 집계 분석 JavaScript (관급 전용 최종 수정 버전)
+// 매출처별 집계 분석 JavaScript (최종 수정 버전)
 
 // 전역 변수
 let governmentData = [];
@@ -283,6 +283,7 @@ function analyzeCustomerData(data) {
 
 // 지역별 데이터 분석
 function analyzeRegionData(data) {
+    console.log('=== 지역별 데이터 분석 ===');
     const regionMap = new Map();
     data.forEach(item => {
         const region = item.region || '';
@@ -290,30 +291,38 @@ function analyzeRegionData(data) {
             regionMap.set(region, {
                 region: region,
                 customerCount: new Set(),
-                contractCount: 0,
+                // ✨ 수정된 부분: 계약명 중복을 제거하기 위한 Set 추가
+                contracts: new Set(),
                 amount: 0
             });
         }
         const regionInfo = regionMap.get(region);
         regionInfo.customerCount.add(item.customer);
-        regionInfo.contractCount++;
+        regionInfo.contracts.add(item.contractName); // ✨ Set에 계약명 추가
         regionInfo.amount += item.amount || 0;
     });
     
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
     regionData = Array.from(regionMap.values()).map(item => ({
         ...item,
         customerCount: item.customerCount.size,
-        avgAmount: item.contractCount > 0 ? item.amount / item.contractCount : 0
+        // ✨ 수정된 부분: Set의 크기를 계약건수로 사용
+        contractCount: item.contracts.size,
+        share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0,
+        avgAmount: item.contracts.size > 0 ? item.amount / item.contracts.size : 0
     }));
+    
     regionData.sort((a, b) => b.amount - a.amount);
-    const totalAmount = regionData.reduce((sum, item) => sum + item.amount, 0);
-    regionData.forEach(item => {
-        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
-    });
+
+    // ✨ 순위 추가
+    regionData.forEach((item, index) => { item.rank = index + 1; });
+
+    console.log(`지역별 분석 완료: ${regionData.length}개 지역`);
 }
 
 // 수요기관별 데이터 분석
 function analyzeTypeData(data) {
+    console.log('=== 수요기관별 데이터 분석 ===');
     const typeMap = new Map();
     data.forEach(item => {
         const type = item.customerType || '지방자치단체';
@@ -321,26 +330,33 @@ function analyzeTypeData(data) {
             typeMap.set(type, {
                 customerType: type,
                 customerCount: new Set(),
-                contractCount: 0,
+                // ✨ 수정된 부분: 계약명 중복을 제거하기 위한 Set 추가
+                contracts: new Set(),
                 amount: 0
             });
         }
         const typeInfo = typeMap.get(type);
         typeInfo.customerCount.add(item.customer);
-        typeInfo.contractCount++;
+        typeInfo.contracts.add(item.contractName); // ✨ Set에 계약명 추가
         typeInfo.amount += item.amount || 0;
     });
     
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
     typeData = Array.from(typeMap.values()).map(item => ({
         ...item,
         customerCount: item.customerCount.size,
-        avgAmount: item.contractCount > 0 ? item.amount / item.contractCount : 0
+        // ✨ 수정된 부분: Set의 크기를 계약건수로 사용
+        contractCount: item.contracts.size,
+        share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0,
+        avgAmount: item.contracts.size > 0 ? item.amount / item.contracts.size : 0
     }));
+    
     typeData.sort((a, b) => b.amount - a.amount);
-    const totalAmount = typeData.reduce((sum, item) => sum + item.amount, 0);
-    typeData.forEach(item => {
-        item.share = totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0;
-    });
+    
+    // ✨ 순위 추가
+    typeData.forEach((item, index) => { item.rank = index + 1; });
+
+    console.log(`수요기관별 분석 완료: ${typeData.length}개 유형`);
 }
 
 // 요약 통계 업데이트
@@ -410,7 +426,7 @@ function renderRegionTable() {
     tbody.innerHTML = '';
     
     if (regionData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-8">지역 데이터가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">지역 데이터가 없습니다.</td></tr>';
         return;
     }
     
@@ -419,6 +435,7 @@ function renderRegionTable() {
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
         
         row.innerHTML = `
+            <td class="text-center font-medium">${region.rank}</td>
             <td class="font-medium">${region.region}</td>
             <td class="text-center">${formatNumber(region.customerCount)}</td>
             <td class="text-center">${formatNumber(region.contractCount)}</td>
@@ -439,7 +456,7 @@ function renderTypeTable() {
     tbody.innerHTML = '';
     
     if (typeData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-8">수요기관 데이터가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">수요기관 데이터가 없습니다.</td></tr>';
         return;
     }
     
@@ -448,6 +465,7 @@ function renderTypeTable() {
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
         
         row.innerHTML = `
+            <td class="text-center font-medium">${type.rank}</td>
             <td class="font-medium">
                 <span class="badge ${getCustomerTypeBadgeClass(type.customerType)}">${type.customerType}</span>
             </td>
