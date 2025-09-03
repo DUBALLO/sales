@@ -250,7 +250,6 @@ function analyzeCustomerData(data) {
                 customer: customer,
                 region: item.region || '',
                 customerType: customerType,
-                // ✨ 수정된 부분: 계약명 중복을 제거하기 위한 Set 추가
                 contracts: new Set(),
                 amount: 0,
                 lastTransactionDate: null
@@ -258,7 +257,7 @@ function analyzeCustomerData(data) {
         }
         
         const customerInfo = customerMap.get(customer);
-        customerInfo.contracts.add(item.contractName); // ✨ Set에 계약명 추가
+        customerInfo.contracts.add(item.contractName);
         customerInfo.amount += item.amount || 0;
         const date = parseDate(item.contractDate || '');
         if (!customerInfo.lastTransactionDate || (date && date > customerInfo.lastTransactionDate)) {
@@ -269,7 +268,6 @@ function analyzeCustomerData(data) {
     const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
     customerData = Array.from(customerMap.values()).map(item => ({
         ...item,
-        // ✨ 수정된 부분: Set의 크기를 계약건수로 사용
         count: item.contracts.size,
         share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0
     }));
@@ -291,14 +289,13 @@ function analyzeRegionData(data) {
             regionMap.set(region, {
                 region: region,
                 customerCount: new Set(),
-                // ✨ 수정된 부분: 계약명 중복을 제거하기 위한 Set 추가
                 contracts: new Set(),
                 amount: 0
             });
         }
         const regionInfo = regionMap.get(region);
         regionInfo.customerCount.add(item.customer);
-        regionInfo.contracts.add(item.contractName); // ✨ Set에 계약명 추가
+        regionInfo.contracts.add(item.contractName);
         regionInfo.amount += item.amount || 0;
     });
     
@@ -306,7 +303,6 @@ function analyzeRegionData(data) {
     regionData = Array.from(regionMap.values()).map(item => ({
         ...item,
         customerCount: item.customerCount.size,
-        // ✨ 수정된 부분: Set의 크기를 계약건수로 사용
         contractCount: item.contracts.size,
         share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0,
         avgAmount: item.contracts.size > 0 ? item.amount / item.contracts.size : 0
@@ -314,7 +310,6 @@ function analyzeRegionData(data) {
     
     regionData.sort((a, b) => b.amount - a.amount);
 
-    // ✨ 순위 추가
     regionData.forEach((item, index) => { item.rank = index + 1; });
 
     console.log(`지역별 분석 완료: ${regionData.length}개 지역`);
@@ -330,14 +325,13 @@ function analyzeTypeData(data) {
             typeMap.set(type, {
                 customerType: type,
                 customerCount: new Set(),
-                // ✨ 수정된 부분: 계약명 중복을 제거하기 위한 Set 추가
                 contracts: new Set(),
                 amount: 0
             });
         }
         const typeInfo = typeMap.get(type);
         typeInfo.customerCount.add(item.customer);
-        typeInfo.contracts.add(item.contractName); // ✨ Set에 계약명 추가
+        typeInfo.contracts.add(item.contractName);
         typeInfo.amount += item.amount || 0;
     });
     
@@ -345,7 +339,6 @@ function analyzeTypeData(data) {
     typeData = Array.from(typeMap.values()).map(item => ({
         ...item,
         customerCount: item.customerCount.size,
-        // ✨ 수정된 부분: Set의 크기를 계약건수로 사용
         contractCount: item.contracts.size,
         share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0,
         avgAmount: item.contracts.size > 0 ? item.amount / item.contracts.size : 0
@@ -353,7 +346,6 @@ function analyzeTypeData(data) {
     
     typeData.sort((a, b) => b.amount - a.amount);
     
-    // ✨ 순위 추가
     typeData.forEach((item, index) => { item.rank = index + 1; });
 
     console.log(`수요기관별 분석 완료: ${typeData.length}개 유형`);
@@ -522,10 +514,43 @@ function showAlert(message, type = 'info') {
     }
 }
 
+// ✨ 테이블 정렬 함수
+function sortTable(tbodyId, columnIndex, type = 'string') {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isAsc = tbody.dataset.sortColumn !== columnIndex.toString() || tbody.dataset.sortDirection === 'desc';
+    
+    const sortedRows = rows.sort((a, b) => {
+        const aText = a.cells[columnIndex].textContent.trim();
+        const bText = b.cells[columnIndex].textContent.trim();
+        let comparison = 0;
+
+        if (type === 'number') {
+            const aNum = parseFloat(aText.replace(/[^\d.-]/g, ''));
+            const bNum = parseFloat(bText.replace(/[^\d.-]/g, ''));
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                comparison = aNum - bNum;
+            }
+        } else {
+            comparison = aText.localeCompare(bText, 'ko-KR');
+        }
+        
+        return isAsc ? comparison : -comparison;
+    });
+    
+    tbody.innerHTML = '';
+    sortedRows.forEach(row => tbody.appendChild(row));
+    
+    tbody.dataset.sortColumn = columnIndex;
+    tbody.dataset.sortDirection = isAsc ? 'asc' : 'desc';
+}
+
 // 전역 함수 노출
 window.CustomerAnalysis = {
     analyzeCustomers: analyzeCustomers,
-    generateSampleData: generateSampleData
+    generateSampleData: generateSampleData,
+    sortTable: sortTable
 };
 
 console.log('=== CustomerAnalysis 모듈 로드 완료 ===');
