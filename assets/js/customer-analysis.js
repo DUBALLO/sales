@@ -250,14 +250,15 @@ function analyzeCustomerData(data) {
                 customer: customer,
                 region: item.region || '',
                 customerType: customerType,
-                count: 0,
+                // ✨ 수정된 부분: 계약명 중복을 제거하기 위한 Set 추가
+                contracts: new Set(),
                 amount: 0,
                 lastTransactionDate: null
             });
         }
         
         const customerInfo = customerMap.get(customer);
-        customerInfo.count++;
+        customerInfo.contracts.add(item.contractName); // ✨ Set에 계약명 추가
         customerInfo.amount += item.amount || 0;
         const date = parseDate(item.contractDate || '');
         if (!customerInfo.lastTransactionDate || (date && date > customerInfo.lastTransactionDate)) {
@@ -268,6 +269,8 @@ function analyzeCustomerData(data) {
     const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
     customerData = Array.from(customerMap.values()).map(item => ({
         ...item,
+        // ✨ 수정된 부분: Set의 크기를 계약건수로 사용
+        count: item.contracts.size,
         share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0
     }));
     
