@@ -661,7 +661,7 @@ function analyzePrivateData(selectedYear) {
     analyzePrivateCustomerData(filteredData);
 }
 
-// 고객별 데이터 분석
+// 수정된 analyzeCustomerData 함수
 function analyzeCustomerData(data) {
     console.log('=== 고객별 데이터 분석 ===');
     
@@ -669,12 +669,13 @@ function analyzeCustomerData(data) {
     
     data.forEach(item => {
         const customer = item.customer || '';
+        const customerType = item.customerType || '지방자치단체'; // ✨ 추가된 부분 ✨
         
         if (!customerMap.has(customer)) {
             customerMap.set(customer, {
                 customer: customer,
                 region: item.region || '',
-                customerType: item.customerType || '지방자치단체',
+                customerType: customerType, // ✨ 추가된 부분 ✨
                 count: 0,
                 amount: 0,
                 contracts: [],
