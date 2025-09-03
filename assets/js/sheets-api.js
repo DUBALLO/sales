@@ -7,7 +7,7 @@
 class SheetsAPI {
     constructor() {
         // 실제 구글시트 CSV URL
-        this.csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSplrmlhekVgQLbcCpHLX8d2HBNAErwj-UknKUZVI5KCMen-kUCWXlRONPR6oc0Wj1zd6FP-EfRaFeU/pub?output=csv';
+        this.csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSjy2slFJrAxxPO8WBmehXH4iJtcfxr-HUkvL-YXw-BIvmA1Z3kTa8DfdWVnwVl3r4jhjmHFUYIju3j/pub?output=csv';
         
         // 백업 방법들
         this.corsProxies = [
