@@ -1,8 +1,8 @@
-// Google Sheets API 연결 및 CSV 로드 기능 (수정 버전)
+// Google Sheets API 연결 및 CSV 로드 기능 (최적화 버전)
 
 /**
  * Google Sheets CSV 데이터 로드
- * CORS 문제 해결을 위한 다양한 방법 제공
+ * CORS 문제 해결을 위한 최적화된 로직 제공
  */
 class SheetsAPI {
     constructor() {
@@ -12,15 +12,18 @@ class SheetsAPI {
         };
         this.currentUrl = '';
 
+        // CORS 우회를 위한 안정적인 프록시
         this.corsProxies = [
-            'https://api.allorigins.win/raw?url=',
-            'https://cors-anywhere.herokuapp.com/',
-            'https://corsproxy.io/?'
+            'https://cors.bridged.cc/',
+            'https://api.allorigins.win/raw?url='
         ];
     }
 
     /**
      * CSV 데이터 로드 (메인 메서드)
+     * 1단계: 직접 로드 시도
+     * 2단계: CORS 프록시 사용 (실패 시)
+     * 3단계: 캐시된 데이터 사용 (모두 실패 시)
      * @param {string} sheetType - 'monthlySales' 또는 'procurement'
      */
     async loadCSVData(sheetType) {
@@ -31,24 +34,26 @@ class SheetsAPI {
         
         console.log(`'${sheetType}' 시트의 CSV 데이터 로드 시작...`);
 
-        // 방법 1: 직접 로드 시도
+        // 1단계: 직접 로드 시도
         try {
             const data = await this.directLoad();
             if (data && data.length > 0) {
                 console.log('직접 로드 성공');
+                this.setCachedData(data);
                 return data;
             }
         } catch (error) {
             console.warn('직접 로드 실패:', error.message);
         }
 
-        // 방법 2: CORS 프록시 사용
+        // 2단계: CORS 프록시 사용
         for (const proxy of this.corsProxies) {
             try {
                 console.log(`CORS 프록시 시도: ${proxy}`);
                 const data = await this.proxyLoad(proxy);
                 if (data && data.length > 0) {
                     console.log('프록시 로드 성공');
+                    this.setCachedData(data);
                     return data;
                 }
             } catch (error) {
@@ -57,7 +62,7 @@ class SheetsAPI {
             }
         }
 
-        // 방법 3: 캐시된 데이터 사용
+        // 3단계: 캐시된 데이터 사용
         try {
             const cachedData = this.getCachedData();
             if (cachedData && cachedData.length > 0) {
@@ -110,10 +115,6 @@ class SheetsAPI {
 
         const csvText = await response.text();
         const data = this.parseCSV(csvText);
-        
-        // 성공시 캐시에 저장
-        this.setCachedData(data);
-        
         return data;
     }
 
