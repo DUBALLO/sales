@@ -1,10 +1,12 @@
-// 월별매출 현황 JavaScript (컬럼명 최종 수정본)
+// 매출처별 집계 분석 JavaScript (최종 수정 버전)
 
 // 전역 변수
-let salesData = [];
-let governmentSalesData = [];
-let privateSalesData = [];
-let currentDetailData = {};
+let governmentData = [];
+let customerData = [];
+let regionData = [];
+let typeData = [];
+let isLoading = false;
+let currentYear = 'all';
 
 // 안전한 요소 가져오기
 function $(id) {
@@ -16,108 +18,22 @@ function $(id) {
 }
 
 // 포맷팅 함수들
-function formatNumber(number) {
-    if (window.CommonUtils && CommonUtils.formatNumber) {
-        return CommonUtils.formatNumber(number);
-    }
-    return new Intl.NumberFormat('ko-KR').format(number || 0);
+function formatCurrency(amount) {
+    if (!amount && amount !== 0) return '-';
+    return new Intl.NumberFormat('ko-KR').format(amount) + '원';
 }
 
-function formatCurrency(amount) {
-    if (window.CommonUtils && CommonUtils.formatCurrency) {
-        return CommonUtils.formatCurrency(amount);
-    }
-    return new Intl.NumberFormat('ko-KR').format(amount || 0) + '원';
+function formatNumber(number) {
+    if (!number && number !== 0) return '-';
+    return new Intl.NumberFormat('ko-KR').format(number);
 }
 
 function formatDate(date) {
-    if (window.CommonUtils && CommonUtils.formatDate) {
-        return CommonUtils.formatDate(date);
-    }
     if (!date || !(date instanceof Date)) return '-';
     return date.toLocaleDateString('ko-KR');
 }
 
-function getYearMonth(year, month) {
-    if (window.CommonUtils && CommonUtils.getYearMonth) {
-        return CommonUtils.getYearMonth(year, month);
-    }
-    return `${year}-${String(month).padStart(2, '0')}`;
-}
-
-function showAlert(message, type = 'info') {
-    if (window.CommonUtils && CommonUtils.showAlert) {
-        CommonUtils.showAlert(message, type);
-    } else {
-        alert(message);
-    }
-}
-
-// 샘플 데이터
-const sampleData = [
-    {
-        date: '2024-01-15',
-        type: '주문',
-        contractName: '천보산 산림욕장 보완사업 관급자재',
-        customer: '경기도 양주시',
-        amount: 1500000,
-        deliveryDate: '2024-01-25',
-        invoiceDate: null,
-        item: '식생매트'
-    },
-    {
-        date: '2024-01-20',
-        type: '관급매출',
-        contractName: '의정부시 녹지조성사업',
-        customer: '의정부시',
-        amount: 2800000,
-        deliveryDate: null,
-        invoiceDate: '2024-01-25',
-        item: '고정핀'
-    },
-    {
-        date: '2024-02-05',
-        type: '주문',
-        contractName: '서울시 한강공원 보행로 개선',
-        customer: '서울시',
-        amount: 3200000,
-        deliveryDate: '2024-02-15',
-        invoiceDate: null,
-        item: '식생매트'
-    },
-    {
-        date: '2024-02-10',
-        type: '관급매출',
-        contractName: '부천시 중앙공원 조성사업',
-        customer: '부천시',
-        amount: 4500000,
-        deliveryDate: null,
-        invoiceDate: '2024-02-15',
-        item: '보행매트'
-    },
-    {
-        date: '2024-03-12',
-        type: '관급매출',
-        contractName: '광주 북구 문화센터 주변 정비',
-        customer: '광주 북구',
-        amount: 5200000,
-        deliveryDate: null,
-        invoiceDate: '2024-03-15',
-        item: '식생매트'
-    },
-    {
-        date: '2024-04-07',
-        type: '사급매출',
-        contractName: '제주시 관광지 보행로 정비',
-        customer: '제주시',
-        amount: 3100000,
-        deliveryDate: null,
-        invoiceDate: '2024-04-10',
-        item: '고정핀'
-    }
-];
-
-// 날짜 파싱
+// 날짜 파싱 함수
 function parseDate(dateStr) {
     if (!dateStr) return null;
     
@@ -135,275 +51,507 @@ function parseDate(dateStr) {
     return isNaN(date.getTime()) ? null : date;
 }
 
-// 데이터 로드 및 전처리
-async function loadSalesData() {
-    console.log('데이터 로드 중...');
-    setLoadingState(true);
+// 금액 파싱 함수
+function parseAmount(amountStr) {
+    if (!amountStr) return 0;
+    const cleanAmount = amountStr.toString().replace(/[^\d]/g, '');
+    return parseInt(cleanAmount) || 0;
+}
 
+// 지역 추출 함수
+function extractRegion(customerName) {
+    if (!customerName) return '기타';
+    
+    const regionMap = {
+        '서울': '서울특별시',
+        '경기': '경기도',
+        '강원': '강원도',
+        '충북': '충청북도',
+        '충남': '충청남도',
+        '전북': '전라북도',
+        '전남': '전라남도',
+        '경북': '경상북도',
+        '경남': '경상남도',
+        '제주': '제주특별자치도',
+        '부산': '부산광역시',
+        '대구': '대구광역시',
+        '인천': '인천광역시',
+        '광주': '광주광역시',
+        '대전': '대전광역시',
+        '울산': '울산광역시'
+    };
+    
+    for (const [key, value] of Object.entries(regionMap)) {
+        if (customerName.includes(key)) {
+            return value;
+        }
+    }
+    
+    return '기타';
+}
+
+// 샘플 데이터 생성
+function generateSampleData() {
+    console.log('=== 샘플 데이터 생성 시작 ===');
+    
+    governmentData = [
+        {
+            customer: '경기도 양주시', region: '경기도', customerType: '지방자치단체',
+            amount: 15000000, contractDate: '2024-01-15', contractName: '천보산 산림욕장 보완사업', product: '보행매트'
+        },
+        {
+            customer: '의정부시', region: '경기도', customerType: '지방자치단체',
+            amount: 28000000, contractDate: '2024-02-10', contractName: '의정부시 녹지조성사업', product: '보행매트'
+        },
+        {
+            customer: '서울시', region: '서울특별시', customerType: '지방자치단체',
+            amount: 32000000, contractDate: '2024-02-05', contractName: '서울시 한강공원 보행로 개선', product: '식생매트'
+        },
+        {
+            customer: '부천시', region: '경기도', customerType: '지방자치단체',
+            amount: 45000000, contractDate: '2024-03-12', contractName: '부천시 중앙공원 조성사업', product: '논슬립'
+        },
+        {
+            customer: '춘천시', region: '강원도', customerType: '지방자치단체',
+            amount: 22000000, contractDate: '2024-03-20', contractName: '춘천시 공원 조성사업', product: '보행매트'
+        }
+    ];
+    
+    console.log('샘플 데이터 생성 완료');
+}
+
+// 메인 분석 함수
+async function analyzeCustomers() {
     try {
-        if (!window.sheetsAPI) {
-            throw new Error("sheets-api.js가 로드되지 않았습니다.");
+        console.log('=== 고객 분석 시작 ===');
+        
+        showLoadingState(true);
+        
+        let useRealData = false;
+        
+        if (window.sheetsAPI) {
+            try {
+                console.log('sheets-api를 통한 실제 데이터 로드 시도...');
+                const rawData = await window.sheetsAPI.loadCSVData('procurement');
+                
+                if (rawData && rawData.length > 0) {
+                    console.log('sheets-api에서 로드된 원시 데이터:', rawData.length, '건');
+                    parseRealData(rawData);
+                    useRealData = true;
+                } else {
+                    throw new Error('로드된 데이터가 비어있습니다.');
+                }
+                
+            } catch (error) {
+                console.warn('실제 데이터 로드 실패:', error.message);
+                useRealData = false;
+            }
+        } else {
+            console.warn('sheets-api.js가 로드되지 않음');
+            useRealData = false;
         }
         
-        const data = await window.sheetsAPI.loadCSVData('monthlySales');
-        
-        // 필수 컬럼 존재 여부 확인
-        const requiredColumns = ['주문일자', '구분', '합계', '계약명', '거래처'];
-        const firstRow = data[0];
-        const hasRequiredColumns = requiredColumns.every(col => firstRow && firstRow.hasOwnProperty(col));
-
-        if (!hasRequiredColumns) {
-            console.error('데이터에 필수 컬럼이 누락되었습니다.');
-            throw new Error('Google Sheets 데이터 형식이 올바르지 않습니다.');
+        if (!useRealData) {
+            console.log('샘플 데이터 사용');
+            generateSampleData();
         }
+        
+        const selectedYear = $('analysisYear')?.value || 'all';
+        const selectedProduct = $('productType')?.value || 'all';
+        
+        console.log('분석 조건 - 연도:', selectedYear, '품목:', selectedProduct);
+        
+        let filteredData = [...governmentData];
+        
+        if (selectedYear !== 'all') {
+            const year = parseInt(selectedYear);
+            filteredData = filteredData.filter(item => {
+                const date = parseDate(item.contractDate || '');
+                return date && date.getFullYear() === year;
+            });
+        }
+        
+        if (selectedProduct !== 'all') {
+            filteredData = filteredData.filter(item => 
+                item.product === selectedProduct
+            );
+        }
+        
+        analyzeCustomerData(filteredData);
+        analyzeRegionData(filteredData);
+        analyzeTypeData(filteredData);
 
-        // 데이터 파싱
-        salesData = data.map(row => ({
-            월: new Date(row.주문일자).getMonth() + 1,
-            구분: row.구분,
-            날짜: parseDate(row.주문일자),
-            판매금액: parseInt(String(row.합계).replace(/,/g, ''), 10) || 0,
-            계약명: row.계약명,
-            고객사명: row.거래처
-        }));
-
-        console.log(`총 ${salesData.length}개의 데이터 행을 불러왔습니다.`);
-
-        // 관급 및 사급 데이터 분리
-        governmentSalesData = salesData.filter(d => d.구분 === '관급');
-        privateSalesData = salesData.filter(d => d.구분 === '사급');
-
-        console.log(`관급 데이터 ${governmentSalesData.length}개, 사급 데이터 ${privateSalesData.length}개로 분리 완료.`);
-
-        generateReport();
-
+        updateSummaryStats(filteredData);
+        renderAllTables();
+        
+        console.log('=== 고객 분석 완료 ===');
+        
+        const message = useRealData ? 
+            `실제 데이터 분석 완료 (${governmentData.length}건)` :
+            '샘플 데이터로 분석 완료';
+        showAlert(message, useRealData ? 'success' : 'warning');
+        
     } catch (error) {
-        console.error('데이터 로드 실패:', error);
-        showAlert('데이터를 불러오는 중 오류가 발생했습니다. 샘플 데이터로 대체합니다.', 'warning');
-        loadSampleDataFallback();
+        console.error('고객 분석 오류:', error);
+        showAlert('분석 중 오류가 발생했습니다: ' + error.message, 'error');
     } finally {
-        setLoadingState(false);
+        showLoadingState(false);
     }
 }
 
-// 샘플 데이터로 대체
-function loadSampleDataFallback() {
-    console.log('샘플 데이터로 전환합니다.');
+// 실제 데이터 파싱 함수 (컬럼명 교정)
+function parseRealData(rawData) {
+    console.log('=== 실제 데이터 파싱 시작 ===');
     
-    salesData = sampleData.map(item => ({
+    governmentData = [];
+    
+    let dubaloCount = 0;
+    
+    rawData.forEach(item => {
+        try {
+            const company = (item['업체'] || '').trim();
+            if (company !== '두발로 주식회사') return;
+            dubaloCount++;
+            
+            const baseData = {
+                customer: (item['수요기관명'] || '').trim(),
+                region: (item['수요기관지역'] || '').trim(),
+                customerType: item['소관구분'] || '지방자치단체',
+                amount: parseAmount(item['공급금액'] || '0'),
+                contractDate: item['기준일자'] || '',
+                contractName: (item['계약명'] || '').trim(),
+                product: (item['세부품명'] || '').trim()
+            };
+            
+            if (!baseData.customer || baseData.customer === '거래처 없음' || baseData.amount <= 0) return;
+            
+            governmentData.push(baseData);
+            
+        } catch (error) {
+            console.warn(`데이터 파싱 오류 (행):`, error.message);
+        }
+    });
+    
+    console.log('데이터 파싱 완료');
+    console.log(`전체 ${rawData.length}건 중 두발로 주식회사: ${dubaloCount}건`);
+    console.log(`유효한 관급 데이터: ${governmentData.length}건`);
+}
+
+// 고객별 데이터 분석
+function analyzeCustomerData(data) {
+    console.log('=== 고객별 데이터 분석 ===');
+    const customerMap = new Map();
+    data.forEach(item => {
+        const customer = item.customer || '';
+        const customerType = item.customerType || '지방자치단체';
+        
+        if (!customerMap.has(customer)) {
+            customerMap.set(customer, {
+                customer: customer,
+                region: item.region || '',
+                customerType: customerType,
+                contracts: new Set(),
+                amount: 0,
+                lastTransactionDate: null
+            });
+        }
+        
+        const customerInfo = customerMap.get(customer);
+        customerInfo.contracts.add(item.contractName);
+        customerInfo.amount += item.amount || 0;
+        const date = parseDate(item.contractDate || '');
+        if (!customerInfo.lastTransactionDate || (date && date > customerInfo.lastTransactionDate)) {
+            customerInfo.lastTransactionDate = date;
+        }
+    });
+    
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
+    customerData = Array.from(customerMap.values()).map(item => ({
         ...item,
-        date: new Date(item.date),
-        deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
-        invoiceDate: item.invoiceDate ? new Date(item.invoiceDate) : null
+        count: item.contracts.size,
+        share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0
     }));
     
-    generateReport();
-    showAlert('샘플 데이터를 표시합니다. Google Sheets 연결을 확인해주세요.', 'warning');
+    customerData.sort((a, b) => b.amount - a.amount);
+    
+    customerData.forEach((item, index) => { item.rank = index + 1; });
+    
+    console.log(`고객별 분석 완료: ${customerData.length}개 고객`);
 }
 
-// 리포트 생성
-function generateReport() {
-    console.log('리포트 생성 시작...');
-    setLoadingState(true);
-    
-    const startYear = parseInt($('startYear').value);
-    const endYear = parseInt($('endYear').value);
-    const customerType = $('customerType').value;
-
-    const filteredData = {
-        government: [],
-        private: []
-    };
-
-    if (customerType === 'all' || customerType === 'government') {
-        filteredData.government = governmentSalesData.filter(d => {
-            const date = new Date(d.날짜);
-            return date.getFullYear() >= startYear && date.getFullYear() <= endYear;
-        });
-    }
-
-    if (customerType === 'all' || customerType === 'private') {
-        filteredData.private = privateSalesData.filter(d => {
-            const date = new Date(d.날짜);
-            return date.getFullYear() >= startYear && date.getFullYear() <= endYear;
-        });
-    }
-
-    const monthlySummary = {};
-    function aggregateData(data, type) {
-        data.forEach(item => {
-            const date = new Date(item.날짜);
-            const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            
-            if (!monthlySummary[yearMonth]) {
-                monthlySummary[yearMonth] = {
-                    total: 0,
-                    government: 0,
-                    private: 0,
-                    contracts: []
-                };
-            }
-            monthlySummary[yearMonth].total += item.판매금액;
-            monthlySummary[yearMonth][type] += item.판매금액;
-            monthlySummary[yearMonth].contracts.push(item);
-        });
-    }
-
-    aggregateData(filteredData.government, 'government');
-    aggregateData(filteredData.private, 'private');
-    
-    renderMonthlyTable(monthlySummary, customerType);
-
-    setLoadingState(false);
-    console.log('리포트 생성 완료.');
-}
-
-// 테이블 렌더링
-function renderMonthlyTable(data, customerType) {
-    const tableBody = $('monthlyTable').querySelector('tbody');
-    const totalSalesCard = $('totalSalesCard');
-    const totalContractsCard = $('totalContractsCard');
-    
-    if (!tableBody) return;
-
-    tableBody.innerHTML = '';
-
-    const sortedMonths = Object.keys(data).sort();
-    let totalSales = 0;
-    let totalGovSales = 0;
-    let totalPrivateSales = 0;
-    let totalContracts = 0;
-    
-    sortedMonths.forEach(month => {
-        const rowData = data[month];
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="px-6 py-3 whitespace-nowrap text-center text-sm font-medium text-gray-900">${month}</td>
-            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-700">${formatCurrency(rowData.total)}</td>
-            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-700">${formatCurrency(rowData.government)}</td>
-            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-gray-700">${formatCurrency(rowData.private)}</td>
-            <td class="px-6 py-3 whitespace-nowrap text-center text-sm text-gray-700">${formatNumber(rowData.contracts.length)}건</td>
-        `;
-        tableBody.appendChild(row);
-
-        totalSales += rowData.total;
-        totalGovSales += rowData.government;
-        totalPrivateSales += rowData.private;
-        totalContracts += rowData.contracts.length;
+// 지역별 데이터 분석
+function analyzeRegionData(data) {
+    console.log('=== 지역별 데이터 분석 ===');
+    const regionMap = new Map();
+    data.forEach(item => {
+        const region = item.region || '';
+        if (!regionMap.has(region)) {
+            regionMap.set(region, {
+                region: region,
+                customerCount: new Set(),
+                contracts: new Set(),
+                amount: 0
+            });
+        }
+        const regionInfo = regionMap.get(region);
+        regionInfo.customerCount.add(item.customer);
+        regionInfo.contracts.add(item.contractName);
+        regionInfo.amount += item.amount || 0;
     });
+    
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
+    regionData = Array.from(regionMap.values()).map(item => ({
+        ...item,
+        customerCount: item.customerCount.size,
+        contractCount: item.contracts.size,
+        share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0,
+        avgAmount: item.contracts.size > 0 ? item.amount / item.contracts.size : 0
+    }));
+    
+    regionData.sort((a, b) => b.amount - a.amount);
 
-    const totalRow = document.createElement('tr');
-    totalRow.className = 'bg-gray-100 font-bold';
-    totalRow.innerHTML = `
-        <td class="px-6 py-3 whitespace-nowrap text-center text-sm text-gray-900">총 합계</td>
-        <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-green-600">${formatCurrency(totalSales)}</td>
-        <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-green-600">${formatCurrency(totalGovSales)}</td>
-        <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-green-600">${formatCurrency(totalPrivateSales)}</td>
-        <td class="px-6 py-3 whitespace-nowrap text-center text-sm text-green-600">${formatNumber(totalContracts)}건</td>
-    `;
-    tableBody.appendChild(totalRow);
-    
-    if (totalSalesCard) totalSalesCard.querySelector('p').textContent = formatCurrency(totalSales);
-    if (totalContractsCard) totalContractsCard.querySelector('p').textContent = formatNumber(totalContracts);
-    
-    hideDetailSection();
+    regionData.forEach((item, index) => { item.rank = index + 1; });
+
+    console.log(`지역별 분석 완료: ${regionData.length}개 지역`);
 }
 
-// 상세 내역 표시
-function showDetail(yearMonth) {
-    // 상세 내역 데이터를 찾아서 표시하는 로직 구현
-    // ...
+// 수요기관별 데이터 분석
+function analyzeTypeData(data) {
+    console.log('=== 수요기관별 데이터 분석 ===');
+    const typeMap = new Map();
+    data.forEach(item => {
+        const type = item.customerType || '지방자치단체';
+        if (!typeMap.has(type)) {
+            typeMap.set(type, {
+                customerType: type,
+                customerCount: new Set(),
+                contracts: new Set(),
+                amount: 0
+            });
+        }
+        const typeInfo = typeMap.get(type);
+        typeInfo.customerCount.add(item.customer);
+        typeInfo.contracts.add(item.contractName);
+        typeInfo.amount += item.amount || 0;
+    });
+    
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
+    typeData = Array.from(typeMap.values()).map(item => ({
+        ...item,
+        customerCount: item.customerCount.size,
+        contractCount: item.contracts.size,
+        share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0,
+        avgAmount: item.contracts.size > 0 ? item.amount / item.contracts.size : 0
+    }));
+    
+    typeData.sort((a, b) => b.amount - a.amount);
+    
+    typeData.forEach((item, index) => { item.rank = index + 1; });
+
+    console.log(`수요기관별 분석 완료: ${typeData.length}개 유형`);
 }
 
-// 상세 내역 섹션 숨기기
-function hideDetailSection() {
-    const detailSection = $('detailSection');
-    if (detailSection) {
-        detailSection.classList.add('hidden');
+// 요약 통계 업데이트
+function updateSummaryStats(data) {
+    const totalCustomers = new Set(data.map(item => item.customer)).size;
+    const totalContracts = new Set(data.map(item => item.contractName)).size;
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
+    
+    const elements = {
+        totalCustomers: $('totalCustomers'),
+        totalContracts: $('totalContracts'),
+        totalSales: $('totalSales')
+    };
+    
+    if (elements.totalCustomers) elements.totalCustomers.textContent = formatNumber(totalCustomers) + '개';
+    if (elements.totalContracts) elements.totalContracts.textContent = formatNumber(totalContracts) + '건';
+    if (elements.totalSales) elements.totalSales.textContent = formatCurrency(totalAmount);
+}
+
+// 모든 테이블 렌더링
+function renderAllTables() {
+    renderCustomerTable();
+    renderRegionTable();
+    renderTypeTable();
+}
+
+// 고객별 테이블 렌더링
+function renderCustomerTable() {
+    const tbody = $('customerTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    // ✨ 수정된 부분: customerData가 undefined일 경우 빈 배열로 처리
+    const dataToRender = customerData ? [...customerData] : [];
+
+    if (dataToRender.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-500">고객 데이터가 없습니다.</td></tr>';
+        return;
+    }
+    
+    dataToRender.forEach((customer, index) => {
+        const row = document.createElement('tr');
+        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        
+        row.innerHTML = `
+            <td class="text-center font-medium">${customer.rank}</td>
+            <td class="font-medium">${customer.customer}</td>
+            <td>${customer.region}</td>
+            <td class="text-center">
+                <span class="badge ${getCustomerTypeBadgeClass(customer.customerType)}">${customer.customerType}</span>
+            </td>
+            <td class="text-center">${formatNumber(customer.count)}</td>
+            <td class="text-right font-medium amount">${formatCurrency(customer.amount)}</td>
+            <td class="text-right">${customer.share.toFixed(1)}%</td>
+            <td class="text-center mobile-hidden">${customer.lastTransactionDate ? formatDate(customer.lastTransactionDate) : '-'}</td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+}
+
+// 지역별 테이블 렌더링
+function renderRegionTable() {
+    const tbody = $('regionTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (regionData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">지역 데이터가 없습니다.</td></tr>';
+        return;
+    }
+    
+    regionData.forEach((region, index) => {
+        const row = document.createElement('tr');
+        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        
+        row.innerHTML = `
+            <td class="text-center font-medium">${region.rank}</td>
+            <td class="font-medium">${region.region}</td>
+            <td class="text-center">${formatNumber(region.customerCount)}</td>
+            <td class="text-center">${formatNumber(region.contractCount)}</td>
+            <td class="text-right font-medium amount">${formatCurrency(region.amount)}</td>
+            <td class="text-right">${region.share.toFixed(1)}%</td>
+            <td class="text-right tablet-hidden">${formatCurrency(Math.round(region.avgAmount))}</td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+}
+
+// 수요기관별 테이블 렌더링
+function renderTypeTable() {
+    const tbody = $('typeTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (typeData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">수요기관 데이터가 없습니다.</td></tr>';
+        return;
+    }
+    
+    typeData.forEach((type, index) => {
+        const row = document.createElement('tr');
+        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        
+        row.innerHTML = `
+            <td class="text-center font-medium">${type.rank}</td>
+            <td class="font-medium">
+                <span class="badge ${getCustomerTypeBadgeClass(type.customerType)}">${type.customerType}</span>
+            </td>
+            <td class="text-center">${formatNumber(type.customerCount)}</td>
+            <td class="text-center">${formatNumber(type.contractCount)}</td>
+            <td class="text-right font-medium amount">${formatCurrency(type.amount)}</td>
+            <td class="text-right">${type.share.toFixed(1)}%</td>
+            <td class="text-right tablet-hidden">${formatCurrency(Math.round(type.avgAmount))}</td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+}
+
+// 수요기관 구분별 배지 클래스 반환
+function getCustomerTypeBadgeClass(type) {
+    switch (type) {
+        case '지방자치단체': return 'badge-primary';
+        case '군': return 'badge-success';
+        case '공기업': return 'badge-warning';
+        case '관공서': return 'badge-secondary';
+        default: return 'badge-gray';
     }
 }
 
 // 로딩 상태 표시
-function setLoadingState(show) {
-    const tableContainer = $('monthlyTableContainer');
-    if (tableContainer) {
-        if (show) {
-            tableContainer.classList.add('loading-overlay');
-        } else {
-            tableContainer.classList.remove('loading-overlay');
-        }
+function showLoadingState(show) {
+    isLoading = show;
+    const analyzeBtn = $('analyzeBtn');
+    if (analyzeBtn) {
+        analyzeBtn.disabled = show;
+        analyzeBtn.innerHTML = show 
+            ? '<div class="loading-spinner"></div>분석 중...' 
+            : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+               </svg>분석`;
     }
-}
-
-// 에러 상태 표시
-function setErrorState() {
-    const tableBody = $('monthlyTable').querySelector('tbody');
-    if (tableBody) {
-        tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-red-500">데이터 로드 실패</td></tr>`;
-    }
-}
-
-// 새로고침 기능
-async function refreshData() {
-    console.log('데이터 새로고침 시작');
-    await loadSalesData();
-}
-
-// 연결 상태 테스트
-async function checkConnection() {
-    console.log('연결 상태 확인...');
-    if (window.sheetsAPI) {
-        const isConnected = await window.sheetsAPI.testConnection();
-        if (isConnected) {
-            showAlert('Google Sheets와 연결이 정상입니다.', 'success');
-        } else {
-            showAlert('Google Sheets 연결에 실패했습니다. CORS 문제일 수 있습니다.', 'error');
+    
+    const statElements = ['totalCustomers', 'totalContracts', 'totalSales'];
+    statElements.forEach(id => {
+        const element = $(id);
+        if (element) {
+            element.textContent = show ? '로딩중...' : element.textContent;
         }
+    });
+}
+
+// 알림 표시
+function showAlert(message, type = 'info') {
+    if (window.CommonUtils && CommonUtils.showAlert) {
+        CommonUtils.showAlert(message, type);
     } else {
-        showAlert('sheets-api.js가 로드되지 않았습니다.', 'error');
+        alert(message);
     }
 }
 
-// 인쇄 기능
-function printReport() {
-    window.print();
+// ✨ 테이블 정렬 함수
+function sortTable(tbodyId, columnIndex, type = 'string') {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isAsc = tbody.dataset.sortColumn !== columnIndex.toString() || tbody.dataset.sortDirection === 'desc';
+    
+    const sortedRows = rows.sort((a, b) => {
+        const aText = a.cells[columnIndex].textContent.trim();
+        const bText = b.cells[columnIndex].textContent.trim();
+        let comparison = 0;
+
+        if (type === 'number') {
+            const aNum = parseFloat(aText.replace(/[^\d.-]/g, ''));
+            const bNum = parseFloat(bText.replace(/[^\d.-]/g, ''));
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                comparison = aNum - bNum;
+            }
+        } else {
+            comparison = aText.localeCompare(bText, 'ko-KR');
+        }
+        
+        return isAsc ? comparison : -comparison;
+    });
+    
+    tbody.innerHTML = '';
+    sortedRows.forEach(row => tbody.appendChild(row));
+    
+    tbody.dataset.sortColumn = columnIndex;
+    tbody.dataset.sortDirection = isAsc ? 'asc' : 'desc';
 }
 
 // 전역 함수 노출
-window.loadSalesData = loadSalesData;
-window.generateReport = generateReport;
-window.showDetail = showDetail;
-window.refreshData = refreshData;
-window.checkConnection = checkConnection;
-window.printReport = printReport;
-window.hideDetailSection = hideDetailSection;
+window.CustomerAnalysis = {
+    analyzeCustomers: analyzeCustomers,
+    generateSampleData: generateSampleData,
+    sortTable: sortTable
+};
 
-// 페이지 로드시 자동 실행
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('페이지 로드 완료, 데이터 로딩 시작...');
-    
-    const searchBtn = $('searchBtn');
-    if (searchBtn) {
-        searchBtn.addEventListener('click', generateReport);
-    }
-    
-    if (window.sheetsAPI) {
-        console.log('sheets-api.js 로드 확인됨');
-        setTimeout(loadSalesData, 100);
-    } else {
-        console.warn('sheets-api.js가 로드되지 않음, 재시도...');
-        let retryCount = 0;
-        const retryInterval = setInterval(() => {
-            if (window.sheetsAPI || retryCount >= 30) {
-                clearInterval(retryInterval);
-                if (window.sheetsAPI) {
-                    console.log('sheets-api.js 지연 로드 확인됨');
-                    loadSalesData();
-                } else {
-                    console.error('sheets-api.js 로드 실패');
-                    setErrorState();
-                }
-            }
-        }, 100);
-    }
-});
+console.log('=== CustomerAnalysis 모듈 로드 완료 ===');
