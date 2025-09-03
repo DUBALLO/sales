@@ -269,13 +269,17 @@ function parseRealData(rawData) {
     
     rawData.forEach((item, index) => {
         try {
-            // 구분 필드 확인
-            const typeValue = item['구분'] || item['type'] || item['Type'] || '';
-            const customer = (item['거래처'] || item['customer'] || item['Customer'] || '').trim();
-            const contractName = (item['계약명'] || item['사업명'] || item['contractName'] || '').trim();
-            const amountValue = item['합계'] || item['금액'] || item['amount'] || '0';
-            const dateValue = item['주문일자'] || item['날짜'] || item['date'] || '';
-            const product = item['품목'] || item['product'] || '';
+            // 두발로 주식회사 데이터만 필터링
+            const company = (item['업체'] || '').trim();
+            if (company !== '두발로 주식회사') return; // 두발로가 아니면 건너뛰
+
+            // 나라장터 조달 데이터 매핑
+            const customer = (item['수요기관명'] || '').trim();
+            const contractName = (item['계약명'] || '').trim();
+            const amountValue = item['공급금액'] || '0';
+            const dateValue = item['기준일자'] || '';
+            const product = (item['세부품명'] || '').trim();
+            const region = (item['수요기관지역'] || '').trim();
             
             // 디버깅 로그 (처음 3개 행만)
             if (index < 3) {
