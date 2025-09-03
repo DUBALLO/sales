@@ -271,4 +271,561 @@ function loadSampleDataFallback() {
         ...item,
         date: new Date(item.date),
         deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
-        invoice
+        invoiceDate: item.invoiceDate ? new Date(item.invoiceDate) : null
+    }));
+    
+    generateReport();
+    showAlert('샘플 데이터를 표시합니다. Google Sheets 연결을 확인해주세요.', 'warning');
+}
+
+// 보고서 생성
+function generateReport() {
+    try {
+        const startYear = parseInt($('startYear')?.value || '2024');
+        const startMonth = parseInt($('startMonth')?.value || '1');
+        const endYear = parseInt($('endYear')?.value || '2024');
+        const endMonth = parseInt($('endMonth')?.value || '12');
+        
+        const startDate = new Date(startYear, startMonth - 1, 1);
+        const endDate = new Date(endYear, endMonth, 0);
+        
+        if (startDate > endDate) {
+            showAlert('시작 기간이 종료 기간보다 늦을 수 없습니다.', 'warning');
+            return;
+        }
+        
+        const monthlyData = initializeMonthlyData(startDate, endDate);
+        aggregateData(monthlyData, startDate, endDate);
+        renderMonthlyTable(monthlyData);
+        
+    } catch (error) {
+        console.error('보고서 생성 오류:', error);
+        showAlert('보고서 생성 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// 월별 데이터 초기화
+function initializeMonthlyData(startDate, endDate) {
+    const monthlyData = {};
+    let currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+        const yearMonth = getYearMonth(currentDate.getFullYear(), currentDate.getMonth() + 1);
+        monthlyData[yearMonth] = {
+            order: { count: 0, amount: 0, details: [] },
+            government: { count: 0, amount: 0, details: [] },
+            private: { count: 0, amount: 0, details: [] }
+        };
+        currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+    
+    return monthlyData;
+}
+
+// 데이터 집계
+function aggregateData(monthlyData, startDate, endDate) {
+    const contractCounts = {};
+    
+    salesData.forEach(item => {
+        let targetDate = null;
+        
+        switch (item.type) {
+            case '주문':
+            case '납품완료':
+                targetDate = item.orderDate || item.date;
+                break;
+            case '관급매출':
+            case '사급매출':
+                targetDate = item.invoiceDate || item.date;
+                break;
+            default:
+                targetDate = item.date;
+        }
+        
+        if (targetDate && targetDate >= startDate && targetDate <= endDate) {
+            const yearMonth = getYearMonth(targetDate.getFullYear(), targetDate.getMonth() + 1);
+            
+            if (monthlyData[yearMonth]) {
+                const contractKey = `${yearMonth}-${item.type}-${item.contractName}`;
+                
+                switch (item.type) {
+                    case '주문':
+                    case '납품완료':
+                        if (!contractCounts[contractKey]) {
+                            monthlyData[yearMonth].order.count++;
+                            contractCounts[contractKey] = true;
+                        }
+                        monthlyData[yearMonth].order.amount += item.amount;
+                        monthlyData[yearMonth].order.details.push({
+                            ...item,
+                            displayDate: targetDate
+                        });
+                        break;
+                        
+                    case '관급매출':
+                        if (!contractCounts[contractKey]) {
+                            monthlyData[yearMonth].government.count++;
+                            contractCounts[contractKey] = true;
+                        }
+                        monthlyData[yearMonth].government.amount += item.amount;
+                        monthlyData[yearMonth].government.details.push({
+                            ...item,
+                            displayDate: targetDate
+                        });
+                        break;
+                        
+                    case '사급매출':
+                        if (!contractCounts[contractKey]) {
+                            monthlyData[yearMonth].private.count++;
+                            contractCounts[contractKey] = true;
+                        }
+                        monthlyData[yearMonth].private.amount += item.amount;
+                        monthlyData[yearMonth].private.details.push({
+                            ...item,
+                            displayDate: targetDate
+                        });
+                        break;
+                }
+            }
+        }
+    });
+    
+    currentDetailData = monthlyData;
+}
+
+// 테이블 렌더링
+function renderMonthlyTable(monthlyData) {
+    const tbody = $('monthlyTableBody');
+    if (!tbody) {
+        console.error('monthlyTableBody 요소를 찾을 수 없습니다.');
+        return;
+    }
+    
+    tbody.innerHTML = '';
+    
+    let totals = {
+        orderCount: 0, orderAmount: 0,
+        govCount: 0, govAmount: 0,
+        privCount: 0, privAmount: 0
+    };
+    
+    const sortedMonths = Object.keys(monthlyData).sort();
+    
+    if (sortedMonths.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 py-8">해당 기간에 데이터가 없습니다.</td></tr>';
+        updateTotalRow(totals);
+        return;
+    }
+    
+    sortedMonths.forEach(yearMonth => {
+        const data = monthlyData[yearMonth];
+        const [year, month] = yearMonth.split('-');
+        
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        
+        // 년/월
+        const monthCell = document.createElement('td');
+        monthCell.textContent = `${year}년 ${parseInt(month)}월`;
+        monthCell.className = 'font-medium border-r border-gray-200';
+        row.appendChild(monthCell);
+        
+        // 주문 건수
+        const orderCountCell = document.createElement('td');
+        orderCountCell.textContent = formatNumber(data.order.count);
+        orderCountCell.className = 'text-center border-r border-gray-200';
+        row.appendChild(orderCountCell);
+        
+        // 주문 금액
+        const orderAmountCell = document.createElement('td');
+        orderAmountCell.textContent = formatCurrency(data.order.amount);
+        orderAmountCell.className = 'text-right border-r border-gray-200';
+        if (data.order.amount > 0) {
+            orderAmountCell.className += ' amount-clickable cursor-pointer text-blue-600 hover:text-blue-800';
+            orderAmountCell.title = '클릭하여 상세내역 보기';
+            orderAmountCell.addEventListener('click', () => showDetail(yearMonth, 'order', '주문'));
+        }
+        row.appendChild(orderAmountCell);
+        
+        // 관급매출 건수
+        const govCountCell = document.createElement('td');
+        govCountCell.textContent = formatNumber(data.government.count);
+        govCountCell.className = 'text-center border-r border-gray-200';
+        row.appendChild(govCountCell);
+        
+        // 관급매출 금액
+        const govAmountCell = document.createElement('td');
+        govAmountCell.textContent = formatCurrency(data.government.amount);
+        govAmountCell.className = 'text-right border-r border-gray-200';
+        if (data.government.amount > 0) {
+            govAmountCell.className += ' amount-clickable cursor-pointer text-blue-600 hover:text-blue-800';
+            govAmountCell.title = '클릭하여 상세내역 보기';
+            govAmountCell.addEventListener('click', () => showDetail(yearMonth, 'government', '관급매출'));
+        }
+        row.appendChild(govAmountCell);
+        
+        // 사급매출 건수
+        const privCountCell = document.createElement('td');
+        privCountCell.textContent = formatNumber(data.private.count);
+        privCountCell.className = 'text-center border-r border-gray-200';
+        row.appendChild(privCountCell);
+        
+        // 사급매출 금액
+        const privAmountCell = document.createElement('td');
+        privAmountCell.textContent = formatCurrency(data.private.amount);
+        privAmountCell.className = 'text-right border-r border-gray-200';
+        if (data.private.amount > 0) {
+            privAmountCell.className += ' amount-clickable cursor-pointer text-blue-600 hover:text-blue-800';
+            privAmountCell.title = '클릭하여 상세내역 보기';
+            privAmountCell.addEventListener('click', () => showDetail(yearMonth, 'private', '사급매출'));
+        }
+        row.appendChild(privAmountCell);
+        
+        // 합계
+        const totalAmount = data.order.amount + data.government.amount + data.private.amount;
+        const totalCell = document.createElement('td');
+        totalCell.textContent = formatCurrency(totalAmount);
+        totalCell.className = 'text-right font-medium';
+        row.appendChild(totalCell);
+        
+        tbody.appendChild(row);
+        
+        // 총계 누적
+        totals.orderCount += data.order.count;
+        totals.orderAmount += data.order.amount;
+        totals.govCount += data.government.count;
+        totals.govAmount += data.government.amount;
+        totals.privCount += data.private.count;
+        totals.privAmount += data.private.amount;
+    });
+    
+    updateTotalRow(totals);
+}
+
+// 합계 행 업데이트
+function updateTotalRow(totals) {
+    const elements = {
+        totalOrderCount: $('totalOrderCount'),
+        totalOrderAmount: $('totalOrderAmount'),
+        totalGovCount: $('totalGovCount'),
+        totalGovAmount: $('totalGovAmount'),
+        totalPrivCount: $('totalPrivCount'),
+        totalPrivAmount: $('totalPrivAmount'),
+        grandTotal: $('grandTotal')
+    };
+    
+    if (elements.totalOrderCount) elements.totalOrderCount.textContent = formatNumber(totals.orderCount);
+    if (elements.totalOrderAmount) elements.totalOrderAmount.textContent = formatCurrency(totals.orderAmount);
+    if (elements.totalGovCount) elements.totalGovCount.textContent = formatNumber(totals.govCount);
+    if (elements.totalGovAmount) elements.totalGovAmount.textContent = formatCurrency(totals.govAmount);
+    if (elements.totalPrivCount) elements.totalPrivCount.textContent = formatNumber(totals.privCount);
+    if (elements.totalPrivAmount) elements.totalPrivAmount.textContent = formatCurrency(totals.privAmount);
+    
+    const grandTotal = totals.orderAmount + totals.govAmount + totals.privAmount;
+    if (elements.grandTotal) elements.grandTotal.textContent = formatCurrency(grandTotal);
+}
+
+// 상세 테이블 헤더 업데이트
+function updateDetailTableHeader(type) {
+    // 기존 테이블 헤더 찾기
+    const table = $('detailTable');
+    if (!table) return;
+    
+    let headerRow = table.querySelector('thead tr');
+    if (!headerRow) {
+        const thead = table.querySelector('thead') || table.createTHead();
+        headerRow = thead.insertRow();
+    }
+    
+    headerRow.innerHTML = '';
+    
+    if (type === 'order') {
+        // 주문 상세내역: 상태, 계약명, 거래처, 금액, 날짜, 품목
+        headerRow.innerHTML = `
+            <th>상태</th>
+            <th>계약명</th>
+            <th>거래처</th>
+            <th>금액</th>
+            <th>날짜</th>
+            <th>품목</th>
+        `;
+    } else {
+        // 관급/사급 매출 상세내역: 계약명, 거래처, 금액, 날짜, 품목
+        headerRow.innerHTML = `
+            <th>계약명</th>
+            <th>거래처</th>
+            <th>금액</th>
+            <th>날짜</th>
+            <th>품목</th>
+        `;
+    }
+}
+
+// 상세 내역 표시 - 🎯 중복 제거 완벽 수정 버전
+function showDetail(yearMonth, type, typeName) {
+    const [year, month] = yearMonth.split('-');
+    const monthName = `${year}년 ${parseInt(month)}월`;
+    
+    const details = currentDetailData[yearMonth][type].details;
+    
+    if (!details || details.length === 0) {
+        showAlert('해당 월에 데이터가 없습니다.', 'info');
+        return;
+    }
+    
+    // 테이블 헤더 업데이트
+    updateDetailTableHeader(type);
+    
+    // 상세 테이블 렌더링하고 실제 계약 건수 받기
+    const actualContractCount = renderDetailTable(details, type);
+    
+    // 제목 업데이트 - 실제 계약 건수로 수정
+    const detailTitle = $('detailTitle');
+    if (detailTitle) {
+        detailTitle.textContent = `${monthName} ${typeName} 상세 내역 (${actualContractCount}건)`;
+    }
+    
+    const detailSection = $('detailSection');
+    if (detailSection) {
+        detailSection.classList.remove('hidden');
+        detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// 상세 테이블 렌더링 - 🎯 중복 제거 완벽 수정 버전
+function renderDetailTable(details, type) {
+    const tbody = $('detailTableBody');
+    if (!tbody) return 0;
+    
+    tbody.innerHTML = '';
+    
+    console.log('상세 테이블 렌더링 시작, 원시 데이터:', details.length, '건');
+    
+    // 계약명별로 데이터 합치기 (개선된 로직)
+    const mergedData = {};
+    details.forEach(item => {
+        const key = `${item.contractName}-${item.customer}`;
+        
+        if (mergedData[key]) {
+            // 기존 계약에 금액 합치기
+            mergedData[key].amount += item.amount;
+            
+            // 품목 수집 (중복 제거)
+            if (item.item && item.item.trim() !== '' && !mergedData[key].allItems.includes(item.item.trim())) {
+                mergedData[key].allItems.push(item.item.trim());
+            }
+            
+            // 더 큰 금액을 가진 품목을 메인으로 설정
+            if (item.amount > mergedData[key].maxAmount) {
+                mergedData[key].mainItem = item.item || '';
+                mergedData[key].maxAmount = item.amount;
+            }
+            
+            // 최신 날짜로 업데이트
+            const currentDate = mergedData[key].displayDate;
+            const newDate = item.displayDate || item.invoiceDate || item.date;
+            if (!currentDate || (newDate && newDate > currentDate)) {
+                mergedData[key].displayDate = newDate;
+            }
+            
+        } else {
+            // 새 계약 생성
+            mergedData[key] = {
+                contractName: item.contractName,
+                customer: item.customer,
+                amount: item.amount,
+                type: item.type,
+                displayDate: item.displayDate || item.invoiceDate || item.date,
+                mainItem: item.item || '',
+                maxAmount: item.amount,
+                allItems: (item.item && item.item.trim() !== '') ? [item.item.trim()] : []
+            };
+        }
+    });
+    
+    // 배열로 변환하고 금액순 정렬
+    const sortedData = Object.values(mergedData).sort((a, b) => b.amount - a.amount);
+    
+    console.log(`중복 제거 완료: ${details.length}건 → ${sortedData.length}건`);
+    
+    // 테이블 행 생성
+    sortedData.forEach((item, index) => {
+        const row = document.createElement('tr');
+        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        
+        // 주문 상세내역인 경우 '상태' 컬럼을 맨 앞에 추가
+        if (type === 'order') {
+            const statusCell = document.createElement('td');
+            let badgeClass = item.type === '주문' ? 'badge-primary' : 'badge-success';
+            statusCell.innerHTML = `<span class="badge ${badgeClass}">${item.type}</span>`;
+            statusCell.className = 'text-center';
+            row.appendChild(statusCell);
+        }
+        
+        // 계약명
+        const contractCell = document.createElement('td');
+        contractCell.textContent = item.contractName;
+        contractCell.className = 'font-medium';
+        row.appendChild(contractCell);
+        
+        // 거래처
+        const customerCell = document.createElement('td');
+        customerCell.textContent = item.customer;
+        row.appendChild(customerCell);
+        
+        // 금액
+        const amountCell = document.createElement('td');
+        amountCell.textContent = formatCurrency(item.amount);
+        amountCell.className = 'text-right font-medium amount';
+        row.appendChild(amountCell);
+        
+        // 날짜
+        const dateCell = document.createElement('td');
+        const dateText = item.displayDate ? formatDate(item.displayDate) : '-';
+        dateCell.textContent = dateText;
+        dateCell.className = 'text-center';
+        row.appendChild(dateCell);
+        
+        // 품목 (개선된 표시 로직)
+        const itemCell = document.createElement('td');
+        let itemText = generateItemDisplayText(item.allItems);
+        
+        itemCell.textContent = itemText;
+        itemCell.className = 'text-center';
+        
+        // 툴팁으로 전체 품목 표시 (여러 품목인 경우)
+        if (item.allItems.length > 1) {
+            itemCell.title = `포함된 품목: ${item.allItems.join(', ')}`;
+            itemCell.style.cursor = 'help';
+        }
+        
+        row.appendChild(itemCell);
+        tbody.appendChild(row);
+    });
+    
+    // 실제 계약 건수 반환
+    return sortedData.length;
+}
+
+// 품목 표시 텍스트 생성 함수 - 🎯 새로 추가
+function generateItemDisplayText(allItems) {
+    if (!allItems || allItems.length === 0) {
+        return '-';
+    }
+    
+    // 빈 문자열 제거
+    const validItems = allItems.filter(item => item && item.trim() !== '');
+    
+    if (validItems.length === 0) {
+        return '-';
+    } else if (validItems.length === 1) {
+        return validItems[0];
+    } else {
+        // 여러 품목인 경우: "보행매트 등 3개"
+        const mainItem = validItems[0];
+        return `${mainItem} 등 ${validItems.length}개`;
+    }
+}
+
+// 상세내역 섹션 숨기기
+function hideDetailSection() {
+    const detailSection = $('detailSection');
+    if (detailSection) {
+        detailSection.classList.add('hidden');
+    }
+}
+
+// 데이터 새로고침
+async function refreshData() {
+    try {
+        const refreshBtn = $('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '새로고침 중...';
+        }
+        
+        if (window.sheetsAPI) {
+            await window.sheetsAPI.refreshCache();
+        }
+        
+        await loadSalesData();
+        showAlert('데이터가 새로고침되었습니다.', 'success');
+        
+    } catch (error) {
+        console.error('데이터 새로고침 실패:', error);
+        showAlert('데이터 새로고침에 실패했습니다.', 'error');
+        
+    } finally {
+        const refreshBtn = $('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '새로고침';
+        }
+    }
+}
+
+// 연결 상태 확인
+async function checkConnection() {
+    try {
+        if (window.sheetsAPI) {
+            const isConnected = await window.sheetsAPI.testConnection();
+            const message = isConnected ?
+                'Google Sheets 연결이 정상입니다.' :
+                'Google Sheets 연결에 문제가 있습니다.';
+            const type = isConnected ? 'success' : 'warning';
+            showAlert(message, type);
+        } else {
+            showAlert('sheets-api.js가 로드되지 않았습니다.', 'error');
+        }
+    } catch (error) {
+        console.error('연결 확인 실패:', error);
+        showAlert('연결 확인 중 오류가 발생했습니다.', 'error');
+    }
+}
+
+// 인쇄 기능
+function printReport() {
+    window.print();
+}
+
+// 전역 함수 노출
+window.loadSampleData = loadSalesData;
+window.generateReport = generateReport;
+window.showDetail = showDetail;
+window.refreshData = refreshData;
+window.checkConnection = checkConnection;
+window.printReport = printReport;
+window.hideDetailSection = hideDetailSection;
+
+// 페이지 로드시 자동 실행
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('페이지 로드 완료, 데이터 로딩 시작...');
+    
+    // 이벤트 리스너 설정
+    const searchBtn = $('searchBtn');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', generateReport);
+    }
+    
+    // sheets-api.js 로드 확인 및 데이터 로드
+    if (window.sheetsAPI) {
+        console.log('sheets-api.js 로드 확인됨');
+        setTimeout(loadSalesData, 100);
+    } else {
+        console.warn('sheets-api.js가 로드되지 않음, 재시도...');
+        let retryCount = 0;
+        const retryInterval = setInterval(() => {
+            if (window.sheetsAPI || retryCount >= 30) {
+                clearInterval(retryInterval);
+                if (window.sheetsAPI) {
+                    console.log('sheets-api.js 지연 로드 확인됨');
+                    loadSalesData();
+                } else {
+                    console.error('sheets-api.js 로드 실패, 샘플 데이터 사용');
+                    loadSampleDataFallback();
+                }
+            }
+            retryCount++;
+        }, 100);
+    }
+});
