@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>매출처별 집계 - 판매실적 대시보드</title>
+    <title>매출처별 집계 (관급) - 판매실적 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="../assets/css/common.css" rel="stylesheet">
     <link href="../assets/css/customer-analysis.css" rel="stylesheet">
     <script src="../assets/js/sheets-api.js"></script>
 </head>
 <body class="bg-gray-50">
-    <!-- 네비게이션 -->
     <nav class="bg-white shadow-sm border-b">
         <div class="max-w-6xl mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
                     <a href="../index.html" class="text-lg font-semibold text-gray-900">판매실적 대시보드</a>
                     <span class="text-gray-400">|</span>
-                    <span class="text-green-600 font-medium">매출처별 집계</span>
+                    <span class="text-green-600 font-medium">매출처별 집계 (관급)</span>
                 </div>
                 <div class="flex space-x-2">
                     <a href="../index.html" class="nav-link">
@@ -37,15 +36,12 @@
         </div>
     </nav>
 
-    <!-- 메인 컨텐츠 -->
     <main class="max-w-6xl mx-auto px-4 py-8">
-        <!-- 페이지 헤더 -->
         <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">매출처별 집계</h1>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">매출처별 집계 (관급)</h1>
             <p class="text-gray-600">두발로 주식회사 고객별 매출 현황과 지역별, 수요기관별 분석 데이터를 확인할 수 있습니다.</p>
         </div>
 
-        <!-- 연결 상태 표시 -->
         <div id="connectionStatus" class="mb-4 p-3 rounded-lg border hidden">
             <div class="flex items-center">
                 <div id="statusIcon" class="w-3 h-3 rounded-full mr-2"></div>
@@ -53,7 +49,6 @@
             </div>
         </div>
 
-        <!-- 필터 및 검색 섹션 -->
         <div class="filter-section bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex flex-wrap items-end gap-4 mb-4">
                 <div>
@@ -106,7 +101,6 @@
             </div>
         </div>
 
-        <!-- 요약 통계 -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 stats-grid">
             <div class="bg-white rounded-lg shadow-md p-6 stats-card">
                 <div class="flex items-center">
@@ -165,7 +159,6 @@
             </div>
         </div>
 
-        <!-- 탭 메뉴 -->
         <div class="bg-white rounded-lg shadow-md mb-8">
             <div class="border-b border-gray-200">
                 <nav class="-mb-px flex space-x-8 px-6">
@@ -178,13 +171,9 @@
                     <button id="typeTab" class="analysis-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                         수요기관별 분석
                     </button>
-                    <button id="privateTab" class="analysis-tab border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                        사급판매
-                    </button>
                 </nav>
             </div>
 
-            <!-- 고객별 순위 탭 -->
             <div id="customerPanel" class="tab-panel p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">고객별 매출 순위</h3>
@@ -217,7 +206,6 @@
                 </div>
             </div>
 
-            <!-- 지역별 분석 탭 -->
             <div id="regionPanel" class="tab-panel p-6 hidden">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">지역별 매출 분석</h3>
@@ -248,7 +236,6 @@
                 </div>
             </div>
 
-            <!-- 수요기관별 분석 탭 -->
             <div id="typePanel" class="tab-panel p-6 hidden">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">수요기관별 분석</h3>
@@ -278,43 +265,9 @@
                     </table>
                 </div>
             </div>
-
-            <!-- 사급판매 탭 -->
-            <div id="privatePanel" class="tab-panel p-6 hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">사급판매 현황</h3>
-                    <button id="exportPrivateBtn" class="btn btn-secondary btn-sm">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        CSV 내보내기
-                    </button>
-                </div>
-                
-                <div class="overflow-x-auto table-scroll">
-                    <table id="privateTable" class="data-table">
-                        <thead>
-                            <tr>
-                                <th class="text-center">순위</th>
-                                <th class="text-left">고객명</th>
-                                <th class="text-center tablet-hidden">지역</th>
-                                <th class="text-center">수요기관</th>
-                                <th class="text-center">계약건수</th>
-                                <th class="text-right">매출액</th>
-                                <th class="text-right">비중</th>
-                                <th class="text-center mobile-hidden">최근거래일</th>
-                            </tr>
-                        </thead>
-                        <tbody id="privateTableBody">
-                            <tr><td colspan="8" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
     </main>
 
-    <!-- 스크립트 -->
     <script src="../assets/js/common.js"></script>
     <script src="../assets/js/customer-analysis.js"></script>
     
@@ -324,7 +277,7 @@
             console.log('매출처별 집계 페이지 로드 완료');
             
             // 탭 전환 이벤트
-            const tabs = ['customer', 'region', 'type', 'private'];
+            const tabs = ['customer', 'region', 'type'];
             tabs.forEach(tab => {
                 const tabBtn = document.getElementById(tab + 'Tab');
                 if (tabBtn) {
@@ -366,8 +319,6 @@
                 exportTable('regionTable', '지역별_매출분석.csv'));
             document.getElementById('exportTypeBtn')?.addEventListener('click', () => 
                 exportTable('typeTable', '수요기관별_분석.csv'));
-            document.getElementById('exportPrivateBtn')?.addEventListener('click', () => 
-                exportTable('privateTable', '사급판매_현황.csv'));
             
             // 초기 데이터 로드 시도
             if (window.CustomerAnalysis) {
@@ -375,7 +326,6 @@
                 window.CustomerAnalysis.analyzeCustomers();
             } else {
                 console.warn('CustomerAnalysis 모듈이 로드되지 않음');
-                // 모듈 로드 대기
                 const checkInterval = setInterval(() => {
                     if (window.CustomerAnalysis) {
                         clearInterval(checkInterval);
@@ -384,7 +334,6 @@
                     }
                 }, 100);
                 
-                // 5초 후 타임아웃
                 setTimeout(() => {
                     clearInterval(checkInterval);
                     console.error('CustomerAnalysis 모듈 로드 실패');
@@ -394,20 +343,16 @@
         
         // 탭 전환 함수
         function showTab(tabName) {
-            // 모든 탭 비활성화
             document.querySelectorAll('.analysis-tab').forEach(tab => {
                 tab.classList.remove('active');
             });
             
-            // 선택된 탭 활성화
             document.getElementById(tabName + 'Tab').classList.add('active');
             
-            // 모든 패널 숨김
             document.querySelectorAll('.tab-panel').forEach(panel => {
                 panel.classList.add('hidden');
             });
             
-            // 선택된 패널 표시
             document.getElementById(tabName + 'Panel').classList.remove('hidden');
         }
         
