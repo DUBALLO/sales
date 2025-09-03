@@ -481,8 +481,8 @@ function renderMonthlyTable(monthlyData) {
         }
         row.appendChild(privAmountCell);
         
-        // 합계
-        const totalAmount = data.order.amount + data.government.amount + data.private.amount;
+        // 합계 ✨ 이 부분을 수정합니다.
+        const totalAmount = data.government.amount + data.private.amount;
         const totalCell = document.createElement('td');
         totalCell.textContent = formatCurrency(totalAmount);
         totalCell.className = 'text-right font-medium';
@@ -521,7 +521,8 @@ function updateTotalRow(totals) {
     if (elements.totalPrivCount) elements.totalPrivCount.textContent = formatNumber(totals.privCount);
     if (elements.totalPrivAmount) elements.totalPrivAmount.textContent = formatCurrency(totals.privAmount);
     
-    const grandTotal = totals.orderAmount + totals.govAmount + totals.privAmount;
+    // ✨ 이 부분을 수정합니다.
+    const grandTotal = totals.govAmount + totals.privAmount;
     if (elements.grandTotal) elements.grandTotal.textContent = formatCurrency(grandTotal);
 }
 
