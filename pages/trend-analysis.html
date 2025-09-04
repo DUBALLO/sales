@@ -5,14 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>트렌드 분석 - 판매실적 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- [신규] Chart.js 라이브러리 추가 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="../assets/css/common.css" rel="stylesheet">
     <link href="../assets/css/customer-analysis.css" rel="stylesheet">
     <script src="../assets/js/sheets-api.js"></script>
+    <style>
+        /* [수정] 인쇄 스타일 */
+        @media print {
+            body * { visibility: hidden; }
+            .printable-area, .printable-area * { visibility: visible; }
+            .printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none; } /* 네비게이션, 필터 등 인쇄 안되게 처리 */
+            @page { size: A4 portrait; margin: 2cm; }
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
-    <nav class="bg-white shadow-sm border-b">
+    <nav class="bg-white shadow-sm border-b no-print">
         <div class="max-w-6xl mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
@@ -31,12 +40,12 @@
     </nav>
 
     <main class="max-w-6xl mx-auto px-4 py-8">
-        <div class="mb-8">
+        <div class="mb-8 no-print">
             <h1 class="text-3xl font-bold text-gray-900 mb-2">트렌드 분석</h1>
             <p class="text-gray-600">다양한 기준의 판매 추이를 그래프로 확인합니다.</p>
         </div>
 
-        <div class="filter-section bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="filter-section bg-white rounded-lg shadow-md p-6 mb-8 no-print">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="md:col-span-1">
                     <label class="form-label">분석 연도</label>
@@ -69,7 +78,7 @@
         </div>
         
         <div class="bg-white rounded-lg shadow-md mb-8">
-            <div class="border-b border-gray-200">
+            <div class="border-b border-gray-200 no-print">
                 <nav class="-mb-px flex space-x-8 px-6" id="trendTabs">
                     <button data-tab="monthly" class="analysis-tab active">월별 판매 추이</button>
                     <button data-tab="regional" class="analysis-tab">지역별 판매 현황</button>
@@ -77,17 +86,43 @@
                 </nav>
             </div>
             
+            <!-- 월별 판매 추이 탭 -->
             <div id="monthlyTab" class="tab-content p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">월별 판매 추이</h3>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">월별 판매 추이</h3>
+                    <button id="printMonthlyBtn" class="btn btn-secondary btn-sm no-print"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>인쇄</button>
+                </div>
                 <canvas id="monthlyChart"></canvas>
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-100 p-4 rounded-lg"><p class="text-sm text-gray-600">총 판매액</p><p id="monthlyTotalSales" class="text-xl font-bold">0원</p></div>
+                    <div class="bg-gray-100 p-4 rounded-lg"><p class="text-sm text-gray-600">총 거래 건수</p><p id="monthlyTotalContracts" class="text-xl font-bold">0건</p></div>
+                </div>
             </div>
+
+            <!-- 지역별 판매 현황 탭 -->
             <div id="regionalTab" class="tab-content p-6 hidden">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">지역별 판매 현황</h3>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">지역별 판매 현황</h3>
+                    <button id="printRegionalBtn" class="btn btn-secondary btn-sm no-print"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>인쇄</button>
+                </div>
                 <canvas id="regionalChart"></canvas>
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-100 p-4 rounded-lg"><p class="text-sm text-gray-600">총 판매액</p><p id="regionalTotalSales" class="text-xl font-bold">0원</p></div>
+                    <div class="bg-gray-100 p-4 rounded-lg"><p class="text-sm text-gray-600">총 거래 건수</p><p id="regionalTotalContracts" class="text-xl font-bold">0건</p></div>
+                </div>
             </div>
+
+            <!-- 소관구분별 판매 현황 탭 -->
             <div id="agencyTypeTab" class="tab-content p-6 hidden">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">소관구분별 판매 현황</h3>
+                 <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">소관구분별 판매 현황</h3>
+                    <button id="printAgencyTypeBtn" class="btn btn-secondary btn-sm no-print"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>인쇄</button>
+                </div>
                 <canvas id="agencyTypeChart"></canvas>
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-100 p-4 rounded-lg"><p class="text-sm text-gray-600">총 판매액</p><p id="agencyTypeTotalSales" class="text-xl font-bold">0원</p></div>
+                    <div class="bg-gray-100 p-4 rounded-lg"><p class="text-sm text-gray-600">총 거래 건수</p><p id="agencyTypeTotalContracts" class="text-xl font-bold">0건</p></div>
+                </div>
             </div>
         </div>
     </main>
@@ -96,3 +131,4 @@
     <script src="./trend-analysis.js"></script>
 </body>
 </html>
+
