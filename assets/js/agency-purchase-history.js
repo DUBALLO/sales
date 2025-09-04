@@ -1,457 +1,364 @@
-// 수요기관 구매내역 분석 JavaScript
+// agency-purchase-history.js
 
 // 전역 변수
-let purchaseData = [];
-let supplierData = [];
-let productData = [];
-let regionData = [];
-let isLoading = false;
+let allData = []; // 전체 원본 데이터
+let currentFilteredData = []; // 현재 필터가 적용된 데이터
+let detailSortState = { column: 'amount', direction: 'desc' };
 
-// 안전한 요소 가져오기
-function $(id) {
-    const element = document.getElementById(id);
-    if (!element) {
-        console.warn(`요소를 찾을 수 없습니다: ${id}`);
-    }
-    return element;
-}
+// 유틸리티 함수
+const $ = (id) => document.getElementById(id);
+const formatCurrency = (amount) => new Intl.NumberFormat('ko-KR').format(amount) + '원';
+const formatNumber = (number) => new Intl.NumberFormat('ko-KR').format(number);
 
-// 포맷팅 함수들
-function formatCurrency(amount) {
-    if (!amount && amount !== 0) return '-';
-    return new Intl.NumberFormat('ko-KR').format(amount) + '원';
-}
-
-function formatNumber(number) {
-    if (!number && number !== 0) return '-';
-    return new Intl.NumberFormat('ko-KR').format(number);
-}
-
-// 날짜 파싱 함수
-function parseDate(dateStr) {
-    if (!dateStr) return null;
-    
-    let date = new Date(dateStr);
-    
-    if (isNaN(date.getTime())) {
-        if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
-            date = new Date(dateStr);
-        } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
-            const [month, day, year] = dateStr.split('/');
-            date = new Date(year, month - 1, day);
-        }
-    }
-    
-    return isNaN(date.getTime()) ? null : date;
-}
-
-// 금액 파싱 함수
-function parseAmount(amountStr) {
-    if (!amountStr) return 0;
-    const cleanAmount = amountStr.toString().replace(/[^\d]/g, '');
-    return parseInt(cleanAmount) || 0;
-}
-
-// 메인 분석 함수
-async function analyzeData() {
+/**
+ * 페이지 초기화 함수
+ */
+document.addEventListener('DOMContentLoaded', async () => {
+    showLoadingState(true, '데이터 로딩 및 지역 목록 생성 중...');
     try {
-        console.log('=== 수요기관 구매내역 분석 시작 ===');
+        allData = await loadAndParseData();
+        populateRegionFilter(allData);
+        setInitialFilters();
         
-        showLoadingState(true);
-        
-        let useRealData = false;
-        
-        if (window.sheetsAPI) {
-            try {
-                console.log('sheets-api를 통한 실제 데이터 로드 시도...');
-                const rawData = await window.sheetsAPI.loadCSVData('procurement');
-                
-                if (rawData && rawData.length > 0) {
-                    console.log('sheets-api에서 로드된 원시 데이터:', rawData.length, '건');
-                    parseRealData(rawData);
-                    useRealData = true;
-                } else {
-                    throw new Error('로드된 데이터가 비어있습니다.');
-                }
-                
-            } catch (error) {
-                console.warn('실제 데이터 로드 실패:', error.message);
-                useRealData = false;
-            }
-        } else {
-            console.warn('sheets-api.js가 로드되지 않음');
-            useRealData = false;
-        }
-        
-        if (!useRealData) {
-            console.log('샘플 데이터 사용');
-            generateSampleData();
-        }
-        
-        const selectedYear = $('analysisYear')?.value || 'all';
-        const searchTerm = $('searchInput')?.value?.toLowerCase() || '';
-        
-        console.log('분석 조건 - 연도:', selectedYear, '검색어:', searchTerm);
-        
-        let filteredData = [...purchaseData];
-        
-        if (selectedYear !== 'all') {
-            const year = parseInt(selectedYear);
-            filteredData = filteredData.filter(item => {
-                const date = parseDate(item.purchaseDate || '');
-                return date && date.getFullYear() === year;
-            });
-        }
-        
-        if (searchTerm) {
-            filteredData = filteredData.filter(item => 
-                (item.agency || '').toLowerCase().includes(searchTerm)
-            );
-        }
-        
-        analyzeSupplierData(filteredData);
-        analyzeProductData(filteredData);
-        analyzeRegionData(filteredData);
+        $('analyzeBtn').addEventListener('click', analyzeData);
+        $('refreshBtn').addEventListener('click', refreshData);
 
-        updateSummaryStats(filteredData);
-        renderAllTables();
-        
-        console.log('=== 수요기관 구매내역 분석 완료 ===');
-        
-        const message = useRealData ? 
-            `실제 데이터 분석 완료 (${purchaseData.length}건)` :
-            '샘플 데이터로 분석 완료';
-        showAlert(message, useRealData ? 'success' : 'warning');
-        
+        await analyzeData(); // 초기 데이터 분석 실행
     } catch (error) {
-        console.error('분석 오류:', error);
-        showAlert('분석 중 오류가 발생했습니다: ' + error.message, 'error');
+        console.error("초기화 실패:", error);
+        showAlert("페이지 초기화 중 오류가 발생했습니다.", 'error');
+    } finally {
+        showLoadingState(false);
+    }
+});
+
+/**
+ * 데이터 로드 및 파싱
+ */
+async function loadAndParseData() {
+    if (!window.sheetsAPI) {
+        throw new Error('sheets-api.js가 로드되지 않았습니다.');
+    }
+    const rawData = await window.sheetsAPI.loadCSVData('procurement');
+    return rawData.map(item => ({
+        agency: (item['수요기관명'] || '').trim(),
+        supplier: (item['업체'] || '').trim(),
+        region: (item['수요기관지역'] || '').trim(),
+        agencyType: item['소관구분'] || '기타',
+        product: (item['세부품명'] || '').trim(),
+        amount: parseInt(String(item['공급금액']).replace(/[^\d]/g, '') || '0', 10),
+        date: item['기준일자'] || '',
+        contractName: (item['계약명'] || '').trim()
+    })).filter(item => item.agency && item.supplier && item.amount > 0);
+}
+
+/**
+ * 지역 필터 옵션 채우기
+ */
+function populateRegionFilter(data) {
+    const regionSet = new Set();
+    data.forEach(item => {
+        let mainRegion = item.region.split(' ')[0];
+        if (mainRegion === '전라북도') mainRegion = '전북특별자치도';
+        if (mainRegion === '강원도') mainRegion = '강원특별자치도';
+        regionSet.add(mainRegion);
+    });
+    const regions = [...regionSet].sort((a, b) => a.localeCompare(b));
+    const regionFilter = $('regionFilter');
+    regionFilter.innerHTML = '<option value="all">전체</option>';
+    regions.forEach(region => {
+        const option = document.createElement('option');
+        option.value = region;
+        option.textContent = region;
+        regionFilter.appendChild(option);
+    });
+}
+
+/**
+ * 초기 필터 값 설정
+ */
+function setInitialFilters() {
+    $('analysisYear').value = '2025';
+    $('productFilter').value = '보행매트';
+    $('regionFilter').value = '경기도';
+}
+
+/**
+ * 분석 시작
+ */
+function analyzeData() {
+    showLoadingState(true, '데이터 분석 중...');
+    $('agencyDetailPanel').classList.add('hidden'); // 상세 패널 숨기기
+    
+    const year = $('analysisYear').value;
+    const product = $('productFilter').value;
+    const region = $('regionFilter').value;
+
+    currentFilteredData = allData.filter(item => {
+        const itemYear = item.date ? new Date(item.date).getFullYear().toString() : '';
+        const itemRegion = item.region.split(' ')[0].replace('전라북도', '전북특별자치도').replace('강원도', '강원특별자치도');
+
+        const yearMatch = (year === 'all') || (itemYear === year);
+        const productMatch = (product === 'all') || (item.product === product);
+        const regionMatch = (region === 'all') || (itemRegion === region);
+
+        return yearMatch && productMatch && regionMatch;
+    });
+
+    renderAgencyRankPanel(currentFilteredData);
+    showLoadingState(false);
+}
+
+/**
+ * 데이터 새로고침
+ */
+async function refreshData() {
+    showLoadingState(true, '최신 데이터로 새로고침 중...');
+    try {
+        await window.sheetsAPI.refreshCache();
+        allData = await loadAndParseData();
+        populateRegionFilter(allData); // 지역 목록도 갱신
+        await analyzeData();
+        showAlert('데이터를 성공적으로 새로고침했습니다.', 'success');
+    } catch (error) {
+        console.error("새로고침 실패:", error);
+        showAlert("데이터 새로고침 중 오류가 발생했습니다.", 'error');
     } finally {
         showLoadingState(false);
     }
 }
 
-// 실제 데이터 파싱 함수 (컬럼명 교정)
-function parseRealData(rawData) {
-    console.log('=== 실제 데이터 파싱 시작 ===');
+/**
+ * 수요기관 순위 패널 렌더링
+ */
+function renderAgencyRankPanel(data) {
+    const panel = $('agencyRankPanel');
+    panel.innerHTML = `
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">수요기관 구매 순위</h3>
+                <button id="printRankBtn" class="btn btn-secondary btn-sm"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>인쇄</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">순위</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">수요기관명</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">거래건수</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">총 구매액</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agencyRankBody"></tbody>
+                </table>
+            </div>
+        </div>`;
+
+    const agencyMap = new Map();
+    data.forEach(item => {
+        if (!agencyMap.has(item.agency)) {
+            agencyMap.set(item.agency, { amount: 0, contracts: new Set() });
+        }
+        const agencyInfo = agencyMap.get(item.agency);
+        agencyInfo.amount += item.amount;
+        agencyInfo.contracts.add(item.contractName);
+    });
+
+    const rankedAgencies = [...agencyMap.entries()]
+        .map(([agency, { amount, contracts }]) => ({ agency, amount, contractCount: contracts.size }))
+        .sort((a, b) => b.amount - a.amount);
+
+    const tbody = $('agencyRankBody');
+    tbody.innerHTML = '';
+    if (rankedAgencies.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-gray-500">표시할 데이터가 없습니다.</td></tr>`;
+    } else {
+        rankedAgencies.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 text-center">${index + 1}</td>
+                <td class="px-6 py-4"><a href="#" data-agency="${item.agency}" class="text-blue-600 hover:underline">${item.agency}</a></td>
+                <td class="px-6 py-4 text-center">${formatNumber(item.contractCount)}</td>
+                <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
+            `;
+            row.querySelector('a').addEventListener('click', (e) => {
+                e.preventDefault();
+                showAgencyDetail(e.target.dataset.agency);
+            });
+            tbody.appendChild(row);
+        });
+    }
     
-    purchaseData = [];
+    $('printRankBtn').addEventListener('click', () => printPanel(panel));
+}
+
+/**
+ * 수요기관 상세 패널 렌더링
+ */
+function showAgencyDetail(agencyName) {
+    const detailPanel = $('agencyDetailPanel');
+    detailPanel.innerHTML = `
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg"><strong class="font-bold">${agencyName}</strong> <span class="font-normal">상세 내역</span></h3>
+                <div>
+                    <button id="printDetailBtn" class="btn btn-secondary btn-sm"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>인쇄</button>
+                    <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
+                </div>
+            </div>
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8" id="detailTabs">
+                    <button data-tab="purchase" class="analysis-tab active">상세 구매 내역</button>
+                    <button data-tab="contract" class="analysis-tab">계약 상세</button>
+                </nav>
+            </div>
+            <div id="purchaseDetail" class="tab-content mt-4"></div>
+            <div id="contractDetail" class="tab-content mt-4 hidden"></div>
+        </div>`;
     
-    rawData.forEach(item => {
-        try {
-            const baseData = {
-                agency: (item['수요기관명'] || '').trim(),
-                supplier: (item['업체'] || '').trim(),
-                region: (item['수요기관지역'] || '').trim(),
-                product: (item['세부품명'] || '').trim(),
-                amount: parseAmount(item['공급금액'] || '0'),
-                purchaseDate: item['기준일자'] || '',
-                contractName: (item['계약명'] || '').trim()
-            };
+    const agencyData = currentFilteredData.filter(item => item.agency === agencyName);
+
+    renderPurchaseDetail(agencyData);
+    renderContractDetail(agencyData);
+
+    // 탭 전환 로직
+    $('detailTabs').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const tabName = e.target.dataset.tab;
+            $('detailTabs').querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
             
-            if (!baseData.agency || baseData.agency === '수요기관명 없음' || baseData.amount <= 0) return;
-            
-            purchaseData.push(baseData);
-            
-        } catch (error) {
-            console.warn(`데이터 파싱 오류 (행):`, error.message);
+            detailPanel.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            $(tabName + 'Detail').classList.remove('hidden');
         }
     });
+
+    $('backToListBtn').addEventListener('click', () => {
+        detailPanel.classList.add('hidden');
+        $('agencyRankPanel').classList.remove('hidden');
+    });
     
-    console.log('데이터 파싱 완료');
-    console.log(`유효한 데이터: ${purchaseData.length}건`);
+    $('printDetailBtn').addEventListener('click', () => printPanel(detailPanel));
+
+    $('agencyRankPanel').classList.add('hidden');
+    detailPanel.classList.remove('hidden');
 }
 
-// 샘플 데이터 생성
-function generateSampleData() {
-    console.log('=== 샘플 데이터 생성 시작 ===');
+function renderPurchaseDetail(agencyData) {
+    const container = $('purchaseDetail');
+    container.innerHTML = `
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">순위</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="supplier">업체명</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="contractCount">거래건수</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="amount">구매금액</th>
+                </tr>
+            </thead>
+            <tbody id="purchaseDetailBody"></tbody>
+        </table>`;
     
-    purchaseData = [
-        {
-            agency: '경기도 양주시', supplier: '두발로 주식회사', region: '경기도', product: '보행매트',
-            amount: 15000000, purchaseDate: '2024-01-15', contractName: '천보산 산림욕장 보완사업'
-        },
-        {
-            agency: '의정부시', supplier: '두발로 주식회사', region: '경기도', product: '보행매트',
-            amount: 28000000, purchaseDate: '2024-02-10', contractName: '의정부시 녹지조성사업'
-        },
-        {
-            agency: '서울시 한강사업본부', supplier: '한솔기술', region: '서울특별시', product: '식생매트',
-            amount: 32000000, purchaseDate: '2024-02-05', contractName: '서울시 한강공원 보행로 개선'
-        },
-        {
-            agency: '부천시청', supplier: '두발로 주식회사', region: '경기도', product: '논슬립',
-            amount: 45000000, purchaseDate: '2024-03-12', contractName: '부천시 중앙공원 조성사업'
-        },
-        {
-            agency: '춘천시 공원과', supplier: '산하건설', region: '강원도', product: '보행매트',
-            amount: 22000000, purchaseDate: '2024-03-20', contractName: '춘천시 공원 조성사업'
-        }
-    ];
-    
-    console.log('샘플 데이터 생성 완료');
-}
-
-// 업체별 데이터 분석
-function analyzeSupplierData(data) {
-    console.log('=== 업체별 데이터 분석 ===');
     const supplierMap = new Map();
-    data.forEach(item => {
-        const supplier = item.supplier || '';
-        if (!supplierMap.has(supplier)) {
-            supplierMap.set(supplier, {
-                supplier: supplier,
-                contracts: new Set(),
-                amount: 0
-            });
+    agencyData.forEach(item => {
+        if (!supplierMap.has(item.supplier)) {
+            supplierMap.set(item.supplier, { amount: 0, contracts: new Set() });
         }
-        
-        const supplierInfo = supplierMap.get(supplier);
-        supplierInfo.contracts.add(item.contractName);
-        supplierInfo.amount += item.amount || 0;
+        const info = supplierMap.get(item.supplier);
+        info.amount += item.amount;
+        info.contracts.add(item.contractName);
     });
-    
-    supplierData = Array.from(supplierMap.values()).map(item => ({
-        ...item,
-        contractCount: item.contracts.size
+
+    let data = [...supplierMap.entries()].map(([supplier, { amount, contracts }]) => ({
+        supplier, amount, contractCount: contracts.size
     }));
     
-    supplierData.sort((a, b) => b.amount - a.amount);
-    
-    supplierData.forEach((item, index) => { item.rank = index + 1; });
-    
-    console.log(`업체별 분석 완료: ${supplierData.length}개 업체`);
-}
-
-// 품목별 데이터 분석
-function analyzeProductData(data) {
-    const productMap = new Map();
-    data.forEach(item => {
-        const product = item.product || '';
-        if (!productMap.has(product)) {
-            productMap.set(product, {
-                product: product,
-                contracts: new Set(),
-                amount: 0
-            });
-        }
-        const productInfo = productMap.get(product);
-        productInfo.contracts.add(item.contractName);
-        productInfo.amount += item.amount || 0;
-    });
-    
-    productData = Array.from(productMap.values()).map(item => ({
-        ...item,
-        contractCount: item.contracts.size
-    }));
-    productData.sort((a, b) => b.amount - a.amount);
-    
-    productData.forEach((item, index) => { item.rank = index + 1; });
-}
-
-// 지역별 데이터 분석
-function analyzeRegionData(data) {
-    const regionMap = new Map();
-    data.forEach(item => {
-        const region = item.region || '';
-        if (!regionMap.has(region)) {
-            regionMap.set(region, {
-                region: region,
-                supplierCount: new Set(),
-                contractCount: 0,
-                amount: 0
-            });
-        }
-        const regionInfo = regionMap.get(region);
-        regionInfo.supplierCount.add(item.supplier);
-        regionInfo.contractCount++;
-        regionInfo.amount += item.amount || 0;
-    });
-    
-    regionData = Array.from(regionMap.values()).map(item => ({
-        ...item,
-        supplierCount: item.supplierCount.size
-    }));
-    regionData.sort((a, b) => b.amount - a.amount);
-    
-    regionData.forEach((item, index) => { item.rank = index + 1; });
-}
-
-// 요약 통계 업데이트
-function updateSummaryStats(data) {
-    const totalSuppliers = new Set(data.map(item => item.supplier)).size;
-    const totalContracts = new Set(data.map(item => item.contractName)).size;
-    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
-    
-    const elements = {
-        totalSuppliers: $('totalSuppliers'),
-        totalContracts: $('totalContracts'),
-        totalSales: $('totalSales')
+    const sortAndRender = () => {
+        sortData(data, detailSortState.column, detailSortState.direction);
+        const tbody = $('purchaseDetailBody');
+        tbody.innerHTML = '';
+        data.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 text-center">${index + 1}</td>
+                <td class="px-6 py-4">${item.supplier}</td>
+                <td class="px-6 py-4 text-center">${formatNumber(item.contractCount)}</td>
+                <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
+            `;
+            tbody.appendChild(row);
+        });
     };
     
-    if (elements.totalSuppliers) elements.totalSuppliers.textContent = formatNumber(totalSuppliers) + '개';
-    if (elements.totalContracts) elements.totalContracts.textContent = formatNumber(totalContracts) + '건';
-    if (elements.totalSales) elements.totalSales.textContent = formatCurrency(totalAmount);
-}
-
-// 모든 테이블 렌더링
-function renderAllTables() {
-    renderSupplierTable();
-    renderProductTable();
-    renderRegionTable();
-}
-
-// 업체별 테이블 렌더링
-function renderSupplierTable() {
-    const tbody = $('supplierTableBody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    const dataToRender = [...supplierData];
-    
-    if (dataToRender.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">업체 데이터가 없습니다.</td></tr>';
-        return;
-    }
-    
-    dataToRender.forEach((supplier, index) => {
-        const row = document.createElement('tr');
-        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        
-        row.innerHTML = `
-            <td class="text-center font-medium">${supplier.rank}</td>
-            <td class="font-medium">${supplier.supplier}</td>
-            <td class="text-center">${formatNumber(supplier.contractCount)}</td>
-            <td class="text-right font-medium amount">${formatCurrency(supplier.amount)}</td>
-        `;
-        
-        tbody.appendChild(row);
+    container.querySelectorAll('th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => {
+            const column = th.dataset.sort;
+            if (detailSortState.column === column) {
+                detailSortState.direction = detailSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                detailSortState.column = column;
+                detailSortState.direction = 'desc';
+            }
+            sortAndRender();
+        });
     });
+    
+    sortAndRender(); // 초기 렌더링
 }
 
-// 품목별 테이블 렌더링
-function renderProductTable() {
-    const tbody = $('productTableBody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    if (productData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">품목 데이터가 없습니다.</td></tr>';
-        return;
-    }
-    
-    productData.forEach((product, index) => {
-        const row = document.createElement('tr');
-        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        
-        row.innerHTML = `
-            <td class="text-center font-medium">${product.rank}</td>
-            <td class="font-medium">${product.product}</td>
-            <td class="text-center">${formatNumber(product.contractCount)}</td>
-            <td class="text-right font-medium amount">${formatCurrency(product.amount)}</td>
-        `;
-        
-        tbody.appendChild(row);
-    });
+function renderContractDetail(agencyData) {
+    const container = $('contractDetail');
+    container.innerHTML = `
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">계약명</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">공급금액</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${agencyData.map(item => `
+                    <tr>
+                        <td class="px-6 py-4">${item.contractName}</td>
+                        <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>`;
 }
 
-// 지역별 테이블 렌더링
-function renderRegionTable() {
-    const tbody = $('regionTableBody');
-    if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    if (regionData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-500">지역 데이터가 없습니다.</td></tr>';
-        return;
-    }
-    
-    regionData.forEach((region, index) => {
-        const row = document.createElement('tr');
-        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        
-        row.innerHTML = `
-            <td class="text-center font-medium">${region.rank}</td>
-            <td class="font-medium">${region.region}</td>
-            <td class="text-center">${formatNumber(region.supplierCount)}</td>
-            <td class="text-center">${formatNumber(region.contractCount)}</td>
-            <td class="text-right font-medium amount">${formatCurrency(region.amount)}</td>
-        `;
-        
-        tbody.appendChild(row);
-    });
-}
-
-// 로딩 상태 표시
-function showLoadingState(show) {
-    isLoading = show;
-    const analyzeBtn = $('analyzeBtn');
-    if (analyzeBtn) {
-        analyzeBtn.disabled = show;
-        analyzeBtn.innerHTML = show 
-            ? '<div class="loading-spinner"></div>분석 중...' 
-            : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-               </svg>분석`;
-    }
-    
-    const statElements = ['totalSuppliers', 'totalContracts', 'totalSales'];
-    statElements.forEach(id => {
-        const element = $(id);
-        if (element) {
-            element.textContent = show ? '로딩중...' : element.textContent;
+// 헬퍼 함수들
+function sortData(data, column, direction) {
+    data.sort((a, b) => {
+        let valA = a[column];
+        let valB = b[column];
+        if (typeof valA === 'string') {
+            return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+            return direction === 'asc' ? valA - valB : valB - valA;
         }
     });
 }
 
-// 알림 표시
+function showLoadingState(isLoading, text = '분석 중...') {
+    const button = $('analyzeBtn');
+    if (button) {
+        button.disabled = isLoading;
+        button.innerHTML = isLoading ? `<div class="loading-spinner"></div>${text}` : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>분석`;
+    }
+}
+
 function showAlert(message, type = 'info') {
     if (window.CommonUtils && CommonUtils.showAlert) {
-        CommonUtils.showAlert(message, type);
+        window.CommonUtils.showAlert(message, type);
+    } else { alert(message); }
+}
+
+function printPanel(panel) {
+    if (panel) {
+        panel.classList.add('printable-area');
+        window.print();
+        panel.classList.remove('printable-area');
     } else {
-        alert(message);
+        showAlert('인쇄할 내용이 없습니다.', 'warning');
     }
 }
-
-// 테이블 정렬 함수
-function sortTable(tbodyId, columnIndex, type = 'string') {
-    const tbody = document.getElementById(tbodyId);
-    if (!tbody) return;
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    const isAsc = tbody.dataset.sortColumn !== columnIndex.toString() || tbody.dataset.sortDirection === 'desc';
-    
-    const sortedRows = rows.sort((a, b) => {
-        const aText = a.cells[columnIndex].textContent.trim();
-        const bText = b.cells[columnIndex].textContent.trim();
-        let comparison = 0;
-
-        if (type === 'number') {
-            const aNum = parseFloat(aText.replace(/[^\d.-]/g, ''));
-            const bNum = parseFloat(bText.replace(/[^\d.-]/g, ''));
-            if (!isNaN(aNum) && !isNaN(bNum)) {
-                comparison = aNum - bNum;
-            }
-        } else {
-            comparison = aText.localeCompare(bText, 'ko-KR');
-        }
-        
-        return isAsc ? comparison : -comparison;
-    });
-    
-    tbody.innerHTML = '';
-    sortedRows.forEach(row => tbody.appendChild(row));
-    
-    tbody.dataset.sortColumn = columnIndex;
-    tbody.dataset.sortDirection = isAsc ? 'asc' : 'desc';
-}
-
-// 전역 함수 노출
-window.AgencyAnalysis = {
-    analyzeData: analyzeData,
-    sortTable: sortTable
-};
-
-console.log('=== AgencyAnalysis 모듈 로드 완료 ===');
