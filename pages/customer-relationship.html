@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고객 관계 분석 - 판매실적 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../assets/css/common.css" rel="stylesheet">
+    <link href="../assets/css/customer-analysis.css" rel="stylesheet">
+    <script src="../assets/js/sheets-api.js"></script>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-6xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <a href="../index.html" class="text-lg font-semibold text-gray-900">판매실적 대시보드</a>
+                    <span class="text-gray-400">|</span>
+                    <span class="text-green-600 font-medium">고객 관계 분석</span>
+                </div>
+                <div class="flex space-x-2">
+                    <a href="../index.html" class="nav-link">홈</a>
+                    <a href="./trend-analysis.html" class="nav-link">트렌드 분석</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">고객 관계 분석</h1>
+            <p class="text-gray-600">두 연도를 비교하여 신규, 이탈 및 구매액 변동이 있는 수요기관을 분석합니다.</p>
+        </div>
+
+        <div class="filter-section bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="form-label">기준 연도</label>
+                    <select id="baseYear" class="form-select">
+                        <option value="2020">2020년</option>
+                        <option value="2021">2021년</option>
+                        <option value="2022">2022년</option>
+                        <option value="2023">2023년</option>
+                        <option value="2024" selected>2024년</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">비교 연도</label>
+                    <select id="comparisonYear" class="form-select">
+                        <option value="2021">2021년</option>
+                        <option value="2022">2022년</option>
+                        <option value="2023">2023년</option>
+                        <option value="2024">2024년</option>
+                        <option value="2025" selected>2025년</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button id="analyzeBtn" class="btn btn-success w-full">분석</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md mb-8">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8 px-6" id="customerTabs">
+                    <button data-tab="new" class="analysis-tab active">신규 수요기관</button>
+                    <button data-tab="lost" class="analysis-tab">이탈 수요기관</button>
+                    <button data-tab="maintained" class="analysis-tab">구매액 변동</button>
+                </nav>
+            </div>
+            
+            <div id="newTab" class="tab-content p-6"></div>
+            <div id="lostTab" class="tab-content p-6 hidden"></div>
+            <div id="maintainedTab" class="tab-content p-6 hidden"></div>
+        </div>
+    </main>
+
+    <script src="../assets/js/common.js"></script>
+    <script src="../assets/js/customer-relationship.js"></script>
+</body>
+</html>
