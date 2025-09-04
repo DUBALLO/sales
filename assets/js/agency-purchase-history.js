@@ -6,9 +6,8 @@ let currentFilteredData = []; // 현재 필터가 적용된 데이터
 let detailSortState = { column: 'amount', direction: 'desc' };
 
 // 유틸리티 함수
+// common.js에 이미 formatCurrency와 formatNumber가 있으므로 여기서는 $만 정의합니다.
 const $ = (id) => document.getElementById(id);
-const formatCurrency = (amount) => new Intl.NumberFormat('ko-KR').format(amount) + '원';
-const formatNumber = (number) => new Intl.NumberFormat('ko-KR').format(number);
 
 /**
  * 페이지 초기화 함수
@@ -307,6 +306,7 @@ function renderPurchaseDetail(agencyData) {
 
 function renderContractDetail(agencyData) {
     const container = $('contractDetail');
+    const sortedData = [...agencyData].sort((a, b) => b.amount - a.amount);
     container.innerHTML = `
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -316,7 +316,7 @@ function renderContractDetail(agencyData) {
                 </tr>
             </thead>
             <tbody>
-                ${agencyData.map(item => `
+                ${sortedData.map(item => `
                     <tr>
                         <td class="px-6 py-4">${item.contractName}</td>
                         <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
@@ -357,8 +357,12 @@ function printPanel(panel) {
     if (panel) {
         panel.classList.add('printable-area');
         window.print();
-        panel.classList.remove('printable-area');
+        // 인쇄 창이 닫힌 후 클래스를 제거하기 위해 약간의 지연을 줍니다.
+        setTimeout(() => {
+            panel.classList.remove('printable-area');
+        }, 500);
     } else {
         showAlert('인쇄할 내용이 없습니다.', 'warning');
     }
 }
+
