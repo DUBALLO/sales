@@ -18,8 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('analyzeBtn').addEventListener('click', analyzeTrends);
         setupTabs();
         
-        // 페이지 로드 시 기본 필터로 첫 분석 실행
-        analyzeTrends();
+        analyzeTrends(); // 페이지 로드 시 기본 필터로 첫 분석 실행
     } catch (error) {
         console.error("초기화 실패:", error);
         showAlert("데이터 로딩 중 오류가 발생했습니다.", 'error');
@@ -50,7 +49,8 @@ async function loadAndParseAllData() {
         product: (item['세부품명'] || '').trim(),
         region: (item['수요기관지역'] || '').trim().split(' ')[0],
         agencyType: item['소관구분'] || '기타',
-    })).filter(item => item.amount > 0 && item.date);
+        contractName: (item['계약명'] || '').trim() // [신규] 계약명 추가
+    })).filter(item => item.amount > 0 && item.date && item.contractName);
 }
 
 /**
@@ -86,10 +86,16 @@ function analyzeTrends() {
         const productMatch = (product === 'all') || (item.product === product);
         return yearMatch && productMatch;
     });
+    
+    // [신규] 요약 정보 계산
+    const totalSales = filteredData.reduce((sum, item) => sum + item.amount, 0);
+    const totalContracts = new Set(filteredData.map(item => item.contractName)).size;
+    const summary = { totalSales, totalContracts };
 
-    renderMonthlyTrend(filteredData, year);
-    renderRegionalTrend(filteredData);
-    renderAgencyTypeTrend(filteredData);
+    // [수정] 렌더링 함수에 요약 정보 전달
+    renderMonthlyTrend(filteredData, year, summary);
+    renderRegionalTrend(filteredData, summary);
+    renderAgencyTypeTrend(filteredData, summary);
     
     showLoadingState(false);
 }
@@ -109,8 +115,8 @@ function renderChart(canvasId, type, labels, data, label) {
             datasets: [{
                 label: label,
                 data: data,
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
                 borderWidth: 1,
                 fill: type === 'line' ? true : false,
             }]
@@ -119,26 +125,13 @@ function renderChart(canvasId, type, labels, data, label) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return new Intl.NumberFormat('ko-KR').format(value) + '원';
-                        }
-                    }
+                    ticks: { callback: (value) => new Intl.NumberFormat('ko-KR').format(value) + '원' }
                 }
             },
             plugins: {
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(context.parsed.y);
-                            }
-                            return label;
-                        }
+                        label: (context) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(context.parsed.y)
                     }
                 }
             }
@@ -149,22 +142,26 @@ function renderChart(canvasId, type, labels, data, label) {
 /**
  * 월별 판매 추이
  */
-function renderMonthlyTrend(data, year) {
+function renderMonthlyTrend(data, year, summary) {
     const monthlySales = Array(12).fill(0);
     data.forEach(item => {
-        const month = new Date(item.date).getMonth(); // 0 = 1월, 11 = 12월
+        const month = new Date(item.date).getMonth();
         monthlySales[month] += item.amount;
     });
     
     const labels = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
     const chartLabel = year === 'all' ? '월별 총 판매액' : `${year}년 월별 판매액`;
     renderChart('monthlyChart', 'line', labels, monthlySales, chartLabel);
+
+    // [신규] 카드보드 업데이트 및 인쇄 버튼 설정
+    updateSummaryCards('monthly', summary);
+    $('printMonthlyBtn').onclick = () => printPanel('monthlyTab');
 }
 
 /**
  * 지역별 판매 현황
  */
-function renderRegionalTrend(data) {
+function renderRegionalTrend(data, summary) {
     const regionalSales = {};
     data.forEach(item => {
         if (item.region) {
@@ -177,12 +174,16 @@ function renderRegionalTrend(data) {
     const salesData = sortedRegions.map(item => item[1]);
 
     renderChart('regionalChart', 'bar', labels, salesData, '지역별 총 판매액');
+    
+    // [신규] 카드보드 업데이트 및 인쇄 버튼 설정
+    updateSummaryCards('regional', summary);
+    $('printRegionalBtn').onclick = () => printPanel('regionalTab');
 }
 
 /**
  * 소관구분별 판매 현황
  */
-function renderAgencyTypeTrend(data) {
+function renderAgencyTypeTrend(data, summary) {
     const agencyTypeSales = {};
     data.forEach(item => {
         agencyTypeSales[item.agencyType] = (agencyTypeSales[item.agencyType] || 0) + item.amount;
@@ -193,9 +194,37 @@ function renderAgencyTypeTrend(data) {
     const salesData = sortedTypes.map(item => item[1]);
     
     renderChart('agencyTypeChart', 'bar', labels, salesData, '소관구분별 총 판매액');
+
+    // [신규] 카드보드 업데이트 및 인쇄 버튼 설정
+    updateSummaryCards('agencyType', summary);
+    $('printAgencyTypeBtn').onclick = () => printPanel('agencyTypeTab');
 }
 
-// 로딩 상태 및 알림 함수 (common.js에 있다고 가정하지만, 안정성을 위해 여기에도 추가)
+/**
+ * [신규] 요약 카드 업데이트 함수
+ */
+function updateSummaryCards(prefix, summary) {
+    const { totalSales, totalContracts } = summary;
+    $(prefix + 'TotalSales').textContent = new Intl.NumberFormat('ko-KR').format(totalSales) + '원';
+    $(prefix + 'TotalContracts').textContent = new Intl.NumberFormat('ko-KR').format(totalContracts) + '건';
+}
+
+/**
+ * [신규] 인쇄 함수
+ */
+function printPanel(elementId) {
+    const panel = $(elementId);
+    if (panel) {
+        panel.classList.add('printable-area');
+        // 인쇄 시에는 애니메이션을 비활성화하여 즉시 렌더링되게 함
+        Chart.defaults.animation = false;
+        window.print();
+        Chart.defaults.animation = true; // 인쇄 후 애니메이션 복원
+        panel.classList.remove('printable-area');
+    }
+}
+
+// 로딩 상태 및 알림 함수
 function showLoadingState(isLoading, text = '분석 중...') {
     const button = $('analyzeBtn');
     if (button) {
@@ -210,3 +239,4 @@ function showAlert(message, type = 'info') {
         window.CommonUtils.showAlert(message, type);
     } else { alert(message); }
 }
+
