@@ -1,19 +1,16 @@
-// 업체별 구매내역 분석 JavaScript
+// 업체별 판매내역 분석 JavaScript
 
 // 전역 변수
 let purchaseData = [];
 let supplierRankingData = [];
 let allProcurementData = [];
 let isLoading = false;
-// [신규] 정렬 상태를 저장하기 위한 변수
 let detailSortState = { column: null, direction: 'asc' };
 
 // 안전한 요소 가져오기
 function $(id) {
     const element = document.getElementById(id);
-    if (!element) {
-        console.warn(`요소를 찾을 수 없습니다: ${id}`);
-    }
+    if (!element) console.warn(`요소를 찾을 수 없습니다: ${id}`);
     return element;
 }
 
@@ -51,21 +48,17 @@ function parseAmount(amountStr) {
 // 메인 분석 함수
 async function analyzeData() {
     try {
-        console.log('=== 업체별 구매내역 분석 시작 ===');
+        console.log('=== 업체별 판매내역 분석 시작 ===');
         showLoadingState(true);
         let useRealData = false;
         
         if (window.sheetsAPI) {
             try {
-                console.log('sheets-api를 통한 실제 데이터 로드 시도...');
                 allProcurementData = await window.sheetsAPI.loadCSVData('procurement');
                 if (allProcurementData && allProcurementData.length > 0) {
-                    console.log('sheets-api에서 로드된 원시 데이터:', allProcurementData.length, '건');
                     parseRealData(allProcurementData);
                     useRealData = true;
-                } else {
-                    throw new Error('로드된 데이터가 비어있습니다.');
-                }
+                } else { throw new Error('로드된 데이터가 비어있습니다.'); }
             } catch (error) {
                 console.warn('실제 데이터 로드 실패:', error.message);
                 useRealData = false;
@@ -75,12 +68,10 @@ async function analyzeData() {
             useRealData = false;
         }
         
-        if (!useRealData) {
-            console.log('샘플 데이터 사용');
-            generateSampleData();
-        }
+        if (!useRealData) generateSampleData();
         
         const selectedYear = $('analysisYear')?.value || 'all';
+        const selectedProduct = $('productFilter')?.value || 'all';
         let filteredData = [...purchaseData];
         
         if (selectedYear !== 'all') {
@@ -90,16 +81,18 @@ async function analyzeData() {
                 return date && date.getFullYear() === year;
             });
         }
+
+        if (selectedProduct !== 'all') {
+            filteredData = filteredData.filter(item => item.product === selectedProduct);
+        }
         
         analyzeSupplierRanking(filteredData);
         updateSummaryStats(filteredData);
         renderSupplierTable();
         
-        console.log('=== 업체별 구매내역 분석 완료 ===');
+        console.log('=== 업체별 판매내역 분석 완료 ===');
         
-        const message = useRealData ? 
-            `실제 데이터 분석 완료 (${filteredData.length}건)` :
-            '샘플 데이터로 분석 완료';
+        const message = useRealData ? `실제 데이터 분석 완료 (${filteredData.length}건)` : '샘플 데이터로 분석 완료';
         showAlert(message, useRealData ? 'success' : 'warning');
         
     } catch (error) {
@@ -147,7 +140,6 @@ function analyzeSupplierRanking(data) {
                 amount: 0
             });
         }
-        
         const supplierInfo = supplierMap.get(supplier);
         supplierInfo.contracts.add(item.contractName);
         supplierInfo.amount += item.amount || 0;
@@ -160,8 +152,6 @@ function analyzeSupplierRanking(data) {
     
     supplierRankingData.sort((a, b) => b.amount - a.amount);
     supplierRankingData.forEach((item, index) => { item.rank = index + 1; });
-    
-    console.log(`업체별 순위 분석 완료: ${supplierRankingData.length}개 업체`);
 }
 
 // 요약 통계 업데이트
@@ -187,7 +177,6 @@ function renderSupplierTable() {
     if (!tbody) return;
     
     tbody.innerHTML = '';
-    
     if (supplierRankingData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">업체 데이터가 없습니다.</td></tr>';
         return;
@@ -196,20 +185,11 @@ function renderSupplierTable() {
     supplierRankingData.forEach((supplier, index) => {
         const row = document.createElement('tr');
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
-        
-        const supplierNameCell = `
-            <td class="font-medium">
-                <a href="#" class="text-blue-600 hover:underline" data-supplier="${supplier.supplier}">
-                    ${supplier.supplier}
-                </a>
-            </td>
-        `;
-
         row.innerHTML = `
-            <td class="text-center font-medium">${supplier.rank}</td>
-            ${supplierNameCell}
-            <td class="text-center">${formatNumber(supplier.contractCount)}</td>
-            <td class="text-right font-medium amount">${formatCurrency(supplier.amount)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-500">${supplier.rank}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><a href="#" class="text-blue-600 hover:underline" data-supplier="${supplier.supplier}">${supplier.supplier}</a></td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">${formatNumber(supplier.contractCount)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">${formatCurrency(supplier.amount)}</td>
         `;
         tbody.appendChild(row);
 
@@ -244,7 +224,10 @@ function showSupplierDetail(supplierName) {
                     <strong class="font-bold">${supplierName}</strong>
                     <span class="font-normal">판매 상세 내역</span>
                 </h3>
-                <button id="closeDetailBtn" class="btn btn-secondary btn-sm">목록으로</button>
+                <div class="flex space-x-2">
+                    <button id="printDetailBtn" class="btn btn-secondary btn-sm"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>인쇄</button>
+                    <button id="closeDetailBtn" class="btn btn-secondary btn-sm">목록으로</button>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table id="supplierDetailTable" class="min-w-full divide-y divide-gray-200">
@@ -268,6 +251,7 @@ function showSupplierDetail(supplierName) {
         if (supplierPanel) supplierPanel.classList.remove('hidden');
         detailPanel.classList.add('hidden');
     });
+    $('printDetailBtn').addEventListener('click', printCurrentView);
     
     const selectedYear = $('analysisYear')?.value || 'all';
     let yearFilteredData = [...purchaseData];
@@ -292,11 +276,8 @@ function showSupplierDetail(supplierName) {
         const agencyName = item.agency;
         if (!agencySalesMap.has(agencyName)) {
             agencySalesMap.set(agencyName, {
-                agency: item.agency,
-                region: item.region,
-                agencyType: item.agencyType,
-                amount: 0,
-                totalAmount: agencyTotalMap.get(agencyName) || 0
+                agency: item.agency, region: item.region, agencyType: item.agencyType,
+                amount: 0, totalAmount: agencyTotalMap.get(agencyName) || 0
             });
         }
         agencySalesMap.get(agencyName).amount += item.amount;
@@ -318,9 +299,7 @@ function showSupplierDetail(supplierName) {
             }
             
             supplierDetailData.sort((a, b) => {
-                let valA = a[column];
-                let valB = b[column];
-                
+                let valA = a[column]; let valB = b[column];
                 if (typeof valA === 'string') {
                     return detailSortState.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
                 } else {
@@ -332,11 +311,9 @@ function showSupplierDetail(supplierName) {
     });
 }
 
-// [신규] 상세 내역 테이블 렌더링 함수 분리
 function renderDetailTable(data) {
     const tbody = $('supplierDetailTableBody');
     if (!tbody) return;
-
     tbody.innerHTML = '';
     if (data.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">상세 내역이 없습니다.</td></tr>';
@@ -358,7 +335,6 @@ function renderDetailTable(data) {
     }
 }
 
-// 로딩 상태 표시
 function showLoadingState(show) {
     isLoading = show;
     const analyzeBtn = $('analyzeBtn');
@@ -366,61 +342,43 @@ function showLoadingState(show) {
         analyzeBtn.disabled = show;
         analyzeBtn.innerHTML = show 
             ? '<div class="loading-spinner"></div>분석 중...' 
-            : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-               </svg>분석`;
+            : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>분석`;
     }
     const statElements = ['totalSuppliers', 'totalContracts', 'totalSales'];
     statElements.forEach(id => {
         const element = $(id);
-        if (element) {
-            element.textContent = show ? '로딩중...' : element.textContent;
-        }
+        if (element) element.textContent = show ? '로딩중...' : element.textContent;
     });
 }
 
-// 알림 표시
 function showAlert(message, type = 'info') {
     if (window.CommonUtils && CommonUtils.showAlert) {
-        CommonUtils.showAlert(message, type);
-    } else {
-        alert(message);
-    }
+        window.CommonUtils.showAlert(message, type);
+    } else { alert(message); }
 }
 
-// [신규] 인쇄 기능 및 관련 스타일 제어 함수
 function printCurrentView() {
     const supplierPanel = $('supplierPanel');
     const detailPanel = $('supplierDetailPanel');
-    
     let panelToPrint = null;
-
     if (detailPanel && !detailPanel.classList.contains('hidden')) {
         panelToPrint = detailPanel;
     } else if (supplierPanel && !supplierPanel.classList.contains('hidden')) {
         panelToPrint = supplierPanel;
     }
-
     if (panelToPrint) {
         panelToPrint.classList.add('printable-area');
         window.print();
-    } else {
-        showAlert('인쇄할 데이터가 없습니다.', 'warning');
-    }
+    } else { showAlert('인쇄할 데이터가 없습니다.', 'warning'); }
 }
 
-// 인쇄 후 'printable-area' 클래스 제거
 window.onafterprint = () => {
-    document.querySelectorAll('.printable-area').forEach(el => {
-        el.classList.remove('printable-area');
-    });
+    document.querySelectorAll('.printable-area').forEach(el => el.classList.remove('printable-area'));
 };
 
-
-// 전역 함수 노출
 window.SupplierAnalysis = {
     analyzeData: analyzeData,
-    printCurrentView: printCurrentView // 인쇄 함수 노출
+    printCurrentView: printCurrentView
 };
 
 console.log('=== SupplierAnalysis 모듈 로드 완료 ===');
