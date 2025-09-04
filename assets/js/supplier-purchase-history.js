@@ -76,11 +76,9 @@ async function analyzeData() {
         if (!useRealData) {
             console.log('샘플 데이터 사용');
             generateSampleData();
-            allProcurementData = [...purchaseData]; // 상세내역을 위한 샘플 데이터 복사
         }
         
         const selectedYear = $('analysisYear')?.value || 'all';
-        const selectedProduct = $('productSelect')?.value || 'all';
         let filteredData = [...purchaseData];
         
         if (selectedYear !== 'all') {
@@ -89,11 +87,6 @@ async function analyzeData() {
                 const date = parseDate(item.purchaseDate || '');
                 return date && date.getFullYear() === year;
             });
-        }
-        
-        // 품목에 따라 데이터 필터링
-        if (selectedProduct !== 'all') {
-            filteredData = filteredData.filter(item => item.product === selectedProduct);
         }
         
         analyzeSupplierRanking(filteredData);
@@ -203,7 +196,7 @@ function renderSupplierTable() {
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
         
         const supplierNameCell = `
-            <td class="font-medium">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 <a href="#" class="text-blue-600 hover:underline" data-supplier="${supplier.supplier}">
                     ${supplier.supplier}
                 </a>
@@ -211,10 +204,10 @@ function renderSupplierTable() {
         `;
 
         row.innerHTML = `
-            <td class="text-center font-medium">${supplier.rank}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-500">${supplier.rank}</td>
             ${supplierNameCell}
-            <td class="text-center">${formatNumber(supplier.contractCount)}</td>
-            <td class="text-right font-medium amount">${formatCurrency(supplier.amount)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">${formatNumber(supplier.contractCount)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">${formatCurrency(supplier.amount)}</td>
         `;
         tbody.appendChild(row);
 
@@ -226,59 +219,73 @@ function renderSupplierTable() {
     });
 }
 
+// =======================================================
+// ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 여기가 수정된 부분입니다 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+// =======================================================
+
 // 상세 정보 분석 및 렌더링
 function showSupplierDetail(supplierName) {
     // 기존 패널 숨기기
     const supplierPanel = $('supplierPanel');
     if (supplierPanel) supplierPanel.classList.add('hidden');
     
-    // 상세 정보 패널 생성
+    // 상세 정보 패널을 찾거나, 없으면 새로 생성
     let detailPanel = $('supplierDetailPanel');
     if (!detailPanel) {
         const mainContent = document.querySelector('main');
         detailPanel = document.createElement('div');
         detailPanel.id = 'supplierDetailPanel';
-        detailPanel.className = 'bg-white rounded-lg shadow-md mb-8 p-6';
+        detailPanel.className = 'bg-white rounded-lg shadow-md mb-8'; // p-6 클래스는 내용물에 적용
         mainContent.appendChild(detailPanel);
     }
     
+    // 상세 패널을 화면에 표시
+    detailPanel.classList.remove('hidden');
+    
+    // 상세 패널의 내용(innerHTML)을 채워 넣음
     detailPanel.innerHTML = `
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">${supplierName} 판매 상세 내역</h3>
-            <button id="closeDetailBtn" class="btn btn-secondary btn-sm">목록으로</button>
-        </div>
-        <div class="overflow-x-auto">
-            <table id="supplierDetailTable" class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">수요기관명</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">소재지</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">소관기관</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">업체 판매금액</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">수요기관 전체 구매금액</th>
-                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">점유율</th>
-                    </tr>
-                </thead>
-                <tbody id="supplierDetailTableBody" class="bg-white divide-y divide-gray-200">
-                    </tbody>
-            </table>
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">${supplierName} 판매 상세 내역</h3>
+                <button id="closeDetailBtn" class="btn btn-secondary btn-sm">목록으로</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table id="supplierDetailTable" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">수요기관명</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">소재지</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">소관기관</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">업체 판매금액</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">수요기관 전체 구매금액</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">점유율</th>
+                        </tr>
+                    </thead>
+                    <tbody id="supplierDetailTableBody" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                </table>
+            </div>
         </div>
     `;
 
+    // '목록으로' 버튼에 이벤트 리스너 추가 (DOM에서 제거하는 대신 숨김 처리)
     $('closeDetailBtn').addEventListener('click', () => {
         const supplierPanel = $('supplierPanel');
         if (supplierPanel) supplierPanel.classList.remove('hidden');
-        detailPanel.remove();
+        detailPanel.classList.add('hidden');
     });
 
-    const supplierSpecificData = allProcurementData.filter(item => item.supplier === supplierName);
+    // 특정 업체의 판매 데이터 필터링
+    const supplierSpecificData = purchaseData.filter(item => item.supplier === supplierName);
     
+    // 전체 데이터에서 수요기관별 총 구매액 계산
     const agencyTotalMap = new Map();
-    allProcurementData.forEach(item => {
+    purchaseData.forEach(item => {
         const agencyName = item.agency;
         agencyTotalMap.set(agencyName, (agencyTotalMap.get(agencyName) || 0) + item.amount);
     });
 
+    // 특정 업체의 수요기관별 판매 정보 집계
     const agencySalesMap = new Map();
     supplierSpecificData.forEach(item => {
         const agencyName = item.agency;
@@ -297,13 +304,15 @@ function showSupplierDetail(supplierName) {
     const supplierDetailData = Array.from(agencySalesMap.values());
     supplierDetailData.sort((a, b) => b.amount - a.amount);
     
+    // 상세 정보 테이블의 tbody를 채움
     const tbody = $('supplierDetailTableBody');
     if (tbody) {
+        tbody.innerHTML = ''; // 기존 내용 초기화
         if (supplierDetailData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">상세 내역이 없습니다.</td></tr>';
         } else {
             supplierDetailData.forEach((item, index) => {
-                const share = (item.amount / item.totalAmount) * 100;
+                const share = item.totalAmount > 0 ? (item.amount / item.totalAmount) * 100 : 0;
                 const row = document.createElement('tr');
                 row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
                 row.innerHTML = `
@@ -319,6 +328,10 @@ function showSupplierDetail(supplierName) {
         }
     }
 }
+
+// =======================================================
+// ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 여기가 수정된 부분입니다 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+// =======================================================
 
 // 로딩 상태 표시
 function showLoadingState(show) {
