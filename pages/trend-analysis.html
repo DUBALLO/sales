@@ -10,12 +10,11 @@
     <link href="../assets/css/customer-analysis.css" rel="stylesheet">
     <script src="../assets/js/sheets-api.js"></script>
     <style>
-        /* [수정] 인쇄 스타일 */
         @media print {
             body * { visibility: hidden; }
             .printable-area, .printable-area * { visibility: visible; }
             .printable-area { position: absolute; left: 0; top: 0; width: 100%; }
-            .no-print { display: none; } /* 네비게이션, 필터 등 인쇄 안되게 처리 */
+            .no-print { display: none; }
             @page { size: A4 portrait; margin: 2cm; }
         }
     </style>
@@ -86,7 +85,6 @@
                 </nav>
             </div>
             
-            <!-- 월별 판매 추이 탭 -->
             <div id="monthlyTab" class="tab-content p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">월별 판매 추이</h3>
@@ -99,7 +97,6 @@
                 </div>
             </div>
 
-            <!-- 지역별 판매 현황 탭 -->
             <div id="regionalTab" class="tab-content p-6 hidden">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">지역별 판매 현황</h3>
@@ -112,7 +109,6 @@
                 </div>
             </div>
 
-            <!-- 소관구분별 판매 현황 탭 -->
             <div id="agencyTypeTab" class="tab-content p-6 hidden">
                  <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">소관구분별 판매 현황</h3>
@@ -128,7 +124,9 @@
     </main>
 
     <script src="../assets/js/common.js"></script>
-    <script src="./trend-analysis.js"></script>
+    <!-- ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 여기가 수정된 부분입니다 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ -->
+    <script src="../assets/js/trend-analysis.js"></script>
+    <!-- ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 여기가 수정된 부분입니다 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ -->
 </body>
 </html>
 
