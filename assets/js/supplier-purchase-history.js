@@ -76,9 +76,11 @@ async function analyzeData() {
         if (!useRealData) {
             console.log('샘플 데이터 사용');
             generateSampleData();
+            allProcurementData = [...purchaseData]; // 상세내역을 위한 샘플 데이터 복사
         }
         
         const selectedYear = $('analysisYear')?.value || 'all';
+        const selectedProduct = $('productSelect')?.value || 'all';
         let filteredData = [...purchaseData];
         
         if (selectedYear !== 'all') {
@@ -87,6 +89,11 @@ async function analyzeData() {
                 const date = parseDate(item.purchaseDate || '');
                 return date && date.getFullYear() === year;
             });
+        }
+        
+        // 품목에 따라 데이터 필터링
+        if (selectedProduct !== 'all') {
+            filteredData = filteredData.filter(item => item.product === selectedProduct);
         }
         
         analyzeSupplierRanking(filteredData);
