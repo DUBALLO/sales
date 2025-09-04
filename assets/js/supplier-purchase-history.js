@@ -3,9 +3,8 @@
 // 전역 변수
 let purchaseData = [];
 let supplierRankingData = [];
-let supplierDetailData = [];
-let isLoading = false;
 let allProcurementData = [];
+let isLoading = false;
 
 // 안전한 요소 가져오기
 function $(id) {
@@ -18,12 +17,12 @@ function $(id) {
 
 // 포맷팅 함수들
 function formatCurrency(amount) {
-    if (!amount && amount !== 0) return '-';
+    if (typeof amount !== 'number' || isNaN(amount)) return '-';
     return new Intl.NumberFormat('ko-KR').format(amount) + '원';
 }
 
 function formatNumber(number) {
-    if (!number && number !== 0) return '-';
+    if (typeof number !== 'number' || isNaN(number)) return '-';
     return new Intl.NumberFormat('ko-KR').format(number);
 }
 
@@ -196,13 +195,17 @@ function renderSupplierTable() {
         const row = document.createElement('tr');
         row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
         
-        row.innerHTML = `
-            <td class="text-center font-medium">${supplier.rank}</td>
+        const supplierNameCell = `
             <td class="font-medium">
                 <a href="#" class="text-blue-600 hover:underline" data-supplier="${supplier.supplier}">
                     ${supplier.supplier}
                 </a>
             </td>
+        `;
+
+        row.innerHTML = `
+            <td class="text-center font-medium">${supplier.rank}</td>
+            ${supplierNameCell}
             <td class="text-center">${formatNumber(supplier.contractCount)}</td>
             <td class="text-right font-medium amount">${formatCurrency(supplier.amount)}</td>
         `;
@@ -219,9 +222,10 @@ function renderSupplierTable() {
 // 상세 정보 분석 및 렌더링
 function showSupplierDetail(supplierName) {
     // 기존 패널 숨기기
-    $('supplierPanel').classList.add('hidden');
+    const supplierPanel = $('supplierPanel');
+    if (supplierPanel) supplierPanel.classList.add('hidden');
     
-    // 상세 정보 패널 생성 (아직 HTML에 없으므로 동적으로 추가)
+    // 상세 정보 패널 생성
     let detailPanel = $('supplierDetailPanel');
     if (!detailPanel) {
         const mainContent = document.querySelector('main');
@@ -255,19 +259,17 @@ function showSupplierDetail(supplierName) {
     `;
 
     $('closeDetailBtn').addEventListener('click', () => {
-        $('supplierPanel').classList.remove('hidden');
-        $('supplierDetailPanel').remove();
+        const supplierPanel = $('supplierPanel');
+        if (supplierPanel) supplierPanel.classList.remove('hidden');
+        detailPanel.remove();
     });
 
     const supplierSpecificData = allProcurementData.filter(item => item.supplier === supplierName);
-    const agencyTotalMap = new Map();
     
+    const agencyTotalMap = new Map();
     allProcurementData.forEach(item => {
         const agencyName = item.agency;
-        if (!agencyTotalMap.has(agencyName)) {
-            agencyTotalMap.set(agencyName, 0);
-        }
-        agencyTotalMap.set(agencyName, agencyTotalMap.get(agencyName) + item.amount);
+        agencyTotalMap.set(agencyName, (agencyTotalMap.get(agencyName) || 0) + item.amount);
     });
 
     const agencySalesMap = new Map();
@@ -285,7 +287,7 @@ function showSupplierDetail(supplierName) {
         agencySalesMap.get(agencyName).amount += item.amount;
     });
 
-    supplierDetailData = Array.from(agencySalesMap.values());
+    const supplierDetailData = Array.from(agencySalesMap.values());
     supplierDetailData.sort((a, b) => b.amount - a.amount);
     
     const tbody = $('supplierDetailTableBody');
@@ -293,9 +295,10 @@ function showSupplierDetail(supplierName) {
         if (supplierDetailData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">상세 내역이 없습니다.</td></tr>';
         } else {
-            supplierDetailData.forEach(item => {
-                const share = item.amount / item.totalAmount * 100;
+            supplierDetailData.forEach((item, index) => {
+                const share = (item.amount / item.totalAmount) * 100;
                 const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.agency}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.region}</td>
