@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>업체별 구매내역 - 판매실적 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../assets/css/common.css" rel="stylesheet">
+    <link href="../assets/css/customer-analysis.css" rel="stylesheet">
+    <script src="../assets/js/sheets-api.js"></script>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-6xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <a href="../index.html" class="text-lg font-semibold text-gray-900">판매실적 대시보드</a>
+                    <span class="text-gray-400">|</span>
+                    <span class="text-green-600 font-medium">업체별 구매내역</span>
+                </div>
+                <div class="flex space-x-2">
+                    <a href="../index.html" class="nav-link">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        홈
+                    </a>
+                    <a href="./monthly-sales.html" class="nav-link">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        월별매출 현황
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">업체별 구매내역</h1>
+            <p class="text-gray-600">특정 업체가 판매한 내역과 해당 수요기관의 구매 정보를 확인할 수 있습니다.</p>
+        </div>
+
+        <div id="connectionStatus" class="mb-4 p-3 rounded-lg border hidden">
+            <div class="flex items-center">
+                <div id="statusIcon" class="w-3 h-3 rounded-full mr-2"></div>
+                <span id="statusText" class="text-sm font-medium"></span>
+            </div>
+        </div>
+
+        <div class="filter-section bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex flex-wrap items-end gap-4 mb-4">
+                <div class="flex-1">
+                    <label class="form-label">분석 기간</label>
+                    <select id="analysisYear" class="form-select">
+                        <option value="2020">2020년</option>
+                        <option value="2021">2021년</option>
+                        <option value="2022">2022년</option>
+                        <option value="2023">2023년</option>
+                        <option value="2024">2024년</option>
+                        <option value="2025" selected>2025년</option>
+                        <option value="all">전체</option>
+                    </select>
+                </div>
+                
+                <button id="analyzeBtn" class="btn btn-success">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    분석
+                </button>
+                
+                <button id="refreshBtn" class="btn btn-secondary">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    새로고침
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md mb-8">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8 px-6">
+                    <button id="supplierTab" class="analysis-tab active border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                        업체별 구매 순위
+                    </button>
+                </nav>
+            </div>
+
+            <div id="supplierPanel" class="tab-panel p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">업체별 구매 순위</h3>
+                    <button id="exportSupplierBtn" class="btn btn-secondary btn-sm">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        CSV 내보내기
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table id="supplierTable" class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer">순위</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer">업체명</th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">계약건수</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">총 구매액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="supplierTableBody" class="bg-white divide-y divide-gray-200">
+                            <tr><td colspan="4" class="text-center py-8 text-gray-500">분석 버튼을 클릭하여 데이터를 로드하세요</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="../assets/js/common.js"></script>
+    <script src="../assets/js/supplier-purchase-history.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            if (analyzeBtn && window.SupplierAnalysis) {
+                analyzeBtn.addEventListener('click', window.SupplierAnalysis.analyzeData);
+            }
+            
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (refreshBtn && window.sheetsAPI) {
+                refreshBtn.addEventListener('click', async () => {
+                    try {
+                        await window.sheetsAPI.refreshCache();
+                        if (window.SupplierAnalysis) {
+                            window.SupplierAnalysis.analyzeData();
+                        }
+                    } catch (error) {
+                        console.error('새로고침 실패:', error);
+                    }
+                });
+            }
+
+            document.getElementById('exportSupplierBtn')?.addEventListener('click', () => 
+                exportTable('supplierTable', '업체별_구매순위.csv'));
+
+            if (window.SupplierAnalysis) {
+                window.SupplierAnalysis.analyzeData();
+            }
+        });
+
+        // CSV 내보내기 함수
+        function exportTable(tableId, filename) {
+            if (window.CommonUtils && CommonUtils.exportTableToCSV) {
+                const table = document.getElementById(tableId);
+                CommonUtils.exportTableToCSV(table, filename);
+            } else {
+                alert('내보내기 기능을 사용할 수 없습니다.');
+            }
+        }
+    </script>
+</body>
+</html>
