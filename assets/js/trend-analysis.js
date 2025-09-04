@@ -49,7 +49,7 @@ async function loadAndParseAllData() {
         product: (item['세부품명'] || '').trim(),
         region: (item['수요기관지역'] || '').trim().split(' ')[0],
         agencyType: item['소관구분'] || '기타',
-        contractName: (item['계약명'] || '').trim() // [신규] 계약명 추가
+        contractName: (item['계약명'] || '').trim()
     })).filter(item => item.amount > 0 && item.date && item.contractName);
 }
 
@@ -87,15 +87,29 @@ function analyzeTrends() {
         return yearMatch && productMatch;
     });
     
-    // [신규] 요약 정보 계산
     const totalSales = filteredData.reduce((sum, item) => sum + item.amount, 0);
     const totalContracts = new Set(filteredData.map(item => item.contractName)).size;
     const summary = { totalSales, totalContracts };
 
-    // [수정] 렌더링 함수에 요약 정보 전달
-    renderMonthlyTrend(filteredData, year, summary);
-    renderRegionalTrend(filteredData, summary);
-    renderAgencyTypeTrend(filteredData, summary);
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 여기가 수정된 부분입니다 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    let titleSuffix = '';
+    if (year === 'all') {
+        if (allData.length > 0) {
+            const years = allData.map(d => new Date(d.date).getFullYear());
+            const minYear = Math.min(...years);
+            const maxYear = Math.max(...years);
+            titleSuffix = `(${minYear} ~ ${maxYear})`;
+        } else {
+            titleSuffix = '(전체)';
+        }
+    } else {
+        titleSuffix = `(${year}년)`;
+    }
+
+    renderMonthlyTrend(filteredData, year, summary, titleSuffix);
+    renderRegionalTrend(filteredData, summary, titleSuffix);
+    renderAgencyTypeTrend(filteredData, summary, titleSuffix);
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 여기가 수정된 부분입니다 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     
     showLoadingState(false);
 }
@@ -142,7 +156,10 @@ function renderChart(canvasId, type, labels, data, label) {
 /**
  * 월별 판매 추이
  */
-function renderMonthlyTrend(data, year, summary) {
+function renderMonthlyTrend(data, year, summary, titleSuffix) {
+    // [수정] 제목 업데이트
+    $('monthlyTab').querySelector('h3').innerHTML = `월별 판매 추이 <span class="text-base font-normal text-gray-500">${titleSuffix}</span>`;
+
     const monthlySales = Array(12).fill(0);
     data.forEach(item => {
         const month = new Date(item.date).getMonth();
@@ -153,7 +170,6 @@ function renderMonthlyTrend(data, year, summary) {
     const chartLabel = year === 'all' ? '월별 총 판매액' : `${year}년 월별 판매액`;
     renderChart('monthlyChart', 'line', labels, monthlySales, chartLabel);
 
-    // [신규] 카드보드 업데이트 및 인쇄 버튼 설정
     updateSummaryCards('monthly', summary);
     $('printMonthlyBtn').onclick = () => printPanel('monthlyTab');
 }
@@ -161,7 +177,10 @@ function renderMonthlyTrend(data, year, summary) {
 /**
  * 지역별 판매 현황
  */
-function renderRegionalTrend(data, summary) {
+function renderRegionalTrend(data, summary, titleSuffix) {
+    // [수정] 제목 업데이트
+    $('regionalTab').querySelector('h3').innerHTML = `지역별 판매 현황 <span class="text-base font-normal text-gray-500">${titleSuffix}</span>`;
+
     const regionalSales = {};
     data.forEach(item => {
         if (item.region) {
@@ -175,7 +194,6 @@ function renderRegionalTrend(data, summary) {
 
     renderChart('regionalChart', 'bar', labels, salesData, '지역별 총 판매액');
     
-    // [신규] 카드보드 업데이트 및 인쇄 버튼 설정
     updateSummaryCards('regional', summary);
     $('printRegionalBtn').onclick = () => printPanel('regionalTab');
 }
@@ -183,7 +201,10 @@ function renderRegionalTrend(data, summary) {
 /**
  * 소관구분별 판매 현황
  */
-function renderAgencyTypeTrend(data, summary) {
+function renderAgencyTypeTrend(data, summary, titleSuffix) {
+    // [수정] 제목 업데이트
+    $('agencyTypeTab').querySelector('h3').innerHTML = `소관구분별 판매 현황 <span class="text-base font-normal text-gray-500">${titleSuffix}</span>`;
+
     const agencyTypeSales = {};
     data.forEach(item => {
         agencyTypeSales[item.agencyType] = (agencyTypeSales[item.agencyType] || 0) + item.amount;
@@ -195,13 +216,12 @@ function renderAgencyTypeTrend(data, summary) {
     
     renderChart('agencyTypeChart', 'bar', labels, salesData, '소관구분별 총 판매액');
 
-    // [신규] 카드보드 업데이트 및 인쇄 버튼 설정
     updateSummaryCards('agencyType', summary);
     $('printAgencyTypeBtn').onclick = () => printPanel('agencyTypeTab');
 }
 
 /**
- * [신규] 요약 카드 업데이트 함수
+ * 요약 카드 업데이트 함수
  */
 function updateSummaryCards(prefix, summary) {
     const { totalSales, totalContracts } = summary;
@@ -210,16 +230,15 @@ function updateSummaryCards(prefix, summary) {
 }
 
 /**
- * [신규] 인쇄 함수
+ * 인쇄 함수
  */
 function printPanel(elementId) {
     const panel = $(elementId);
     if (panel) {
         panel.classList.add('printable-area');
-        // 인쇄 시에는 애니메이션을 비활성화하여 즉시 렌더링되게 함
         Chart.defaults.animation = false;
         window.print();
-        Chart.defaults.animation = true; // 인쇄 후 애니메이션 복원
+        Chart.defaults.animation = true;
         panel.classList.remove('printable-area');
     }
 }
@@ -239,4 +258,3 @@ function showAlert(message, type = 'info') {
         window.CommonUtils.showAlert(message, type);
     } else { alert(message); }
 }
-
