@@ -3,11 +3,13 @@
 // 전역 변수
 let allData = []; // 전체 원본 데이터
 let currentFilteredData = []; // 현재 필터가 적용된 데이터
-let detailSortState = { column: 'amount', direction: 'desc' };
+let rankSortState = { column: 'amount', direction: 'desc' };
+let purchaseDetailSortState = { column: 'amount', direction: 'desc' };
+let contractDetailSortState = { column: 'amount', direction: 'desc' };
 
 // 유틸리티 함수
-// common.js에 이미 formatCurrency와 formatNumber가 있으므로 여기서는 $만 정의합니다.
 const $ = (id) => document.getElementById(id);
+// common.js 에 formatCurrency, formatNumber가 있다고 가정합니다.
 
 /**
  * 페이지 초기화 함수
@@ -60,7 +62,7 @@ function populateRegionFilter(data) {
         let mainRegion = item.region.split(' ')[0];
         if (mainRegion === '전라북도') mainRegion = '전북특별자치도';
         if (mainRegion === '강원도') mainRegion = '강원특별자치도';
-        regionSet.add(mainRegion);
+        if(mainRegion) regionSet.add(mainRegion);
     });
     const regions = [...regionSet].sort((a, b) => a.localeCompare(b));
     const regionFilter = $('regionFilter');
@@ -79,7 +81,10 @@ function populateRegionFilter(data) {
 function setInitialFilters() {
     $('analysisYear').value = '2025';
     $('productFilter').value = '보행매트';
-    $('regionFilter').value = '경기도';
+    // 경기도가 목록에 있으면 기본값으로 설정
+    if ($('regionFilter').querySelector('option[value="경기도"]')) {
+        $('regionFilter').value = '경기도';
+    }
 }
 
 /**
@@ -87,7 +92,8 @@ function setInitialFilters() {
  */
 function analyzeData() {
     showLoadingState(true, '데이터 분석 중...');
-    $('agencyDetailPanel').classList.add('hidden'); // 상세 패널 숨기기
+    $('agencyDetailPanel').classList.add('hidden');
+    $('agencyRankPanel').classList.remove('hidden');
     
     const year = $('analysisYear').value;
     const product = $('productFilter').value;
@@ -116,7 +122,7 @@ async function refreshData() {
     try {
         await window.sheetsAPI.refreshCache();
         allData = await loadAndParseData();
-        populateRegionFilter(allData); // 지역 목록도 갱신
+        populateRegionFilter(allData);
         await analyzeData();
         showAlert('데이터를 성공적으로 새로고침했습니다.', 'success');
     } catch (error) {
@@ -139,13 +145,15 @@ function renderAgencyRankPanel(data) {
                 <button id="printRankBtn" class="btn btn-secondary btn-sm"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>인쇄</button>
             </div>
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+                <table id="agencyRankTable" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">순위</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">수요기관명</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">거래건수</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">총 구매액</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="agency">수요기관명</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="region">지역</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="agencyType">소관구분</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="contractCount">거래건수</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="amount">총 구매액</th>
                         </tr>
                     </thead>
                     <tbody id="agencyRankBody"></tbody>
@@ -156,38 +164,68 @@ function renderAgencyRankPanel(data) {
     const agencyMap = new Map();
     data.forEach(item => {
         if (!agencyMap.has(item.agency)) {
-            agencyMap.set(item.agency, { amount: 0, contracts: new Set() });
+            agencyMap.set(item.agency, { 
+                amount: 0, 
+                contracts: new Set(),
+                // 첫 번째 데이터의 지역과 소관구분을 대표값으로 사용
+                region: item.region,
+                agencyType: item.agencyType
+            });
         }
         const agencyInfo = agencyMap.get(item.agency);
         agencyInfo.amount += item.amount;
         agencyInfo.contracts.add(item.contractName);
     });
 
-    const rankedAgencies = [...agencyMap.entries()]
-        .map(([agency, { amount, contracts }]) => ({ agency, amount, contractCount: contracts.size }))
-        .sort((a, b) => b.amount - a.amount);
+    let rankedAgencies = [...agencyMap.entries()]
+        .map(([agency, { amount, contracts, region, agencyType }]) => ({ 
+            agency, 
+            amount, 
+            contractCount: contracts.size,
+            region,
+            agencyType
+        }));
 
-    const tbody = $('agencyRankBody');
-    tbody.innerHTML = '';
-    if (rankedAgencies.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-gray-500">표시할 데이터가 없습니다.</td></tr>`;
-    } else {
-        rankedAgencies.forEach((item, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="px-6 py-4 text-center">${index + 1}</td>
-                <td class="px-6 py-4"><a href="#" data-agency="${item.agency}" class="text-blue-600 hover:underline">${item.agency}</a></td>
-                <td class="px-6 py-4 text-center">${formatNumber(item.contractCount)}</td>
-                <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
-            `;
-            row.querySelector('a').addEventListener('click', (e) => {
-                e.preventDefault();
-                showAgencyDetail(e.target.dataset.agency);
+    const sortAndRenderRank = () => {
+        sortData(rankedAgencies, rankSortState.column, rankSortState.direction);
+        const tbody = $('agencyRankBody');
+        tbody.innerHTML = '';
+        if (rankedAgencies.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-gray-500">표시할 데이터가 없습니다.</td></tr>`;
+        } else {
+            rankedAgencies.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-center">${index + 1}</td>
+                    <td class="px-6 py-4"><a href="#" data-agency="${item.agency}" class="text-blue-600 hover:underline">${item.agency}</a></td>
+                    <td class="px-6 py-4">${item.region}</td>
+                    <td class="px-6 py-4">${item.agencyType}</td>
+                    <td class="px-6 py-4 text-center">${formatNumber(item.contractCount)}</td>
+                    <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
+                `;
+                row.querySelector('a').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showAgencyDetail(e.target.dataset.agency);
+                });
+                tbody.appendChild(row);
             });
-            tbody.appendChild(row);
+        }
+    };
+
+    panel.querySelectorAll('th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => {
+            const column = th.dataset.sort;
+            if (rankSortState.column === column) {
+                rankSortState.direction = rankSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                rankSortState.column = column;
+                rankSortState.direction = 'desc';
+            }
+            sortAndRenderRank();
         });
-    }
-    
+    });
+
+    sortAndRenderRank();
     $('printRankBtn').addEventListener('click', () => printPanel(panel));
 }
 
@@ -200,7 +238,7 @@ function showAgencyDetail(agencyName) {
         <div class="p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg"><strong class="font-bold">${agencyName}</strong> <span class="font-normal">상세 내역</span></h3>
-                <div>
+                <div class="flex items-center space-x-2">
                     <button id="printDetailBtn" class="btn btn-secondary btn-sm"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>인쇄</button>
                     <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
                 </div>
@@ -220,13 +258,11 @@ function showAgencyDetail(agencyName) {
     renderPurchaseDetail(agencyData);
     renderContractDetail(agencyData);
 
-    // 탭 전환 로직
     $('detailTabs').addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
             const tabName = e.target.dataset.tab;
             $('detailTabs').querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             e.target.classList.add('active');
-            
             detailPanel.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
             $(tabName + 'Detail').classList.remove('hidden');
         }
@@ -273,7 +309,7 @@ function renderPurchaseDetail(agencyData) {
     }));
     
     const sortAndRender = () => {
-        sortData(data, detailSortState.column, detailSortState.direction);
+        sortData(data, purchaseDetailSortState.column, purchaseDetailSortState.direction);
         const tbody = $('purchaseDetailBody');
         tbody.innerHTML = '';
         data.forEach((item, index) => {
@@ -291,39 +327,68 @@ function renderPurchaseDetail(agencyData) {
     container.querySelectorAll('th[data-sort]').forEach(th => {
         th.addEventListener('click', () => {
             const column = th.dataset.sort;
-            if (detailSortState.column === column) {
-                detailSortState.direction = detailSortState.direction === 'asc' ? 'desc' : 'asc';
+            if (purchaseDetailSortState.column === column) {
+                purchaseDetailSortState.direction = purchaseDetailSortState.direction === 'asc' ? 'desc' : 'asc';
             } else {
-                detailSortState.column = column;
-                detailSortState.direction = 'desc';
+                purchaseDetailSortState.column = column;
+                purchaseDetailSortState.direction = 'desc';
             }
             sortAndRender();
         });
     });
     
-    sortAndRender(); // 초기 렌더링
+    sortAndRender();
 }
 
 function renderContractDetail(agencyData) {
     const container = $('contractDetail');
-    const sortedData = [...agencyData].sort((a, b) => b.amount - a.amount);
     container.innerHTML = `
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">계약명</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">공급금액</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">순번</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="contractName">계약명</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="supplier">업체명</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="date">거래일자</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="amount">공급금액</th>
                 </tr>
             </thead>
-            <tbody>
-                ${sortedData.map(item => `
-                    <tr>
-                        <td class="px-6 py-4">${item.contractName}</td>
-                        <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
+            <tbody id="contractDetailBody"></tbody>
         </table>`;
+    
+    let data = [...agencyData];
+    
+    const sortAndRender = () => {
+        sortData(data, contractDetailSortState.column, contractDetailSortState.direction);
+        const tbody = $('contractDetailBody');
+        tbody.innerHTML = '';
+        data.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 text-center">${index + 1}</td>
+                <td class="px-6 py-4">${item.contractName}</td>
+                <td class="px-6 py-4">${item.supplier}</td>
+                <td class="px-6 py-4 text-center">${item.date}</td>
+                <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    };
+
+    container.querySelectorAll('th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => {
+            const column = th.dataset.sort;
+            if (contractDetailSortState.column === column) {
+                contractDetailSortState.direction = contractDetailSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                contractDetailSortState.column = column;
+                contractDetailSortState.direction = 'desc';
+            }
+            sortAndRender();
+        });
+    });
+
+    sortAndRender();
 }
 
 // 헬퍼 함수들
@@ -331,6 +396,14 @@ function sortData(data, column, direction) {
     data.sort((a, b) => {
         let valA = a[column];
         let valB = b[column];
+
+        // 날짜 형식의 문자열 비교 처리
+        if (column === 'date') {
+            const dateA = new Date(valA).getTime() || 0;
+            const dateB = new Date(valB).getTime() || 0;
+            return direction === 'asc' ? dateA - dateB : dateB - dateA;
+        }
+
         if (typeof valA === 'string') {
             return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
         } else {
@@ -357,7 +430,6 @@ function printPanel(panel) {
     if (panel) {
         panel.classList.add('printable-area');
         window.print();
-        // 인쇄 창이 닫힌 후 클래스를 제거하기 위해 약간의 지연을 줍니다.
         setTimeout(() => {
             panel.classList.remove('printable-area');
         }, 500);
