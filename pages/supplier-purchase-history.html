@@ -3,34 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>업체별 구매내역 - 판매실적 대시보드</title>
+    <title>업체별 판매내역 - 판매실적 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="../assets/css/common.css" rel="stylesheet">
     <link href="../assets/css/customer-analysis.css" rel="stylesheet">
     <script src="../assets/js/sheets-api.js"></script>
 
+    <!-- 인쇄 전용 스타일 -->
     <style>
         @media print {
-            /* 기본적으로 모든 요소를 인쇄되지 않도록 숨김 */
             body * {
                 visibility: hidden;
             }
-            /* 인쇄할 영역과 그 자식 요소들만 보이게 처리 */
             .printable-area, .printable-area * {
                 visibility: visible;
             }
-            /* 인쇄할 영역을 페이지 최상단에 위치시킴 */
             .printable-area {
                 position: absolute;
                 left: 0;
                 top: 0;
                 width: 100%;
             }
-            /* 테이블 헤더가 페이지마다 반복되도록 설정 */
             table thead {
                 display: table-header-group;
             }
-            /* A4 세로 방향 설정 */
             @page {
                 size: A4 portrait;
                 margin: 2cm;
@@ -45,19 +41,15 @@
                 <div class="flex items-center space-x-4">
                     <a href="../index.html" class="text-lg font-semibold text-gray-900">판매실적 대시보드</a>
                     <span class="text-gray-400">|</span>
-                    <span class="text-green-600 font-medium">업체별 구매내역</span>
+                    <span class="text-green-600 font-medium">업체별 판매내역</span>
                 </div>
                 <div class="flex space-x-2">
                     <a href="../index.html" class="nav-link">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                        </svg>
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                         홈
                     </a>
                     <a href="./monthly-sales.html" class="nav-link">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                        </svg>
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         월별매출 현황
                     </a>
                 </div>
@@ -67,7 +59,7 @@
 
     <main class="max-w-6xl mx-auto px-4 py-8">
         <div class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">업체별 구매내역</h1>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">업체별 판매내역</h1>
             <p class="text-gray-600">특정 업체가 판매한 내역과 해당 수요기관의 구매 정보를 확인할 수 있습니다.</p>
         </div>
 
@@ -80,7 +72,7 @@
 
         <div class="filter-section bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex flex-wrap items-end gap-4 mb-4">
-                <div class="flex-1">
+                <div class="flex-1 min-w-[150px]">
                     <label class="form-label">분석 기간</label>
                     <select id="analysisYear" class="form-select">
                         <option value="2020">2020년</option>
@@ -92,18 +84,25 @@
                         <option value="all">전체</option>
                     </select>
                 </div>
+
+                <!-- [신규] 품목 필터 드롭다운 -->
+                <div class="flex-1 min-w-[150px]">
+                    <label class="form-label">품목</label>
+                    <select id="productFilter" class="form-select">
+                        <option value="all" selected>전체</option>
+                        <option value="보행매트">보행매트</option>
+                        <option value="식생매트">식생매트</option>
+                        <option value="논슬립">논슬립</option>
+                    </select>
+                </div>
                 
                 <button id="analyzeBtn" class="btn btn-success">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                    </svg>
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                     분석
                 </button>
                 
                 <button id="refreshBtn" class="btn btn-secondary">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                     새로고침
                 </button>
             </div>
@@ -112,41 +111,27 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 stats-grid">
             <div id="totalSuppliersCard" class="bg-white rounded-lg shadow-md p-6 stats-card">
                 <div class="flex items-center">
-                    <div class="p-2 bg-blue-100 rounded-lg">
-                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                        </svg>
-                    </div>
+                    <div class="p-2 bg-blue-100 rounded-lg"><svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">총 업체 수</p>
                         <p class="text-2xl font-bold text-gray-900" id="totalSuppliers">로딩중...</p>
                     </div>
                 </div>
             </div>
-
             <div id="totalContractsCard" class="bg-white rounded-lg shadow-md p-6 stats-card">
                 <div class="flex items-center">
-                    <div class="p-2 bg-green-100 rounded-lg">
-                         <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                    </div>
+                    <div class="p-2 bg-green-100 rounded-lg"><svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">총 구매 건수</p>
+                        <p class="text-sm font-medium text-gray-600">총 계약 건수</p>
                         <p class="text-2xl font-bold text-gray-900" id="totalContracts">로딩중...</p>
                     </div>
                 </div>
             </div>
-
             <div id="totalSalesCard" class="bg-white rounded-lg shadow-md p-6 stats-card">
                 <div class="flex items-center">
-                    <div class="p-2 bg-purple-100 rounded-lg">
-                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                        </svg>
-                    </div>
+                    <div class="p-2 bg-purple-100 rounded-lg"><svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path></svg></div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">총 구매액</p>
+                        <p class="text-sm font-medium text-gray-600">총 판매액</p>
                         <p class="text-2xl font-bold text-gray-900" id="totalSales">로딩중...</p>
                     </div>
                 </div>
@@ -157,14 +142,13 @@
             <div class="border-b border-gray-200">
                 <nav class="-mb-px flex space-x-8 px-6">
                     <button id="supplierTab" class="analysis-tab active border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                        업체별 구매 순위
+                        업체별 판매 순위
                     </button>
                 </nav>
             </div>
-
             <div id="supplierPanelBody" class="tab-panel p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">업체별 구매 순위</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">업체별 판매 순위</h3>
                     <div class="flex space-x-2">
                         <button id="printBtn" class="btn btn-secondary btn-sm">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>
@@ -184,7 +168,7 @@
                                 <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer">순위</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer">업체명</th>
                                 <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">계약건수</th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">총 구매액</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">총 판매액</th>
                             </tr>
                         </thead>
                         <tbody id="supplierTableBody" class="bg-white divide-y divide-gray-200">
@@ -220,7 +204,6 @@
                 });
             }
 
-            // [수정] 인쇄 버튼 이벤트 리스너 추가
             document.getElementById('printBtn')?.addEventListener('click', () => {
                 if (window.SupplierAnalysis && typeof window.SupplierAnalysis.printCurrentView === 'function') {
                     window.SupplierAnalysis.printCurrentView();
@@ -230,7 +213,7 @@
             });
 
             document.getElementById('exportSupplierBtn')?.addEventListener('click', () => 
-                exportTable('supplierTable', '업체별_구매순위.csv'));
+                exportTable('supplierTable', '업체별_판매순위.csv'));
 
             if (window.SupplierAnalysis) {
                 window.SupplierAnalysis.analyzeData();
