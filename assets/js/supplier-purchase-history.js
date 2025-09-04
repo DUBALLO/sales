@@ -11,7 +11,9 @@ let detailSortState = { column: null, direction: 'asc' };
 // 안전한 요소 가져오기
 function $(id) {
     const element = document.getElementById(id);
-    if (!element) console.warn(`요소를 찾을 수 없습니다: ${id}`);
+    if (!element) {
+        console.warn(`요소를 찾을 수 없습니다: ${id}`);
+    }
     return element;
 }
 
@@ -55,8 +57,10 @@ async function analyzeData() {
         
         if (window.sheetsAPI) {
             try {
+                console.log('sheets-api를 통한 실제 데이터 로드 시도...');
                 allProcurementData = await window.sheetsAPI.loadCSVData('procurement');
                 if (allProcurementData && allProcurementData.length > 0) {
+                    console.log('sheets-api에서 로드된 원시 데이터:', allProcurementData.length, '건');
                     parseRealData(allProcurementData);
                     useRealData = true;
                 } else {
@@ -72,6 +76,7 @@ async function analyzeData() {
         }
         
         if (!useRealData) {
+            console.log('샘플 데이터 사용');
             generateSampleData();
         }
         
@@ -92,7 +97,9 @@ async function analyzeData() {
         
         console.log('=== 업체별 구매내역 분석 완료 ===');
         
-        const message = useRealData ? `실제 데이터 분석 완료 (${filteredData.length}건)` : '샘플 데이터로 분석 완료';
+        const message = useRealData ? 
+            `실제 데이터 분석 완료 (${filteredData.length}건)` :
+            '샘플 데이터로 분석 완료';
         showAlert(message, useRealData ? 'success' : 'warning');
         
     } catch (error) {
@@ -117,17 +124,102 @@ function parseRealData(rawData) {
     })).filter(item => item.agency && item.supplier && item.amount > 0);
 }
 
-// 샘플 데이터 생성 (기존과 동일)
-function generateSampleData() { /* ... */ }
+// 샘플 데이터 생성
+function generateSampleData() {
+    purchaseData = [
+        { agency: '경기도 양주시', supplier: '두발로 주식회사', region: '경기도', agencyType: '지방자치단체', product: '보행매트', amount: 15000000, purchaseDate: '2024-01-15', contractName: '천보산 산림욕장 보완사업' },
+        { agency: '의정부시', supplier: '두발로 주식회사', region: '경기도', agencyType: '지방자치단체', product: '보행매트', amount: 28000000, purchaseDate: '2024-02-10', contractName: '의정부시 녹지조성사업' },
+        { agency: '서울시 한강사업본부', supplier: '한솔기술', region: '서울특별시', agencyType: '지방자치단체', product: '식생매트', amount: 32000000, purchaseDate: '2024-02-05', contractName: '서울시 한강공원 보행로 개선' },
+        { agency: '부천시청', supplier: '두발로 주식회사', region: '경기도', agencyType: '지방자치단체', product: '논슬립', amount: 45000000, purchaseDate: '2024-03-12', contractName: '부천시 중앙공원 조성사업' },
+        { agency: '춘천시 공원과', supplier: '산하건설', region: '강원도', agencyType: '지방자치단체', product: '보행매트', amount: 22000000, purchaseDate: '2024-03-20', contractName: '춘천시 공원 조성사업' }
+    ];
+}
 
-// 업체별 순위 데이터 분석 (기존과 동일)
-function analyzeSupplierRanking(data) { /* ... */ }
+// 업체별 순위 데이터 분석
+function analyzeSupplierRanking(data) {
+    const supplierMap = new Map();
+    data.forEach(item => {
+        const supplier = item.supplier || '';
+        if (!supplierMap.has(supplier)) {
+            supplierMap.set(supplier, {
+                supplier: supplier,
+                contracts: new Set(),
+                amount: 0
+            });
+        }
+        
+        const supplierInfo = supplierMap.get(supplier);
+        supplierInfo.contracts.add(item.contractName);
+        supplierInfo.amount += item.amount || 0;
+    });
+    
+    supplierRankingData = Array.from(supplierMap.values()).map(item => ({
+        ...item,
+        contractCount: item.contracts.size
+    }));
+    
+    supplierRankingData.sort((a, b) => b.amount - a.amount);
+    supplierRankingData.forEach((item, index) => { item.rank = index + 1; });
+    
+    console.log(`업체별 순위 분석 완료: ${supplierRankingData.length}개 업체`);
+}
 
-// 요약 통계 업데이트 (기존과 동일)
-function updateSummaryStats(data) { /* ... */ }
+// 요약 통계 업데이트
+function updateSummaryStats(data) {
+    const totalSuppliers = new Set(data.map(item => item.supplier)).size;
+    const totalContracts = new Set(data.map(item => item.contractName)).size;
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
+    
+    const elements = {
+        totalSuppliers: $('totalSuppliers'),
+        totalContracts: $('totalContracts'),
+        totalSales: $('totalSales')
+    };
+    
+    if (elements.totalSuppliers) elements.totalSuppliers.textContent = formatNumber(totalSuppliers) + '개';
+    if (elements.totalContracts) elements.totalContracts.textContent = formatNumber(totalContracts) + '건';
+    if (elements.totalSales) elements.totalSales.textContent = formatCurrency(totalAmount);
+}
 
-// 업체별 순위 테이블 렌더링 (기존과 동일)
-function renderSupplierTable() { /* ... */ }
+// 업체별 순위 테이블 렌더링
+function renderSupplierTable() {
+    const tbody = $('supplierTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (supplierRankingData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">업체 데이터가 없습니다.</td></tr>';
+        return;
+    }
+    
+    supplierRankingData.forEach((supplier, index) => {
+        const row = document.createElement('tr');
+        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        
+        const supplierNameCell = `
+            <td class="font-medium">
+                <a href="#" class="text-blue-600 hover:underline" data-supplier="${supplier.supplier}">
+                    ${supplier.supplier}
+                </a>
+            </td>
+        `;
+
+        row.innerHTML = `
+            <td class="text-center font-medium">${supplier.rank}</td>
+            ${supplierNameCell}
+            <td class="text-center">${formatNumber(supplier.contractCount)}</td>
+            <td class="text-right font-medium amount">${formatCurrency(supplier.amount)}</td>
+        `;
+        tbody.appendChild(row);
+
+        row.querySelector('a').addEventListener('click', (e) => {
+            e.preventDefault();
+            const supplierName = e.target.dataset.supplier;
+            showSupplierDetail(supplierName);
+        });
+    });
+}
 
 // 상세 정보 분석 및 렌더링
 function showSupplierDetail(supplierName) {
@@ -145,7 +237,6 @@ function showSupplierDetail(supplierName) {
     
     detailPanel.classList.remove('hidden');
     
-    // [수정] innerHTML 및 컬럼명 변경, a11y, 정렬을 위한 data 속성 추가
     detailPanel.innerHTML = `
         <div class="p-6">
             <div class="flex justify-between items-center mb-4">
@@ -178,7 +269,6 @@ function showSupplierDetail(supplierName) {
         detailPanel.classList.add('hidden');
     });
     
-    // [수정] 선택된 연도 필터링 로직 추가
     const selectedYear = $('analysisYear')?.value || 'all';
     let yearFilteredData = [...purchaseData];
     if (selectedYear !== 'all') {
@@ -217,7 +307,6 @@ function showSupplierDetail(supplierName) {
     
     renderDetailTable(supplierDetailData);
 
-    // [신규] 컬럼 헤더에 정렬 이벤트 리스너 추가
     detailPanel.querySelectorAll('th[data-sort]').forEach(header => {
         header.addEventListener('click', () => {
             const column = header.dataset.sort;
@@ -269,12 +358,35 @@ function renderDetailTable(data) {
     }
 }
 
+// 로딩 상태 표시
+function showLoadingState(show) {
+    isLoading = show;
+    const analyzeBtn = $('analyzeBtn');
+    if (analyzeBtn) {
+        analyzeBtn.disabled = show;
+        analyzeBtn.innerHTML = show 
+            ? '<div class="loading-spinner"></div>분석 중...' 
+            : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+               </svg>분석`;
+    }
+    const statElements = ['totalSuppliers', 'totalContracts', 'totalSales'];
+    statElements.forEach(id => {
+        const element = $(id);
+        if (element) {
+            element.textContent = show ? '로딩중...' : element.textContent;
+        }
+    });
+}
 
-// 로딩 상태 표시 (기존과 동일)
-function showLoadingState(show) { /* ... */ }
-
-// 알림 표시 (기존과 동일)
-function showAlert(message, type = 'info') { /* ... */ }
+// 알림 표시
+function showAlert(message, type = 'info') {
+    if (window.CommonUtils && CommonUtils.showAlert) {
+        CommonUtils.showAlert(message, type);
+    } else {
+        alert(message);
+    }
+}
 
 // [신규] 인쇄 기능 및 관련 스타일 제어 함수
 function printCurrentView() {
@@ -303,6 +415,7 @@ window.onafterprint = () => {
         el.classList.remove('printable-area');
     });
 };
+
 
 // 전역 함수 노출
 window.SupplierAnalysis = {
