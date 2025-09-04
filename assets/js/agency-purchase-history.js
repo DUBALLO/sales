@@ -81,7 +81,6 @@ function populateRegionFilter(data) {
 function setInitialFilters() {
     $('analysisYear').value = '2025';
     $('productFilter').value = '보행매트';
-    // 경기도가 목록에 있으면 기본값으로 설정
     if ($('regionFilter').querySelector('option[value="경기도"]')) {
         $('regionFilter').value = '경기도';
     }
@@ -167,7 +166,6 @@ function renderAgencyRankPanel(data) {
             agencyMap.set(item.agency, { 
                 amount: 0, 
                 contracts: new Set(),
-                // 첫 번째 데이터의 지역과 소관구분을 대표값으로 사용
                 region: item.region,
                 agencyType: item.agencyType
             });
@@ -179,11 +177,7 @@ function renderAgencyRankPanel(data) {
 
     let rankedAgencies = [...agencyMap.entries()]
         .map(([agency, { amount, contracts, region, agencyType }]) => ({ 
-            agency, 
-            amount, 
-            contractCount: contracts.size,
-            region,
-            agencyType
+            agency, amount, contractCount: contracts.size, region, agencyType 
         }));
 
     const sortAndRenderRank = () => {
@@ -201,7 +195,7 @@ function renderAgencyRankPanel(data) {
                     <td class="px-6 py-4">${item.region}</td>
                     <td class="px-6 py-4">${item.agencyType}</td>
                     <td class="px-6 py-4 text-center">${formatNumber(item.contractCount)}</td>
-                    <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
+                    <td class="px-6 py-4 text-right font-medium whitespace-nowrap">${formatCurrency(item.amount)}</td>
                 `;
                 row.querySelector('a').addEventListener('click', (e) => {
                     e.preventDefault();
@@ -318,7 +312,7 @@ function renderPurchaseDetail(agencyData) {
                 <td class="px-6 py-4 text-center">${index + 1}</td>
                 <td class="px-6 py-4">${item.supplier}</td>
                 <td class="px-6 py-4 text-center">${formatNumber(item.contractCount)}</td>
-                <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
+                <td class="px-6 py-4 text-right font-medium whitespace-nowrap">${formatCurrency(item.amount)}</td>
             `;
             tbody.appendChild(row);
         });
@@ -369,7 +363,7 @@ function renderContractDetail(agencyData) {
                 <td class="px-6 py-4">${item.contractName}</td>
                 <td class="px-6 py-4">${item.supplier}</td>
                 <td class="px-6 py-4 text-center">${item.date}</td>
-                <td class="px-6 py-4 text-right font-medium">${formatCurrency(item.amount)}</td>
+                <td class="px-6 py-4 text-right font-medium whitespace-nowrap">${formatCurrency(item.amount)}</td>
             `;
             tbody.appendChild(row);
         });
@@ -397,7 +391,6 @@ function sortData(data, column, direction) {
         let valA = a[column];
         let valB = b[column];
 
-        // 날짜 형식의 문자열 비교 처리
         if (column === 'date') {
             const dateA = new Date(valA).getTime() || 0;
             const dateB = new Date(valB).getTime() || 0;
