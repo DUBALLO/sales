@@ -86,8 +86,7 @@ body { font-family: 'Noto Sans KR', sans-serif; line-height: 1.6; color: #374151
     font-family: 'Noto Sans KR', sans-serif;
 }
 
-/* 상세 내역 테이블 줄바꿈 방지 */
-#detailTable th,
-#detailTable td {
+/* 선택적 줄바꿈 방지 유틸리티 */
+.no-wrap {
     white-space: nowrap;
 }
