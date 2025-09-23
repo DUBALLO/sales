@@ -321,9 +321,8 @@ function renderDetailTableBody(data) {
             row.cells[0].className = 'text-center';
         }
         row.insertCell().innerHTML = `<a href="#" class="text-blue-600 hover:underline">${item.contractName}</a>`;
-        row.cells[isOrder ? 1 : 0].className = 'font-medium whitespace-nowrap';
+        row.cells[isOrder ? 1 : 0].className = 'font-medium';
         row.insertCell().textContent = item.customer;
-        row.cells[isOrder ? 2 : 1].className = 'whitespace-nowrap';
         row.insertCell().textContent = CommonUtils.formatCurrency(item.totalAmount);
         row.cells[isOrder ? 3 : 2].className = 'text-right font-medium amount';
         row.insertCell().textContent = CommonUtils.formatDate(item.date);
