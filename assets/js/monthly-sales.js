@@ -318,15 +318,15 @@ function renderDetailTableBody(data) {
         if (isOrder) {
             const badgeClass = item.type === '주문' ? 'badge-primary' : 'badge-success';
             row.insertCell().innerHTML = `<span class="badge ${badgeClass}">${item.type}</span>`;
-            row.cells[0].className = 'text-center';
+            row.cells[0].className = 'text-center no-wrap';
         }
         row.insertCell().innerHTML = `<a href="#" class="text-blue-600 hover:underline">${item.contractName}</a>`;
         row.cells[isOrder ? 1 : 0].className = 'font-medium';
         row.insertCell().textContent = item.customer;
         row.insertCell().textContent = CommonUtils.formatCurrency(item.totalAmount);
-        row.cells[isOrder ? 3 : 2].className = 'text-right font-medium amount';
+        row.cells[isOrder ? 3 : 2].className = 'text-right font-medium amount no-wrap';
         row.insertCell().textContent = CommonUtils.formatDate(item.date);
-        row.cells[isOrder ? 4 : 3].className = 'text-center';
+        row.cells[isOrder ? 4 : 3].className = 'text-center no-wrap';
         row.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); showContractItemDetail(item); });
     });
 }
@@ -369,7 +369,7 @@ async function refreshData() {
         CommonUtils.showAlert('데이터 새로고침에 실패했습니다.', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 새로고침`;
+        btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin-round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 새로고침`;
     }
 }
 function printReport() { window.print(); }
