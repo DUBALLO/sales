@@ -766,3 +766,27 @@ body {
         padding: 0.5rem 0.25rem;
     }
 }
+
+/* 테이블 셀 내용 줄바꿈 방지 */
+.whitespace-nowrap {
+    white-space: nowrap;
+}
+
+/* 정렬 가능한 테이블 헤더 */
+.data-table th.cursor-pointer:hover {
+    background-color: #f3f4f6;
+}
+
+/* amount-clickable 클래스 스타일 개선 */
+.amount-clickable {
+    cursor: pointer;
+    color: #2563eb;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    font-weight: 600;
+}
+
+.amount-clickable:hover {
+    color: #1d4ed8;
+    background-color: #eff6ff;
+}
