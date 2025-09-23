@@ -31,7 +31,10 @@ async function loadSalesData() {
             const contractValue = item['계약명'] || '계약명 없음';
             const customerValue = item['거래처'] || '거래처 없음';
             const amountValue = item['합계'] || '0';
-            const itemValue = item['품목'] || '';
+            
+            // '품목' -> '품목구분'으로 수정
+            const itemValue = item['품목구분'] || ''; 
+            
             const specValue = item['규격'] || '';
             const quantityValue = parseInt(String(item['수량'] || '0').replace(/[^\d]/g, ''));
             const unitPriceValue = parseInt(String(item['단가'] || '0').replace(/[^\d]/g, ''));
@@ -178,7 +181,6 @@ function updateTotalRow(totals) {
     ['totalOrderAmount', 'totalGovAmount', 'totalPrivAmount'].forEach(id => {
         const el = $(id);
         
-        // BUG FIX: 'gov'/'priv'를 'government'/'private'으로 변환
         let type = id.replace('total', '').replace('Amount', '').toLowerCase();
         if (type === 'gov') type = 'government';
         if (type === 'priv') type = 'private';
@@ -327,8 +329,8 @@ function renderDetailTableBody(data) {
             row.cells[0].className = 'text-center no-wrap';
         }
         row.insertCell().innerHTML = `<a href="#" class="text-blue-600 hover:underline">${item.contractName}</a>`;
-        row.cells[isOrder ? 1 : 0].className = 'font-medium'; // 계약명은 줄바꿈 허용
-        row.insertCell().textContent = item.customer; // 거래처는 줄바꿈 허용
+        row.cells[isOrder ? 1 : 0].className = 'font-medium';
+        row.insertCell().textContent = item.customer;
         row.insertCell().textContent = CommonUtils.formatCurrency(item.totalAmount);
         row.cells[isOrder ? 3 : 2].className = 'text-right font-medium amount no-wrap';
         row.insertCell().textContent = CommonUtils.formatDate(item.date);
@@ -337,10 +339,8 @@ function renderDetailTableBody(data) {
         row.querySelector('a').addEventListener('click', (e) => {
             e.preventDefault();
             try {
-                // 정상적인 팝업 호출 (common.js 필요)
                 showContractItemDetail(item);
             } catch (error) {
-                // common.js의 팝업 기능이 없을 경우를 대비한 디버깅용 알림창
                 console.error("showContractItemDetail 또는 CommonUtils.showModal에서 오류 발생:", error);
                 alert(`[디버깅] 계약명을 클릭했습니다.\n\n계약명: ${item.contractName}\n거래처: ${item.customer}\n품목 개수: ${item.items ? item.items.length : 0}\n\n(개발자 참고: common.js의 CommonUtils.showModal 함수 확인 필요)`);
             }
@@ -353,7 +353,7 @@ function showContractItemDetail(item) {
     if (item.items && item.items.length > 0) {
         contentHtml += `<div class="overflow-x-auto"><table class="w-full text-sm text-left">
             <thead class="bg-gray-50"><tr>
-                <th class="p-2">품목</th><th class="p-2">규격</th>
+                <th class="p-2">품목구분</th><th class="p-2">규격</th>
                 <th class="p-2 text-right">수량</th><th class="p-2 text-right">단가</th>
                 <th class="p-2 text-right">합계액</th>
             </tr></thead><tbody>`;
@@ -386,7 +386,7 @@ async function refreshData() {
         CommonUtils.showAlert('데이터 새로고침에 실패했습니다.', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 새로고침`;
+        btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.spn82m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 새로고침`;
     }
 }
 function printReport() { window.print(); }
