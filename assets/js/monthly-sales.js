@@ -1,4 +1,4 @@
-// 월별매출 현황 JavaScript (CommonUtils 연동 최종)
+// 월별매출 현황 JavaScript (날짜 처리 오류 수정 최종본)
 
 // 전역 변수
 let salesData = [];
@@ -12,6 +12,19 @@ function $(id) {
     return element;
 }
 
+// 여러 날짜 형식을 안전하게 처리하기 위한 함수 (복원)
+function parseDate(dateStr) {
+    if (!dateStr) return null;
+    let date = new Date(dateStr);
+    if (!isNaN(date.getTime())) return date;
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) return new Date(dateStr);
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+        const [month, day, year] = dateStr.split('/');
+        return new Date(year, month - 1, day);
+    }
+    return null;
+}
+
 // 데이터 로드
 async function loadSalesData() {
     try {
@@ -21,12 +34,13 @@ async function loadSalesData() {
 
         salesData = rawData.flatMap(item => {
             const results = [];
-            const dateValue = item['날짜'] || '';
-            const recordDate = CommonUtils.formatDate(dateValue) !== '-' ? new Date(dateValue) : null;
+            // 안정적인 날짜 처리 로직으로 복원
+            const dateValue = item['날짜'] || item['주문일자'] || item['기준일자'] || '';
+            const recordDate = parseDate(dateValue);
             if (!recordDate) return [];
 
             const invoiceDateValue = item['세금계산서'] || '';
-            const invoiceDate = CommonUtils.formatDate(invoiceDateValue) !== '-' ? new Date(invoiceDateValue) : null;
+            const invoiceDate = parseDate(invoiceDateValue);
             const typeValue = item['구분'] || '';
             const contractValue = item['계약명'] || '계약명 없음';
             const customerValue = item['거래처'] || '거래처 없음';
@@ -65,7 +79,7 @@ async function loadSalesData() {
 function generateReport() {
     const startYear = parseInt($('startYear').value), startMonth = parseInt($('startMonth').value);
     const endYear = parseInt($('endYear').value), endMonth = parseInt($('endMonth').value);
-    const startDate = new Date(startYear, startMonth - 1, 1), endDate = new Date(endYear, endMonth + 1, 0);
+    const startDate = new Date(startYear, startMonth - 1, 1), endDate = new Date(endYear, endMonth, 0); // endMonth 수정
     if (startDate > endDate) return CommonUtils.showAlert('시작 기간이 종료 기간보다 늦을 수 없습니다.', 'warning');
     
     const monthlyData = initializeMonthlyData(startDate, endDate);
@@ -315,7 +329,7 @@ function renderDetailTableBody(data) {
 
 function showContractItemDetail(item) {
     let contentHtml = '';
-    if (item.items && item.items.length > 0) {
+    if (item.items && item.items.length > 0 && item.items.some(sub => sub.item)) {
         contentHtml += `<div class="overflow-x-auto"><table class="w-full text-sm text-left">
             <thead class="bg-gray-50"><tr>
                 <th class="p-2">품목구분</th><th class="p-2">규격</th>
@@ -323,19 +337,21 @@ function showContractItemDetail(item) {
                 <th class="p-2 text-right">합계액</th>
             </tr></thead><tbody>`;
         item.items.sort((a,b) => b.amount - a.amount).forEach(subItem => {
-            contentHtml += `<tr class="border-b">
-                <td class="p-2 whitespace-nowrap">${subItem.item || '-'}</td>
-                <td class="p-2 whitespace-nowrap">${subItem.spec || '-'}</td>
-                <td class="p-2 text-right">${CommonUtils.formatNumber(subItem.quantity) || '-'}</td>
-                <td class="p-2 text-right">${CommonUtils.formatCurrency(subItem.unitPrice) || '-'}</td>
-                <td class="p-2 text-right font-medium">${CommonUtils.formatCurrency(subItem.amount)}</td>
-            </tr>`;
+            // 품목구분이 있는 항목만 표시
+            if (subItem.item) {
+                contentHtml += `<tr class="border-b">
+                    <td class="p-2 whitespace-nowrap">${subItem.item}</td>
+                    <td class="p-2 whitespace-nowrap">${subItem.spec || '-'}</td>
+                    <td class="p-2 text-right">${CommonUtils.formatNumber(subItem.quantity) || '-'}</td>
+                    <td class="p-2 text-right">${CommonUtils.formatCurrency(subItem.unitPrice) || '-'}</td>
+                    <td class="p-2 text-right font-medium">${CommonUtils.formatCurrency(subItem.amount)}</td>
+                </tr>`;
+            }
         });
         contentHtml += '</tbody></table></div>';
     } else {
         contentHtml += '<p class="text-center text-gray-500 py-4">이 계약에는 등록된 품목 정보가 없습니다.</p>';
     }
-    // 이제 CommonUtils의 showModal을 직접 사용합니다.
     CommonUtils.showModal(`'${item.contractName}' 품목 상세 내역`, contentHtml, { width: '800px' });
 }
 
