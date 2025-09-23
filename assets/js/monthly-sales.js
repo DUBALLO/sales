@@ -1,10 +1,10 @@
-// 월별매출 현황 JavaScript (데이터 로직 최종 수정 2)
+// 월별매출 현황 JavaScript (정렬 기능 및 오류 최종 수정 3)
 
 // 전역 변수
 let salesData = [];
 let currentDetailData = {};
 let currentUnfilteredDetails = [];
-let detailSortState = { key: 'amount', direction: 'desc' };
+let detailSortState = { key: 'date', direction: 'desc' }; // 기본 정렬 상태
 
 function $(id) {
     const element = document.getElementById(id);
@@ -66,7 +66,6 @@ async function loadSalesData() {
         CommonUtils.showAlert(`데이터 로드 실패: ${error.message}.`, 'error');
     }
 }
-
 
 function parseDate(dateStr) {
     if (!dateStr) return null;
@@ -206,7 +205,7 @@ function showDetail(yearMonth, type, typeName) {
     const detailTitle = $('detailTitle');
     if (detailTitle) detailTitle.textContent = `${title} (${processedDetails.length}건)`;
     
-    updateDetailTableHeader(type);
+    updateDetailTableHeaderAndEvents(type); // 이벤트 핸들러까지 여기서 설정
     detailSortState = { key: 'date', direction: 'desc' }; // 상세내역 열 때 기본 정렬
     sortAndRenderDetailTable();
     
@@ -217,9 +216,9 @@ function showDetail(yearMonth, type, typeName) {
 function processDetailData(details, type) {
     const mergedData = new Map();
     const relevantDetails = details.filter(d => {
-        if(type === 'order') return d.type === '주문' || d.type === '납품완료';
-        if(type === 'government') return d.type === '관급매출';
-        if(type === 'private') return d.type === '사급매출';
+        if (type === 'order') return d.type === '주문' || d.type === '납품완료';
+        if (type === 'government') return d.type === '관급매출';
+        if (type === 'private') return d.type === '사급매출';
         return false;
     });
 
@@ -236,11 +235,13 @@ function processDetailData(details, type) {
     return Array.from(mergedData.values());
 }
 
-function updateDetailTableHeader(type) {
+// 상세 테이블 헤더 생성 및 이벤트 핸들러 설정 (타이밍 문제 해결)
+function updateDetailTableHeaderAndEvents(type) {
     const table = $('detailTable');
     let thead = table.querySelector('thead');
     if (!thead) thead = table.createTHead();
     thead.innerHTML = '';
+
     const headers = type === 'order' 
         ? [{key: 'type', text: '상태'}, {key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'date', text: '날짜'}]
         : [{key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'date', text: '날짜'}];
@@ -253,8 +254,10 @@ function updateDetailTableHeader(type) {
         th.className = 'cursor-pointer hover:bg-gray-100';
         headerRow.appendChild(th);
     });
+
     const existingListener = thead.listener;
     if (existingListener) thead.removeEventListener('click', existingListener);
+
     const newListener = (e) => {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
@@ -269,19 +272,24 @@ function updateDetailTableHeader(type) {
         }
     };
     thead.addEventListener('click', newListener);
-    thead.listener = newListener;
+    thead.listener = newListener; // 나중에 제거하기 위해 리스너 참조 저장
 }
 
 function sortAndRenderDetailTable() {
     const thead = $('detailTable').querySelector('thead');
-    thead.querySelectorAll('th').forEach(th => {
-        const span = th.querySelector('span');
-        let text = span.textContent.replace(/ [▲▼]$/, '');
-        if (th.dataset.sortKey === detailSortState.key) {
-            text += detailSortState.direction === 'asc' ? ' ▲' : ' ▼';
-        }
-        span.textContent = text;
-    });
+    if (thead) {
+        thead.querySelectorAll('th').forEach(th => {
+            const span = th.querySelector('span');
+            if (span) {
+                let text = span.textContent.replace(/ [▲▼]$/, '');
+                if (th.dataset.sortKey === detailSortState.key) {
+                    text += detailSortState.direction === 'asc' ? ' ▲' : ' ▼';
+                }
+                span.textContent = text;
+            }
+        });
+    }
+
     const { key, direction } = detailSortState;
     currentUnfilteredDetails.sort((a, b) => {
         let valA = key === 'amount' ? a.totalAmount : a[key];
@@ -300,7 +308,6 @@ function sortAndRenderDetailTable() {
 function renderDetailTableBody(data) {
     const tbody = $('detailTableBody');
     tbody.innerHTML = '';
-    
     if (data.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">데이터가 없습니다.</td></tr>';
         return;
@@ -321,7 +328,6 @@ function renderDetailTableBody(data) {
         row.cells[isOrder ? 3 : 2].className = 'text-right font-medium amount';
         row.insertCell().textContent = CommonUtils.formatDate(item.date);
         row.cells[isOrder ? 4 : 3].className = 'text-center';
-        
         row.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); showContractItemDetail(item); });
     });
 }
