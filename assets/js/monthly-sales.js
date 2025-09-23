@@ -1,4 +1,4 @@
-// 월별매출 현황 JavaScript (데이터 로직 최종 수정 버전 2)
+// 월별매출 현황 JavaScript (주문/매출 동시 집계 최종 수정 버전)
 
 // 전역 변수
 let salesData = [];
@@ -12,21 +12,25 @@ function $(id) {
     return element;
 }
 
-// 데이터 로드 (분류 로직 수정)
+// 데이터 로드 (주문/매출 동시 생성 로직으로 수정)
 async function loadSalesData() {
     try {
         $('monthlyTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-4">데이터를 불러오는 중...</td></tr>';
         const rawData = await window.sheetsAPI.loadCSVData('monthlySales');
         if (rawData.length === 0) throw new Error('파싱된 데이터가 없습니다.');
 
-        salesData = rawData.map(item => {
+        // flatMap을 사용하여 하나의 행에서 여러 개의 데이터 레코드를 생성할 수 있도록 함
+        salesData = rawData.flatMap(item => {
+            const results = [];
             const dateValue = item['날짜'] || item['주문일자'] || item['기준일자'] || '';
             const recordDate = parseDate(dateValue);
-            if (!recordDate) return null;
+            
+            // 유효한 날짜가 없으면 해당 행은 건너뜀
+            if (!recordDate) return [];
 
-            const typeValue = item['구분'] || '';
             const invoiceDateValue = item['세금계산서'] || '';
             const invoiceDate = parseDate(invoiceDateValue);
+            const typeValue = item['구분'] || '';
             
             const contractValue = item['계약명'] || item['사업명'] || '계약명 없음';
             const customerValue = item['거래처'] || '거래처 없음';
@@ -36,26 +40,36 @@ async function loadSalesData() {
             const quantityValue = parseInt(String(item['수량'] || '0').replace(/[^\d]/g, ''));
             const unitPriceValue = parseInt(String(item['단가'] || '0').replace(/[^\d]/g, ''));
             const parsedAmount = parseInt(String(amountValue).replace(/[^\d]/g, '')) || 0;
-            
+
             const baseItem = {
                 contractName: contractValue.trim(), customer: customerValue.trim(),
-                amount: parsedAmount, date: recordDate, displayDate: recordDate,
+                amount: parsedAmount,
                 item: itemValue ? itemValue.trim() : '', spec: specValue ? specValue.trim() : '',
                 quantity: quantityValue, unitPrice: unitPriceValue
             };
+            
+            // 1. 모든 유효한 데이터는 '주문' 또는 '납품완료' 레코드를 생성
+            results.push({
+                ...baseItem,
+                date: recordDate,
+                displayDate: recordDate,
+                type: invoiceDate ? '납품완료' : '주문',
+                invoiceDate: invoiceDate
+            });
 
-            // '구분' 컬럼 내용에 따라 타입을 명확하게 결정
+            // 2. '구분'에 따라 '관급/사급 매출' 레코드를 추가로 생성
+            const saleDate = invoiceDate || recordDate;
             if (typeValue.includes('관급')) {
-                return { ...baseItem, type: '관급매출' };
+                results.push({ ...baseItem, date: saleDate, displayDate: saleDate, type: '관급매출' });
             } else if (typeValue.includes('사급')) {
-                return { ...baseItem, type: '사급매출' };
-            } else { // '관급', '사급'이 명시되지 않은 모든 경우는 '주문'으로 처리
-                return { ...baseItem, type: invoiceDate ? '납품완료' : '주문', invoiceDate };
+                results.push({ ...baseItem, date: saleDate, displayDate: saleDate, type: '사급매출' });
             }
+
+            return results;
         }).filter(item => item && item.amount > 0 && item.contractName !== '계약명 없음' && item.customer !== '거래처 없음');
         
         generateReport();
-        CommonUtils.showAlert(`${salesData.length}건의 데이터를 성공적으로 로드했습니다.`, 'success');
+        CommonUtils.showAlert(`${salesData.length}건의 레코드를 성공적으로 처리했습니다.`, 'success');
         
     } catch (error) {
         console.error('CSV 로드 실패:', error);
@@ -105,17 +119,20 @@ function aggregateData(monthlyData, startDate, endDate) {
         if (item.date >= startDate && item.date <= endDate) {
             const yearMonth = CommonUtils.getYearMonth(item.date.getFullYear(), item.date.getMonth() + 1);
             if (!monthlyData[yearMonth]) return;
-            const contractKey = `${yearMonth}-${item.type}-${item.contractName}`;
+
+            const contractKey = `${yearMonth}-${item.type}-${item.contractName}-${item.customer}`;
             let target;
             if (item.type === '주문' || item.type === '납품완료') target = monthlyData[yearMonth].order;
             else if (item.type === '관급매출') target = monthlyData[yearMonth].government;
             else if (item.type === '사급매출') target = monthlyData[yearMonth].private;
+            
             if (target) {
+                // 금액은 각 타입별로 더하고, 건수는 중복을 제거하여 계산
+                target.amount += item.amount;
                 if (!contractTracker.has(contractKey)) {
                     target.count++;
                     contractTracker.add(contractKey);
                 }
-                target.amount += item.amount;
                 target.details.push(item);
             }
         }
@@ -239,7 +256,7 @@ function updateDetailTableHeader(type) {
     let thead = table.querySelector('thead');
     if (!thead) thead = table.createTHead();
     thead.innerHTML = '';
-    const headers = type === 'order' 
+    const headers = type === '주문' || type === '납품완료' || type === 'order'
         ? [{key: 'type', text: '상태'}, {key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'date', text: '날짜'}]
         : [{key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'date', text: '날짜'}];
     
@@ -306,6 +323,7 @@ function renderDetailTableBody(data) {
         return;
     }
     const isOrder = data[0].type === '주문' || data[0].type === '납품완료';
+
     data.forEach(item => {
         const row = tbody.insertRow();
         if (isOrder) {
