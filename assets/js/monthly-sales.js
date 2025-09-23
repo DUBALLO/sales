@@ -1,4 +1,4 @@
-// 월별매출 현황 JavaScript (기능 개선 버전)
+// 월별매출 현황 JavaScript (기능 개선 및 에러 수정 버전)
 
 // 전역 변수
 let salesData = [];
@@ -12,13 +12,13 @@ function $(id) {
     return element;
 }
 
-// 공통 함수 래퍼
-const formatNumber = (num) => window.CommonUtils?.formatNumber(num) || new Intl.NumberFormat('ko-KR').format(num || 0);
-const formatCurrency = (amount) => window.CommonUtils?.formatCurrency(amount) || new Intl.NumberFormat('ko-KR').format(amount || 0) + '원';
-const formatDate = (date) => window.CommonUtils?.formatDate(date) || (date ? new Date(date).toLocaleDateString('ko-KR') : '-');
-const getYearMonth = (year, month) => window.CommonUtils?.getYearMonth(year, month) || `${year}-${String(month).padStart(2, '0')}`;
-const showAlert = (message, type = 'info') => window.CommonUtils?.showAlert(message, type) || alert(`[${type}] ${message}`);
-
+// ▼▼▼▼▼ 중복 선언된 함수들 삭제! common.js의 함수를 사용합니다. ▼▼▼▼▼
+// const formatNumber = (num) => ...
+// const formatCurrency = (amount) => ...
+// const formatDate = (date) => ...
+// const getYearMonth = (year, month) => ...
+// const showAlert = (message, type) => ...
+// ▲▲▲▲▲ 중복 선언된 함수들 삭제! common.js의 함수를 사용합니다. ▲▲▲▲▲
 
 // 데이터 로드 및 파싱
 async function loadSalesData() {
@@ -70,12 +70,11 @@ async function loadSalesData() {
         
         console.log(`${salesData.length}건의 유효한 데이터 변환 완료`);
         generateReport();
-        showAlert(`${salesData.length}건의 데이터를 성공적으로 로드했습니다.`, 'success');
+        CommonUtils.showAlert(`${salesData.length}건의 데이터를 성공적으로 로드했습니다.`, 'success');
         
     } catch (error) {
         console.error('CSV 로드 실패:', error);
-        showAlert(`데이터 로드 실패: ${error.message}. 샘플 데이터로 대체합니다.`, 'error');
-        // loadSampleDataFallback(); // 필요시 샘플 데이터 로드 함수 호출
+        CommonUtils.showAlert(`데이터 로드 실패: ${error.message}.`, 'error');
     }
 }
 
@@ -102,7 +101,7 @@ function generateReport() {
     const startDate = new Date(startYear, startMonth - 1, 1);
     const endDate = new Date(endYear, endMonth, 0);
 
-    if (startDate > endDate) return showAlert('시작 기간이 종료 기간보다 늦을 수 없습니다.', 'warning');
+    if (startDate > endDate) return CommonUtils.showAlert('시작 기간이 종료 기간보다 늦을 수 없습니다.', 'warning');
     
     const monthlyData = initializeMonthlyData(startDate, endDate);
     aggregateData(monthlyData, startDate, endDate);
@@ -114,7 +113,7 @@ function initializeMonthlyData(startDate, endDate) {
     const data = {};
     let current = new Date(startDate);
     while (current <= endDate) {
-        const yearMonth = getYearMonth(current.getFullYear(), current.getMonth() + 1);
+        const yearMonth = CommonUtils.getYearMonth(current.getFullYear(), current.getMonth() + 1);
         data[yearMonth] = {
             order: { count: 0, amount: 0, details: [] },
             government: { count: 0, amount: 0, details: [] },
@@ -131,7 +130,7 @@ function aggregateData(monthlyData, startDate, endDate) {
     salesData.forEach(item => {
         const date = item.type === '주문' || item.type === '납품완료' ? item.orderDate : item.invoiceDate;
         if (date >= startDate && date <= endDate) {
-            const yearMonth = getYearMonth(date.getFullYear(), date.getMonth() + 1);
+            const yearMonth = CommonUtils.getYearMonth(date.getFullYear(), date.getMonth() + 1);
             if (!monthlyData[yearMonth]) return;
 
             const contractKey = `${yearMonth}-${item.type}-${item.contractName}`;
@@ -175,13 +174,13 @@ function renderMonthlyTable(monthlyData) {
         
         row.innerHTML = `
             <td class="font-medium border-r border-gray-200">${year}년 ${parseInt(month)}월</td>
-            <td class="text-center border-r border-gray-200">${formatNumber(data.order.count)}</td>
-            <td class="text-right border-r border-gray-200 amount-cell" data-year-month="${yearMonth}" data-type="order">${formatCurrency(data.order.amount)}</td>
-            <td class="text-center border-r border-gray-200">${formatNumber(data.government.count)}</td>
-            <td class="text-right border-r border-gray-200 amount-cell" data-year-month="${yearMonth}" data-type="government">${formatCurrency(data.government.amount)}</td>
-            <td class="text-center border-r border-gray-200">${formatNumber(data.private.count)}</td>
-            <td class="text-right border-r border-gray-200 amount-cell" data-year-month="${yearMonth}" data-type="private">${formatCurrency(data.private.amount)}</td>
-            <td class="text-right font-medium">${formatCurrency(data.government.amount + data.private.amount)}</td>
+            <td class="text-center border-r border-gray-200">${CommonUtils.formatNumber(data.order.count)}</td>
+            <td class="text-right border-r border-gray-200 amount-cell" data-year-month="${yearMonth}" data-type="order">${CommonUtils.formatCurrency(data.order.amount)}</td>
+            <td class="text-center border-r border-gray-200">${CommonUtils.formatNumber(data.government.count)}</td>
+            <td class="text-right border-r border-gray-200 amount-cell" data-year-month="${yearMonth}" data-type="government">${CommonUtils.formatCurrency(data.government.amount)}</td>
+            <td class="text-center border-r border-gray-200">${CommonUtils.formatNumber(data.private.count)}</td>
+            <td class="text-right border-r border-gray-200 amount-cell" data-year-month="${yearMonth}" data-type="private">${CommonUtils.formatCurrency(data.private.amount)}</td>
+            <td class="text-right font-medium">${CommonUtils.formatCurrency(data.government.amount + data.private.amount)}</td>
         `;
 
         Object.keys(totals).forEach(key => {
@@ -210,30 +209,28 @@ function renderMonthlyTable(monthlyData) {
 
 // 합계 행 업데이트 및 링크 추가
 function updateTotalRow(totals) {
-    const totalCells = {
-        totalOrderCount: formatNumber(totals.orderCount),
-        totalOrderAmount: formatCurrency(totals.orderAmount),
-        totalGovCount: formatNumber(totals.govCount),
-        totalGovAmount: formatCurrency(totals.govAmount),
-        totalPrivCount: formatNumber(totals.privCount),
-        totalPrivAmount: formatCurrency(totals.privAmount),
-        grandTotal: formatCurrency(totals.govAmount + totals.privAmount)
+    const totalCellsData = {
+        totalOrderCount: CommonUtils.formatNumber(totals.orderCount),
+        totalOrderAmount: CommonUtils.formatCurrency(totals.orderAmount),
+        totalGovCount: CommonUtils.formatNumber(totals.govCount),
+        totalGovAmount: CommonUtils.formatCurrency(totals.govAmount),
+        totalPrivCount: CommonUtils.formatNumber(totals.privCount),
+        totalPrivAmount: CommonUtils.formatCurrency(totals.privAmount),
+        grandTotal: CommonUtils.formatCurrency(totals.govAmount + totals.privAmount)
     };
 
-    for (const id in totalCells) {
+    for (const id in totalCellsData) {
         const el = $(id);
-        if (el) el.textContent = totalCells[id];
+        if (el) el.textContent = totalCellsData[id];
     }
     
-    // 합계 금액에 클릭 이벤트 추가
     ['totalOrderAmount', 'totalGovAmount', 'totalPrivAmount'].forEach(id => {
         const el = $(id);
+        if (!el) return;
+
         const type = id.replace('total', '').replace('Amount', '').toLowerCase();
         const typeName = { order: '주문', government: '관급매출', private: '사급매출' }[type];
         
-        el.classList.remove('amount-clickable', 'cursor-pointer', 'text-blue-600', 'hover:text-blue-800');
-        el.style.cursor = 'default';
-        // 기존 이벤트 리스너 제거 (cloneNode 트릭 사용)
         const newEl = el.cloneNode(true);
         el.parentNode.replaceChild(newEl, el);
         
@@ -243,7 +240,6 @@ function updateTotalRow(totals) {
         }
     });
 }
-
 
 // 상세 내역 표시
 function showDetail(yearMonth, type, typeName) {
@@ -259,17 +255,16 @@ function showDetail(yearMonth, type, typeName) {
         title = `${year}년 ${parseInt(month)}월 ${typeName} 상세 내역`;
     }
 
-    if (details.length === 0) return showAlert('해당 내역이 없습니다.', 'info');
+    if (details.length === 0) return CommonUtils.showAlert('해당 내역이 없습니다.', 'info');
     
-    // 데이터 가공 (중복 합치기)
     const processedDetails = processDetailData(details);
-    currentUnfilteredDetails = processedDetails; // 필터링을 위해 원본 저장
+    currentUnfilteredDetails = processedDetails; 
 
     const detailTitle = $('detailTitle');
     if (detailTitle) detailTitle.textContent = `${title} (${processedDetails.length}건)`;
     
     updateDetailTableHeader(type);
-    renderDetailTableBody(processedDetails); // 가공된 데이터로 테이블 렌더링
+    renderDetailTableBody(processedDetails); 
     
     $('detailSection').classList.remove('hidden');
     $('detailSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -296,13 +291,12 @@ function processDetailData(details) {
     return Array.from(mergedData.values()).sort((a, b) => b.amount - a.amount);
 }
 
-
 // 상세 테이블 헤더 및 필터 생성
 function updateDetailTableHeader(type) {
     const table = $('detailTable');
     let thead = table.querySelector('thead');
     if (!thead) thead = table.createTHead();
-    thead.innerHTML = ''; // 초기화
+    thead.innerHTML = '';
 
     const headers = type === 'order' 
         ? ['상태', '계약명', '거래처', '금액', '날짜', '품목']
@@ -318,8 +312,9 @@ function updateDetailTableHeader(type) {
     const filterRow = thead.insertRow();
     headers.forEach((headerText, index) => {
         const th = document.createElement('th');
+        th.style.padding = '4px';
         if (['금액', '날짜', '상태'].includes(headerText)) {
-             th.innerHTML = ``; // 금액/날짜/상태는 필터 제외
+             th.innerHTML = ``; 
         } else {
             const input = document.createElement('input');
             input.type = 'text';
@@ -344,26 +339,19 @@ function filterDetailTable() {
         return filters.every(filter => {
             if (!filter.value) return true;
             
-            let cellValue = '';
-            // 필터 인덱스에 따라 올바른 데이터 필드를 매핑
             const isOrder = document.querySelectorAll('#detailTable thead tr:first-child th').length === 6;
-            
             const columns = isOrder 
                 ? ['type', 'contractName', 'customer', 'amount', 'displayDate', 'item']
                 : ['contractName', 'customer', 'amount', 'displayDate', 'item'];
             
             const field = columns[filter.index];
-            if (item[field]) {
-                 cellValue = String(item[field]).toLowerCase();
-            }
-
+            const cellValue = String(item[field] || '').toLowerCase();
             return cellValue.includes(filter.value);
         });
     });
     
     renderDetailTableBody(filteredData);
 }
-
 
 // 상세 테이블 본문 렌더링
 function renderDetailTableBody(data) {
@@ -389,8 +377,8 @@ function renderDetailTableBody(data) {
         cells.push(
             `<td class="font-medium">${item.contractName}</td>`,
             `<td>${item.customer}</td>`,
-            `<td class="text-right font-medium amount">${formatCurrency(item.amount)}</td>`,
-            `<td class="text-center">${formatDate(item.displayDate)}</td>`,
+            `<td class="text-right font-medium amount">${CommonUtils.formatCurrency(item.amount)}</td>`,
+            `<td class="text-center">${CommonUtils.formatDate(item.displayDate)}</td>`,
             `<td class="text-center" title="${allItemsText}">${Array.from(item.allItems)[0] || '-'}${item.allItems.size > 1 ? ` 등 ${item.allItems.size}개` : ''}</td>`
         );
         row.innerHTML = cells.join('');
@@ -408,9 +396,9 @@ async function refreshData() {
     try {
         await window.sheetsAPI.refreshCache();
         await loadSalesData();
-        showAlert('데이터가 새로고침되었습니다.', 'success');
+        CommonUtils.showAlert('데이터가 새로고침되었습니다.', 'success');
     } catch (error) {
-        showAlert('데이터 새로고침에 실패했습니다.', 'error');
+        CommonUtils.showAlert('데이터 새로고침에 실패했습니다.', 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 새로고침`;
@@ -432,13 +420,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let attempts = 0;
     const interval = setInterval(() => {
-        if (window.sheetsAPI) {
+        if (window.sheetsAPI && window.CommonUtils) {
             clearInterval(interval);
             loadSalesData();
-        } else if (attempts++ > 20) { // 2초 후 타임아웃
+        } else if (attempts++ > 30) { 
             clearInterval(interval);
-            showAlert('Google Sheets API 로드 실패. 샘플 데이터로 대체합니다.', 'error');
-            // loadSampleDataFallback();
+            CommonUtils.showAlert('Google Sheets API 또는 common.js 로드 실패.', 'error');
         }
     }, 100);
 });
