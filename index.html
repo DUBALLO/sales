@@ -1,3 +1,12 @@
+알겠습니다. 바로 처리해 드릴게요. 가장 쉬운 작업부터 시작하는 게 좋죠. 👍
+
+`index.html` 파일에서 '판매순위'와 '고객관계 분석' 카드의 위치를 서로 바꿨습니다. 아래 코드를 복사해서 `index.html` 파일에 그대로 붙여넣으시면 됩니다.
+
+-----
+
+### \#\# 수정된 `index.html` 코드
+
+```html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -98,13 +107,13 @@
             <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
                 <div class="p-6">
                     <div class="flex items-center mb-3">
-                        <svg class="w-8 h-8 text-indigo-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c1.657 0 3 .895 3 2s-1.343 2-3 2-3-.895-3-2 1.343-2 3-2zM21 12c0 4.418-4.03 8-9 8s-9-3.582-9-8 4.03-8 9-8 9 3.582 9 8z"></path>
+                        <svg class="w-8 h-8 text-pink-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                         </svg>
-                        <h2 class="text-xl font-bold text-gray-900">판매순위</h2>
+                        <h2 class="text-xl font-bold text-gray-900">고객관계 분석</h2>
                     </div>
-                    <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>업체 판매순위와 업체별 거래처 정보</p>
-                    <a href="./pages/supplier-purchase-history.html" class="inline-flex items-center text-indigo-600 font-medium hover:underline text-sm">
+                    <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>두발로의 고객관계분석</p>
+                    <a href="./pages/customer-relationship.html" class="inline-flex items-center text-purple-600 font-medium hover:underline text-sm">
                         자세히 보기
                         <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -112,7 +121,6 @@
                     </a>
                 </div>
             </div>
-
             <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
                 <div class="p-6">
                     <div class="flex items-center mb-3">
@@ -152,13 +160,13 @@
             <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
                 <div class="p-6">
                     <div class="flex items-center mb-3">
-                        <svg class="w-8 h-8 text-pink-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        <svg class="w-8 h-8 text-indigo-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c1.657 0 3 .895 3 2s-1.343 2-3 2-3-.895-3-2 1.343-2 3-2zM21 12c0 4.418-4.03 8-9 8s-9-3.582-9-8 4.03-8 9-8 9 3.582 9 8z"></path>
                         </svg>
-                        <h2 class="text-xl font-bold text-gray-900">고객관계 분석</h2>
+                        <h2 class="text-xl font-bold text-gray-900">판매순위</h2>
                     </div>
-                    <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>두발로의 고객관계분석</p>
-                    <a href="./pages/customer-relationship.html" class="inline-flex items-center text-purple-600 font-medium hover:underline text-sm">
+                    <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>업체 판매순위와 업체별 거래처 정보</p>
+                    <a href="./pages/supplier-purchase-history.html" class="inline-flex items-center text-indigo-600 font-medium hover:underline text-sm">
                         자세히 보기
                         <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -166,7 +174,7 @@
                     </a>
                 </div>
             </div>
-        </div>
+            </div>
         
     </main>
 
@@ -197,3 +205,4 @@
     <script src="./assets/js/sheets-api.js"></script>
 </body>
 </html>
+```
