@@ -1,22 +1,20 @@
-// 월별매출 현황 JavaScript (기능 개선 최종 버전 2)
+// 월별매출 현황 JavaScript (정렬 기능 및 오류 최종 수정 버전)
 
 // 전역 변수
 let salesData = [];
-let currentDetailData = {}; 
+let currentDetailData = {};
 let currentUnfilteredDetails = [];
-let detailSortState = { key: 'amount', direction: 'desc' };
+let detailSortState = { key: 'amount', direction: 'desc' }; // 상세 테이블 정렬 상태
 
-// 안전한 요소 가져오기
 function $(id) {
     const element = document.getElementById(id);
     if (!element) console.warn(`요소를 찾을 수 없습니다: ${id}`);
     return element;
 }
 
-// 데이터 로드 및 파싱
+// 데이터 로드
 async function loadSalesData() {
     try {
-        console.log('CSV 데이터 로드 시작...');
         $('monthlyTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-4">데이터를 불러오는 중...</td></tr>';
         const rawData = await window.sheetsAPI.loadCSVData('monthlySales');
         if (rawData.length === 0) throw new Error('파싱된 데이터가 없습니다.');
@@ -27,13 +25,14 @@ async function loadSalesData() {
             const contractValue = item['계약명'] || item['사업명'] || '계약명 없음';
             const customerValue = item['거래처'] || '거래처 없음';
             const amountValue = item['합계'] || '0';
-            const invoiceDateValue = item['세금계산서'] || '';
+            const invoiceDateValue = item['세금계-산서'] || '';
             const itemValue = item['품목'] || item['제품'] || '';
-
+            const specValue = item['규격'] || '';
+            const quantityValue = parseInt(String(item['수량'] || '0').replace(/[^\d]/g, ''));
+            const unitPriceValue = parseInt(String(item['단가'] || '0').replace(/[^\d]/g, ''));
             const parsedAmount = parseInt(String(amountValue).replace(/[^\d]/g, '')) || 0;
             const orderDate = parseDate(dateValue);
             const invoiceDate = parseDate(invoiceDateValue);
-            
             let finalType = '';
             if (typeValue.includes('관급')) finalType = '관급매출';
             else if (typeValue.includes('사급')) finalType = '사급매출';
@@ -41,19 +40,18 @@ async function loadSalesData() {
             const baseItem = {
                 contractName: contractValue.trim(), customer: customerValue.trim(),
                 amount: parsedAmount, orderDate: orderDate, invoiceDate: invoiceDate,
-                item: itemValue ? itemValue.trim() : ''
+                item: itemValue ? itemValue.trim() : '', spec: specValue ? specValue.trim() : '',
+                quantity: quantityValue, unitPrice: unitPriceValue
             };
             
             const results = [];
             if (orderDate) results.push({ ...baseItem, date: orderDate, type: invoiceDate ? '납품완료' : '주문' });
             if (finalType && invoiceDate) results.push({ ...baseItem, date: invoiceDate, type: finalType });
             return results;
-
         }).flat().filter(item => item.date && !isNaN(item.date.getTime()) && item.amount > 0 && item.contractName !== '계약명 없음' && item.customer !== '거래처 없음');
         
         generateReport();
         CommonUtils.showAlert(`${salesData.length}건의 데이터를 성공적으로 로드했습니다.`, 'success');
-        
     } catch (error) {
         console.error('CSV 로드 실패:', error);
         CommonUtils.showAlert(`데이터 로드 실패: ${error.message}.`, 'error');
@@ -89,11 +87,7 @@ function initializeMonthlyData(startDate, endDate) {
     let current = new Date(startDate);
     while (current <= endDate) {
         const yearMonth = CommonUtils.getYearMonth(current.getFullYear(), current.getMonth() + 1);
-        data[yearMonth] = {
-            order: { count: 0, amount: 0, details: [] },
-            government: { count: 0, amount: 0, details: [] },
-            private: { count: 0, amount: 0, details: [] }
-        };
+        data[yearMonth] = { order: { count: 0, amount: 0, details: [] }, government: { count: 0, amount: 0, details: [] }, private: { count: 0, amount: 0, details: [] } };
         current.setMonth(current.getMonth() + 1);
     }
     return data;
@@ -111,7 +105,6 @@ function aggregateData(monthlyData, startDate, endDate) {
             if (item.type === '주문' || item.type === '납품완료') target = monthlyData[yearMonth].order;
             else if (item.type === '관급매출') target = monthlyData[yearMonth].government;
             else if (item.type === '사급매출') target = monthlyData[yearMonth].private;
-            
             if (target) {
                 if (!contractTracker.has(contractKey)) {
                     target.count++;
@@ -159,7 +152,7 @@ function renderMonthlyTable(monthlyData) {
 
     tbody.querySelectorAll('.amount-cell').forEach(cell => {
         if (parseInt(cell.textContent.replace(/[^\d]/g, '')) > 0) {
-            cell.classList.add('amount-clickable', 'cursor-pointer', 'text-blue-600', 'hover:text-blue-800');
+            cell.classList.add('amount-clickable');
             cell.addEventListener('click', () => {
                 const { yearMonth, type } = cell.dataset;
                 const typeName = { order: '주문', government: '관급매출', private: '사급매출' }[type];
@@ -170,6 +163,7 @@ function renderMonthlyTable(monthlyData) {
     updateTotalRow(totals);
 }
 
+// 합계 행 업데이트 (링크 오류 수정)
 function updateTotalRow(totals) {
     const totalCellsData = {
         totalOrderCount: CommonUtils.formatNumber(totals.orderCount), totalOrderAmount: CommonUtils.formatCurrency(totals.orderAmount),
@@ -181,16 +175,21 @@ function updateTotalRow(totals) {
         const el = $(id);
         if (el) el.textContent = totalCellsData[id];
     }
-    ['totalOrderAmount', 'totalGovCount', 'totalPrivAmount'].forEach(id => {
+    
+    ['totalOrderAmount', 'totalGovAmount', 'totalPrivAmount'].forEach(id => {
         const el = $(id);
         if (!el) return;
+
         const type = id.replace('total', '').replace('Amount', '').toLowerCase();
         const typeName = { order: '주문', government: '관급매출', private: '사급매출' }[type];
-        const newEl = el.cloneNode(true);
-        el.parentNode.replaceChild(newEl, el);
+        
+        // 이전 이벤트 리스너를 확실히 제거하고 새로 할당
+        el.onclick = null; 
+        el.classList.remove('amount-clickable');
+
         if (totals[type + 'Amount'] > 0) {
-            newEl.classList.add('amount-clickable', 'cursor-pointer', 'text-blue-600', 'hover:text-blue-800');
-            newEl.addEventListener('click', () => showDetail('total', type, typeName));
+            el.classList.add('amount-clickable');
+            el.onclick = () => showDetail('total', type, typeName);
         }
     });
 }
@@ -198,7 +197,6 @@ function updateTotalRow(totals) {
 function showDetail(yearMonth, type, typeName) {
     let details, title;
     if (yearMonth === 'total') {
-        // ▼▼▼ 오류 수정: monthData[type]이 없을 경우를 대비하여 안전 장치 추가 ▼▼▼
         details = Object.values(currentDetailData).flatMap(monthData => monthData[type] ? monthData[type].details : []);
         title = `전체 기간 ${typeName} 상세 내역`;
     } else {
@@ -227,16 +225,10 @@ function processDetailData(details) {
         const key = `${item.contractName}-${item.customer}`;
         if (mergedData.has(key)) {
             const existing = mergedData.get(key);
-            existing.amount += item.amount;
-            if (item.item) {
-                existing.itemMap.set(item.item, (existing.itemMap.get(item.item) || 0) + item.amount);
-            }
+            existing.totalAmount += item.amount;
+            if (item.item) existing.items.push(item);
         } else {
-            const newItem = { ...item, itemMap: new Map() };
-            if (item.item) {
-                newItem.itemMap.set(item.item, item.amount);
-            }
-            mergedData.set(key, newItem);
+            mergedData.set(key, { ...item, totalAmount: item.amount, items: item.item ? [item] : [] });
         }
     });
     return Array.from(mergedData.values());
@@ -256,15 +248,19 @@ function updateDetailTableHeader(type) {
     const headerRow = thead.insertRow();
     headers.forEach(header => {
         const th = document.createElement('th');
-        th.textContent = header.text;
+        th.innerHTML = `<span>${header.text}</span>`;
         th.dataset.sortKey = header.key;
         th.className = 'cursor-pointer hover:bg-gray-100';
         headerRow.appendChild(th);
     });
 
-    thead.addEventListener('click', (e) => {
-        const sortKey = e.target.dataset.sortKey;
-        if (sortKey) {
+    const existingListener = thead.listener;
+    if (existingListener) thead.removeEventListener('click', existingListener);
+
+    const newListener = (e) => {
+        const th = e.target.closest('th');
+        if (th && th.dataset.sortKey) {
+            const sortKey = th.dataset.sortKey;
             if (detailSortState.key === sortKey) {
                 detailSortState.direction = detailSortState.direction === 'asc' ? 'desc' : 'asc';
             } else {
@@ -273,17 +269,37 @@ function updateDetailTableHeader(type) {
             }
             sortAndRenderDetailTable();
         }
-    });
+    };
+    thead.addEventListener('click', newListener);
+    thead.listener = newListener;
 }
 
+// 상세 테이블 정렬 및 렌더링
 function sortAndRenderDetailTable() {
+    // 정렬 표시 업데이트
+    const thead = $('detailTable').querySelector('thead');
+    thead.querySelectorAll('th').forEach(th => {
+        const span = th.querySelector('span');
+        let text = span ? span.textContent : th.textContent;
+        text = text.replace(/ [▲▼]$/, ''); // 기존 화살표 제거
+        if (th.dataset.sortKey === detailSortState.key) {
+            text += detailSortState.direction === 'asc' ? ' ▲' : ' ▼';
+        }
+        if (span) span.textContent = text;
+        else th.textContent = text;
+    });
+
     const { key, direction } = detailSortState;
     currentUnfilteredDetails.sort((a, b) => {
-        const valA = a[key], valB = b[key];
+        let valA = key === 'amount' ? a.totalAmount : a[key];
+        let valB = key === 'amount' ? b.totalAmount : b[key];
         let comparison = 0;
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+
         if (typeof valA === 'string') comparison = valA.localeCompare(valB);
         else if (valA instanceof Date) comparison = valA.getTime() - valB.getTime();
-        else comparison = (valA || 0) - (valB || 0);
+        else comparison = valA - valB;
         return direction === 'asc' ? comparison : -comparison;
     });
     renderDetailTableBody(currentUnfilteredDetails);
@@ -298,70 +314,71 @@ function renderDetailTableBody(data) {
         return;
     }
     const isOrder = data[0].hasOwnProperty('orderDate');
+    const numCols = isOrder ? 5 : 4;
 
     data.forEach(item => {
         const row = tbody.insertRow();
-        let cells = [];
-
+        
         if (isOrder) {
             const badgeClass = item.type === '주문' ? 'badge-primary' : 'badge-success';
-            cells.push(`<td class="text-center"><span class="badge ${badgeClass}">${item.type}</span></td>`);
+            row.insertCell().innerHTML = `<span class="badge ${badgeClass}">${item.type}</span>`;
+            row.cells[0].className = 'text-center';
         }
-        cells.push(
-            `<td class="font-medium"><a href="#" class="text-blue-600 hover:underline">${item.contractName}</a></td>`,
-            `<td>${item.customer}</td>`,
-            `<td class="text-right font-medium amount">${CommonUtils.formatCurrency(item.amount)}</td>`,
-            `<td class="text-center">${CommonUtils.formatDate(item.displayDate)}</td>`
-        );
-        row.innerHTML = cells.join('');
+
+        const contractNameCell = row.insertCell();
+        contractNameCell.innerHTML = `<a href="#" class="text-blue-600 hover:underline">${item.contractName}</a>`;
+        contractNameCell.className = 'font-medium whitespace-nowrap';
         
-        // 계약명 클릭 이벤트 리스너 추가
+        const customerCell = row.insertCell();
+        customerCell.textContent = item.customer;
+        customerCell.className = 'whitespace-nowrap';
+
+        const amountCell = row.insertCell();
+        amountCell.textContent = CommonUtils.formatCurrency(item.totalAmount);
+        amountCell.className = 'text-right font-medium amount';
+
+        const dateCell = row.insertCell();
+        dateCell.textContent = CommonUtils.formatDate(item.displayDate);
+        dateCell.className = 'text-center';
+        
         const link = row.querySelector('a');
-        if (link) {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                showContractItemDetail(item);
-            });
-        }
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            showContractItemDetail(item);
+        });
     });
 }
 
-// 계약별 품목 상세 보기 팝업
 function showContractItemDetail(item) {
-    let contentHtml = '<p class="text-sm text-gray-600 mb-4">이 계약에 포함된 품목 목록입니다.</p>';
-    
-    if (item.itemMap.size > 0) {
-        contentHtml += `
-            <table class="w-full text-sm text-left">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="p-2">품목명</th>
-                        <th class="p-2 text-right">금액</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-        [...item.itemMap.entries()].sort((a, b) => b[1] - a[1]).forEach(([name, amount]) => {
-            contentHtml += `
-                <tr class="border-b">
-                    <td class="p-2">${name}</td>
-                    <td class="p-2 text-right">${CommonUtils.formatCurrency(amount)}</td>
-                </tr>
-            `;
+    let contentHtml = '';
+    if (item.items && item.items.length > 0) {
+        contentHtml += `<div class="overflow-x-auto"><table class="w-full text-sm text-left">
+            <thead class="bg-gray-50"><tr>
+                <th class="p-2">품목</th><th class="p-2">규격</th>
+                <th class="p-2 text-right">수량</th><th class="p-2 text-right">단가</th>
+                <th class="p-2 text-right">합계액</th>
+            </tr></thead><tbody>`;
+        item.items.sort((a,b) => b.amount - a.amount).forEach(subItem => {
+            contentHtml += `<tr class="border-b">
+                <td class="p-2 whitespace-nowrap">${subItem.item || '-'}</td>
+                <td class="p-2 whitespace-nowrap">${subItem.spec || '-'}</td>
+                <td class="p-2 text-right">${subItem.quantity ? CommonUtils.formatNumber(subItem.quantity) : '-'}</td>
+                <td class="p-2 text-right">${subItem.unitPrice ? CommonUtils.formatCurrency(subItem.unitPrice) : '-'}</td>
+                <td class="p-2 text-right font-medium">${CommonUtils.formatCurrency(subItem.amount)}</td>
+            </tr>`;
         });
-        contentHtml += '</tbody></table>';
+        contentHtml += '</tbody></table></div>';
     } else {
-        contentHtml += '<p class="text-center text-gray-500">이 계약에는 등록된 품목 정보가 없습니다.</p>';
+        contentHtml += '<p class="text-center text-gray-500 py-4">이 계약에는 등록된 품목 정보가 없습니다.</p>';
     }
-    
-    CommonUtils.showModal(`'${item.contractName}' 품목 내역`, contentHtml);
+    CommonUtils.showModal(`'${item.contractName}' 품목 상세 내역`, contentHtml, { width: '800px' });
 }
 
 function hideDetailSection() { $('detailSection').classList.add('hidden'); }
 async function refreshData() {
     const btn = $('refreshBtn');
     btn.disabled = true;
-    btn.innerHTML = '<div class="loading-spinner" style="border-color: #fff; border-bottom-color: transparent;"></div> 새로고침 중...';
+    btn.innerHTML = '<div class="loading-spinner"></div> 새로고침 중...';
     try {
         await window.sheetsAPI.refreshCache();
         await loadSalesData();
