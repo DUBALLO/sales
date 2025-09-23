@@ -8,9 +8,31 @@
     <link href="../assets/css/common.css" rel="stylesheet">
     <link href="../assets/css/monthly-sales.css" rel="stylesheet">
     <script src="../assets/js/sheets-api.js"></script>
-</head>
+    <style>
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .printable-area, .printable-area * {
+                visibility: visible;
+            }
+            .printable-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            .no-print {
+                display: none !important;
+            }
+            #detailTable .column-filter {
+                display: none !important;
+            }
+        }
+    </style>
+    </head>
 <body class="bg-gray-50">
-    <nav class="bg-white shadow-sm border-b">
+    <nav class="bg-white shadow-sm border-b no-print">
         <div class="max-w-6xl mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
@@ -36,13 +58,13 @@
         </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto px-4 py-8">
-        <div class="mb-8">
+    <main class="max-w-6xl mx-auto px-4 py-8 printable-area">
+        <div class="mb-8 no-print">
             <h1 class="text-3xl font-bold text-gray-900 mb-2">월별매출 현황</h1>
             <p class="text-gray-600">월별 매출 데이터를 확인하고 금액을 클릭하여 상세 계약 내역을 조회할 수 있습니다.</p>
         </div>
 
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8 no-print">
             <div class="flex flex-wrap items-end gap-4">
                 <div>
                     <label class="form-label">시작 기간</label>
@@ -111,35 +133,11 @@
                     </svg>
                     새로고침
                 </button>
-                <button id="connectionBtn" class="btn btn-outline" onclick="checkConnection()">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.102m0 0l4-4a4 4 0 105.656-5.656l-4 4"></path>
-                    </svg>
-                    연결확인
-                </button>
-            </div>
-        </div>
-
-        <div id="uploadPanel" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">판매실적 데이터 업로드</h3>
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center" data-drop-zone>
-                <input type="file" id="fileInput" class="sr-only" accept=".xlsx,.xls,.csv">
-                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-                <div class="mt-4">
-                    <label for="fileInput" class="cursor-pointer">
-                        <span class="mt-2 block text-sm font-medium text-gray-900">
-                            클릭하여 파일을 선택하거나 여기로 드래그하세요
-                        </span>
-                    </label>
-                    <p class="mt-1 text-xs text-gray-500">Excel(.xlsx, .xls) 또는 CSV 파일만 지원됩니다</p>
                 </div>
-            </div>
         </div>
 
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex justify-between items-center mb-4 no-print">
                 <h2 class="text-xl font-semibold text-gray-900">월별 매출 집계</h2>
                 <div class="flex gap-2">
                     <button id="exportBtn" class="btn btn-secondary btn-sm">
@@ -197,7 +195,7 @@
         <div id="detailSection" class="bg-white rounded-lg shadow-md p-6 hidden">
             <div class="flex justify-between items-center mb-4">
                 <h2 id="detailTitle" class="text-xl font-semibold text-gray-900">상세 계약 내역</h2>
-                <button id="closeDetailBtn" class="text-gray-400 hover:text-gray-600" onclick="hideDetailSection()">
+                <button id="closeDetailBtn" class="text-gray-400 hover:text-gray-600 no-print" onclick="hideDetailSection()">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -219,11 +217,7 @@
     <script src="../assets/js/monthly-sales.js"></script>
     
     <script>
-        // 추가 이벤트 리스너 설정
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('HTML 페이지 초기화 시작...');
-            
-            // 내보내기 버튼 이벤트
             const exportBtn = document.getElementById('exportBtn');
             if (exportBtn) {
                 exportBtn.addEventListener('click', function() {
@@ -232,19 +226,6 @@
                         CommonUtils.exportTableToCSV(table, '월별매출현황.csv');
                     } else {
                         alert('내보내기 기능을 사용할 수 없습니다.');
-                    }
-                });
-            }
-            
-            // 파일 업로드 이벤트 (있는 경우)
-            const fileInput = document.getElementById('fileInput');
-            if (fileInput) {
-                fileInput.addEventListener('change', function(event) {
-                    const file = event.target.files[0];
-                    if (file) {
-                        if (window.CommonUtils && CommonUtils.showAlert) {
-                            CommonUtils.showAlert(`파일 "${file.name}"이 선택되었습니다. 파일 처리 기능을 구현중입니다.`, 'info');
-                        }
                     }
                 });
             }
