@@ -7,54 +7,87 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="../assets/css/common.css" rel="stylesheet">
     <script src="../assets/js/sheets-api.js"></script>
-    <style>
-        @media print {
-            body * { visibility: hidden; }
-            .printable-area, .printable-area * { visibility: visible; }
-            .printable-area { position: absolute; left: 0; top: 0; width: 100%; }
-            .no-print { display: none !important; }
-            
-            /* 인쇄 전용 스타일 추가 */
-            @page {
-                size: A4;
-                margin: 1.5cm;
-            }
-            body {
-                background-color: #fff;
-            }
-            .data-table {
-                box-shadow: none;
-                border: 1px solid #dee2e6;
-                font-size: 9pt;
-                width: 100%;
-                table-layout: auto;
-            }
-            .data-table th, .data-table td {
-                border: 1px solid #dee2e6;
-                padding: 0.4rem;
-                color: #000 !important;
-                background-color: #fff !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .data-table th {
-                font-weight: bold;
-            }
-            .amount-clickable, .amount {
-                text-decoration: none;
-                color: inherit !important;
-            }
-            .badge {
-                border: 1px solid #ccc;
-                color: #000 !important;
-                background-color: #fff !important;
-            }
-            a {
-                text-decoration: none;
-                color: inherit !important;
-            }
+<style>
+    @media screen {
+        /* 이 부분은 화면에 보일 때만 적용되도록 수정 (선택 사항) */
+        #detailSection {
+            animation: slideDown 0.3s ease-out;
         }
-    </style>
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    }
+
+    @media print {
+        /* --- 인쇄 전용 스타일 시작 --- */
+        
+        /* 1. 용지 방향을 가로로 설정 */
+        @page {
+            size: A4 landscape;
+            margin: 1cm;
+        }
+
+        body {
+            background-color: #fff; /* 배경색 강제 */
+        }
+
+        /* 인쇄할 영역 외 모든 요소 숨기기 */
+        body * { visibility: hidden; }
+        .printable-area, .printable-area * { visibility: visible; }
+        .printable-area { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 100%;
+        }
+        .no-print { display: none !important; }
+
+        /* 테이블 디자인 최적화 */
+        .data-table {
+            box-shadow: none;
+            border: 1px solid #dee2e6;
+            width: 100%;
+            border-collapse: collapse; /* 테두리 한 줄로 */
+            
+            /* 2. 폰트 크기 줄이기 */
+            font-size: 8pt; 
+        }
+
+        .data-table th, .data-table td {
+            border: 1px solid #dee2e6;
+            
+            /* 2. 여백(패딩) 줄이기 */
+            padding: 5px; 
+            
+            color: #000 !important;
+            background-color: #fff !important;
+            -webkit-print-color-adjust: exact; /* 브라우저 색상 강제 인쇄 */
+            print-color-adjust: exact;
+        }
+        
+        .data-table th {
+            font-weight: 600;
+            background-color: #f8f9fa !important; /* 헤더 배경색 연하게 추가 */
+        }
+
+        /* 링크, 뱃지 등 스타일 초기화 */
+        a, a:visited {
+            text-decoration: none;
+            color: inherit !important;
+        }
+        .amount-clickable {
+             text-decoration: none;
+        }
+        .badge {
+            border: 1px solid #ccc;
+            background-color: transparent !important;
+            padding: 2px 4px;
+        }
+        
+        /* --- 인쇄 전용 스타일 끝 --- */
+    }
+</style>
 </head>
 <body class="bg-gray-50">
     <nav class="bg-white shadow-sm border-b no-print">
