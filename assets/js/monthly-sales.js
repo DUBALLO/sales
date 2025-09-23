@@ -12,7 +12,7 @@ function $(id) {
     return element;
 }
 
-// 여러 날짜 형식을 안전하게 처리하기 위한 함수 (복원)
+// 여러 날짜 형식을 안전하게 처리하기 위한 함수
 function parseDate(dateStr) {
     if (!dateStr) return null;
     let date = new Date(dateStr);
@@ -34,7 +34,6 @@ async function loadSalesData() {
 
         salesData = rawData.flatMap(item => {
             const results = [];
-            // 안정적인 날짜 처리 로직으로 복원
             const dateValue = item['날짜'] || item['주문일자'] || item['기준일자'] || '';
             const recordDate = parseDate(dateValue);
             if (!recordDate) return [];
@@ -79,7 +78,7 @@ async function loadSalesData() {
 function generateReport() {
     const startYear = parseInt($('startYear').value), startMonth = parseInt($('startMonth').value);
     const endYear = parseInt($('endYear').value), endMonth = parseInt($('endMonth').value);
-    const startDate = new Date(startYear, startMonth - 1, 1), endDate = new Date(endYear, endMonth, 0); // endMonth 수정
+    const startDate = new Date(startYear, startMonth - 1, 1), endDate = new Date(endYear, endMonth, 0);
     if (startDate > endDate) return CommonUtils.showAlert('시작 기간이 종료 기간보다 늦을 수 없습니다.', 'warning');
     
     const monthlyData = initializeMonthlyData(startDate, endDate);
@@ -337,7 +336,6 @@ function showContractItemDetail(item) {
                 <th class="p-2 text-right">합계액</th>
             </tr></thead><tbody>`;
         item.items.sort((a,b) => b.amount - a.amount).forEach(subItem => {
-            // 품목구분이 있는 항목만 표시
             if (subItem.item) {
                 contentHtml += `<tr class="border-b">
                     <td class="p-2 whitespace-nowrap">${subItem.item}</td>
