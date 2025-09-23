@@ -1,6 +1,6 @@
 <title>대시보드 홈 - 판매실적 대시보드</title>
 
-<script defer src="./assets/js/dashboard.js"></script>
+<script defer src="/assets/js/dashboard.js"></script>
 
 <div class="mb-8">
     <h1 class="text-3xl font-bold text-gray-900 mb-2">대시보드</h1>
@@ -8,24 +8,70 @@
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
     <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
         <div class="p-6">
             <div class="flex items-center mb-3">
-                <svg class="w-8 h-8 text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <svg class="dashboard-icon text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 <h2 class="text-xl font-bold text-gray-900">월별매출 현황</h2>
             </div>
             <p class="text-gray-600 mb-4 text-sm">판매내역 데이터 기준<br>두발로의 월별, 연도별 총 매출 및 계약 내역</p>
-            <a href="./pages/monthly-sales.html" class="inline-flex items-center text-blue-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+            <a href="/pages/monthly-sales.html" class="inline-flex items-center text-blue-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
         </div>
     </div>
+
     <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
         <div class="p-6">
             <div class="flex items-center mb-3">
-                <svg class="w-8 h-8 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-4h1m-1 4h1m-1-4h1"></path></svg>
+                <svg class="dashboard-icon text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-4h1m-1 4h1m-1-4h1"></path></svg>
                 <h2 class="text-xl font-bold text-gray-900">거래처 집계</h2>
             </div>
             <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>두발로의 거래처별, 지역별, 소관구분별 매출 현황</p>
-            <a href="./pages/customer-analysis.html" class="inline-flex items-center text-green-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+            <a href="/pages/customer-analysis.html" class="inline-flex items-center text-green-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
         </div>
     </div>
+
+    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+        <div class="p-6">
+            <div class="flex items-center mb-3">
+                <svg class="dashboard-icon text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                <h2 class="text-xl font-bold text-gray-900">고객관계 분석</h2>
+            </div>
+            <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>두발로의 고객관계분석</p>
+            <a href="/pages/customer-relationship.html" class="inline-flex items-center text-purple-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+        </div>
     </div>
+
+    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+        <div class="p-6">
+            <div class="flex items-center mb-3">
+                <svg class="dashboard-icon text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <h2 class="text-xl font-bold text-gray-900">수요기관 분석</h2>
+            </div>
+            <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>수요기관별 구매내역과 거래 관계</p>
+            <a href="/pages/agency-purchase-history.html" class="inline-flex items-center text-purple-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+        <div class="p-6">
+            <div class="flex items-center mb-3">
+                <svg class="dashboard-icon text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9.5a7.5 7.5 0 10-15 0 7.5 7.5 0 0015 0zM17 9.5v5.5m0-5.5a7.5 7.5 0 10-15 0 7.5 7.5 0 0015 0z"></path></svg>
+                <h2 class="text-xl font-bold text-gray-900">트랜드 분석</h2>
+            </div>
+            <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>월별 / 지역별 / 소관구분별 판매추이 그래프</p>
+            <a href="/pages/trend-analysis.html" class="inline-flex items-center text-purple-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+        <div class="p-6">
+            <div class="flex items-center mb-3">
+                <svg class="dashboard-icon text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c1.657 0 3 .895 3 2s-1.343 2-3 2-3-.895-3-2 1.343-2 3-2zM21 12c0 4.418-4.03 8-9 8s-9-3.582-9-8 4.03-8 9-8 9 3.582 9 8z"></path></svg>
+                <h2 class="text-xl font-bold text-gray-900">판매순위</h2>
+            </div>
+            <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>업체 판매순위와 업체별 거래처 정보</p>
+            <a href="/pages/supplier-purchase-history.html" class="inline-flex items-center text-indigo-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+        </div>
+    </div>
+</div>
