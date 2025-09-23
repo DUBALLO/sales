@@ -1,4 +1,4 @@
-// 월별매출 현황 JavaScript (주문/매출 동시 집계 최종 수정 버전)
+// 월별매출 현황 JavaScript (데이터 로직 최종 수정 2)
 
 // 전역 변수
 let salesData = [];
@@ -12,65 +12,55 @@ function $(id) {
     return element;
 }
 
-// 데이터 로드 (주문/매출 동시 생성 로직으로 수정)
+// 데이터 로드
 async function loadSalesData() {
     try {
         $('monthlyTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-4">데이터를 불러오는 중...</td></tr>';
         const rawData = await window.sheetsAPI.loadCSVData('monthlySales');
         if (rawData.length === 0) throw new Error('파싱된 데이터가 없습니다.');
 
-        // flatMap을 사용하여 하나의 행에서 여러 개의 데이터 레코드를 생성할 수 있도록 함
         salesData = rawData.flatMap(item => {
             const results = [];
             const dateValue = item['날짜'] || item['주문일자'] || item['기준일자'] || '';
             const recordDate = parseDate(dateValue);
-            
-            // 유효한 날짜가 없으면 해당 행은 건너뜀
             if (!recordDate) return [];
 
             const invoiceDateValue = item['세금계산서'] || '';
             const invoiceDate = parseDate(invoiceDateValue);
             const typeValue = item['구분'] || '';
-            
-            const contractValue = item['계약명'] || item['사업명'] || '계약명 없음';
+            const contractValue = item['계약명'] || '계약명 없음';
             const customerValue = item['거래처'] || '거래처 없음';
             const amountValue = item['합계'] || '0';
-            const itemValue = item['품목'] || item['제품'] || '';
+            const itemValue = item['품목'] || '';
             const specValue = item['규격'] || '';
             const quantityValue = parseInt(String(item['수량'] || '0').replace(/[^\d]/g, ''));
             const unitPriceValue = parseInt(String(item['단가'] || '0').replace(/[^\d]/g, ''));
             const parsedAmount = parseInt(String(amountValue).replace(/[^\d]/g, '')) || 0;
 
+            if(parsedAmount === 0 || contractValue === '계약명 없음' || customerValue === '거래처 없음') return [];
+
             const baseItem = {
                 contractName: contractValue.trim(), customer: customerValue.trim(),
-                amount: parsedAmount,
-                item: itemValue ? itemValue.trim() : '', spec: specValue ? specValue.trim() : '',
+                amount: parsedAmount, item: itemValue.trim(), spec: specValue.trim(),
                 quantity: quantityValue, unitPrice: unitPriceValue
             };
-            
-            // 1. 모든 유효한 데이터는 '주문' 또는 '납품완료' 레코드를 생성
-            results.push({
-                ...baseItem,
-                date: recordDate,
-                displayDate: recordDate,
-                type: invoiceDate ? '납품완료' : '주문',
-                invoiceDate: invoiceDate
-            });
 
-            // 2. '구분'에 따라 '관급/사급 매출' 레코드를 추가로 생성
+            results.push({
+                ...baseItem, date: recordDate, displayDate: recordDate,
+                type: invoiceDate ? '납품완료' : '주문', invoiceDate: invoiceDate
+            });
+            
             const saleDate = invoiceDate || recordDate;
             if (typeValue.includes('관급')) {
                 results.push({ ...baseItem, date: saleDate, displayDate: saleDate, type: '관급매출' });
             } else if (typeValue.includes('사급')) {
                 results.push({ ...baseItem, date: saleDate, displayDate: saleDate, type: '사급매출' });
             }
-
             return results;
-        }).filter(item => item && item.amount > 0 && item.contractName !== '계약명 없음' && item.customer !== '거래처 없음');
+        });
         
         generateReport();
-        CommonUtils.showAlert(`${salesData.length}건의 레코드를 성공적으로 처리했습니다.`, 'success');
-        
+        CommonUtils.showAlert(`${rawData.length}건의 원본 데이터를 처리했습니다.`, 'success');
     } catch (error) {
         console.error('CSV 로드 실패:', error);
         CommonUtils.showAlert(`데이터 로드 실패: ${error.message}.`, 'error');
@@ -94,7 +84,6 @@ function generateReport() {
     const startYear = parseInt($('startYear').value), startMonth = parseInt($('startMonth').value);
     const endYear = parseInt($('endYear').value), endMonth = parseInt($('endMonth').value);
     const startDate = new Date(startYear, startMonth - 1, 1), endDate = new Date(endYear, endMonth, 0);
-
     if (startDate > endDate) return CommonUtils.showAlert('시작 기간이 종료 기간보다 늦을 수 없습니다.', 'warning');
     
     const monthlyData = initializeMonthlyData(startDate, endDate);
@@ -107,32 +96,25 @@ function initializeMonthlyData(startDate, endDate) {
     let current = new Date(startDate);
     while (current <= endDate) {
         const yearMonth = CommonUtils.getYearMonth(current.getFullYear(), current.getMonth() + 1);
-        data[yearMonth] = { order: { count: 0, amount: 0, details: [] }, government: { count: 0, amount: 0, details: [] }, private: { count: 0, amount: 0, details: [] } };
+        data[yearMonth] = { order: { count: new Set(), amount: 0, details: [] }, government: { count: new Set(), amount: 0, details: [] }, private: { count: new Set(), amount: 0, details: [] } };
         current.setMonth(current.getMonth() + 1);
     }
     return data;
 }
 
 function aggregateData(monthlyData, startDate, endDate) {
-    const contractTracker = new Set();
     salesData.forEach(item => {
         if (item.date >= startDate && item.date <= endDate) {
             const yearMonth = CommonUtils.getYearMonth(item.date.getFullYear(), item.date.getMonth() + 1);
             if (!monthlyData[yearMonth]) return;
-
-            const contractKey = `${yearMonth}-${item.type}-${item.contractName}-${item.customer}`;
+            const contractKey = `${item.contractName}-${item.customer}`;
             let target;
             if (item.type === '주문' || item.type === '납품완료') target = monthlyData[yearMonth].order;
             else if (item.type === '관급매출') target = monthlyData[yearMonth].government;
             else if (item.type === '사급매출') target = monthlyData[yearMonth].private;
-            
             if (target) {
-                // 금액은 각 타입별로 더하고, 건수는 중복을 제거하여 계산
+                target.count.add(contractKey);
                 target.amount += item.amount;
-                if (!contractTracker.has(contractKey)) {
-                    target.count++;
-                    contractTracker.add(contractKey);
-                }
                 target.details.push(item);
             }
         }
@@ -143,7 +125,7 @@ function aggregateData(monthlyData, startDate, endDate) {
 function renderMonthlyTable(monthlyData) {
     const tbody = $('monthlyTableBody');
     tbody.innerHTML = '';
-    const totals = { orderCount: 0, orderAmount: 0, govCount: 0, govAmount: 0, privCount: 0, privAmount: 0 };
+    const totals = { orderCount: new Set(), orderAmount: 0, govCount: new Set(), govAmount: 0, privCount: new Set(), privAmount: 0 };
     const sortedMonths = Object.keys(monthlyData).sort();
 
     if (sortedMonths.length === 0) {
@@ -159,17 +141,17 @@ function renderMonthlyTable(monthlyData) {
         row.className = 'hover:bg-gray-50';
         row.innerHTML = `
             <td class="font-medium border-r border-gray-200">${year}년 ${parseInt(month)}월</td>
-            <td class="text-center border-r border-gray-200">${CommonUtils.formatNumber(data.order.count)}</td>
+            <td class="text-center border-r border-gray-200">${CommonUtils.formatNumber(data.order.count.size)}</td>
             <td class="text-right border-r border-gray-200 amount-cell" data-year-month="${yearMonth}" data-type="order">${CommonUtils.formatCurrency(data.order.amount)}</td>
-            <td class="text-center border-r border-gray-200">${CommonUtils.formatNumber(data.government.count)}</td>
+            <td class="text-center border-r border-gray-200">${CommonUtils.formatNumber(data.government.count.size)}</td>
             <td class="text-right border-r border-gray-200 amount-cell" data-year-month="${yearMonth}" data-type="government">${CommonUtils.formatCurrency(data.government.amount)}</td>
-            <td class="text-center border-r border-gray-200">${CommonUtils.formatNumber(data.private.count)}</td>
+            <td class="text-center border-r border-gray-200">${CommonUtils.formatNumber(data.private.count.size)}</td>
             <td class="text-right border-r border-gray-200 amount-cell" data-year-month="${yearMonth}" data-type="private">${CommonUtils.formatCurrency(data.private.amount)}</td>
             <td class="text-right font-medium">${CommonUtils.formatCurrency(data.government.amount + data.private.amount)}</td>
         `;
-        totals.orderCount += data.order.count; totals.orderAmount += data.order.amount;
-        totals.govCount += data.government.count; totals.govAmount += data.government.amount;
-        totals.privCount += data.private.count; totals.privAmount += data.private.amount;
+        data.order.count.forEach(c => totals.orderCount.add(c)); totals.orderAmount += data.order.amount;
+        data.government.count.forEach(c => totals.govCount.add(c)); totals.govAmount += data.government.amount;
+        data.private.count.forEach(c => totals.privCount.add(c)); totals.privAmount += data.private.amount;
     });
 
     tbody.querySelectorAll('.amount-cell').forEach(cell => {
@@ -187,23 +169,18 @@ function renderMonthlyTable(monthlyData) {
 
 function updateTotalRow(totals) {
     const totalCellsData = {
-        totalOrderCount: CommonUtils.formatNumber(totals.orderCount), totalOrderAmount: CommonUtils.formatCurrency(totals.orderAmount),
-        totalGovCount: CommonUtils.formatNumber(totals.govCount), totalGovAmount: CommonUtils.formatCurrency(totals.govAmount),
-        totalPrivCount: CommonUtils.formatNumber(totals.privCount), totalPrivAmount: CommonUtils.formatCurrency(totals.privAmount),
+        totalOrderCount: CommonUtils.formatNumber(totals.orderCount.size), totalOrderAmount: CommonUtils.formatCurrency(totals.orderAmount),
+        totalGovCount: CommonUtils.formatNumber(totals.govCount.size), totalGovAmount: CommonUtils.formatCurrency(totals.govAmount),
+        totalPrivCount: CommonUtils.formatNumber(totals.privCount.size), totalPrivAmount: CommonUtils.formatCurrency(totals.privAmount),
         grandTotal: CommonUtils.formatCurrency(totals.govAmount + totals.privAmount)
     };
-    for (const id in totalCellsData) {
-        const el = $(id);
-        if (el) el.textContent = totalCellsData[id];
-    }
+    for (const id in totalCellsData) { $(id).textContent = totalCellsData[id]; }
     
     ['totalOrderAmount', 'totalGovAmount', 'totalPrivAmount'].forEach(id => {
         const el = $(id);
-        if (!el) return;
         const type = id.replace('total', '').replace('Amount', '').toLowerCase();
         const typeName = { order: '주문', government: '관급매출', private: '사급매출' }[type];
-        el.onclick = null;
-        el.classList.remove('amount-clickable');
+        el.onclick = null; el.classList.remove('amount-clickable');
         if (totals[type + 'Amount'] > 0) {
             el.classList.add('amount-clickable');
             el.onclick = () => showDetail('total', type, typeName);
@@ -223,22 +200,30 @@ function showDetail(yearMonth, type, typeName) {
     }
     if (details.length === 0) return CommonUtils.showAlert('해당 내역이 없습니다.', 'info');
     
-    const processedDetails = processDetailData(details);
+    const processedDetails = processDetailData(details, type);
     currentUnfilteredDetails = processedDetails; 
 
     const detailTitle = $('detailTitle');
     if (detailTitle) detailTitle.textContent = `${title} (${processedDetails.length}건)`;
     
     updateDetailTableHeader(type);
+    detailSortState = { key: 'date', direction: 'desc' }; // 상세내역 열 때 기본 정렬
     sortAndRenderDetailTable();
     
     $('detailSection').classList.remove('hidden');
     $('detailSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function processDetailData(details) {
+function processDetailData(details, type) {
     const mergedData = new Map();
-    details.forEach(item => {
+    const relevantDetails = details.filter(d => {
+        if(type === 'order') return d.type === '주문' || d.type === '납품완료';
+        if(type === 'government') return d.type === '관급매출';
+        if(type === 'private') return d.type === '사급매출';
+        return false;
+    });
+
+    relevantDetails.forEach(item => {
         const key = `${item.contractName}-${item.customer}`;
         if (mergedData.has(key)) {
             const existing = mergedData.get(key);
@@ -256,7 +241,7 @@ function updateDetailTableHeader(type) {
     let thead = table.querySelector('thead');
     if (!thead) thead = table.createTHead();
     thead.innerHTML = '';
-    const headers = type === '주문' || type === '납품완료' || type === 'order'
+    const headers = type === 'order' 
         ? [{key: 'type', text: '상태'}, {key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'date', text: '날짜'}]
         : [{key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'date', text: '날짜'}];
     
@@ -291,13 +276,11 @@ function sortAndRenderDetailTable() {
     const thead = $('detailTable').querySelector('thead');
     thead.querySelectorAll('th').forEach(th => {
         const span = th.querySelector('span');
-        let text = span ? span.textContent : th.textContent;
-        text = text.replace(/ [▲▼]$/, '');
+        let text = span.textContent.replace(/ [▲▼]$/, '');
         if (th.dataset.sortKey === detailSortState.key) {
             text += detailSortState.direction === 'asc' ? ' ▲' : ' ▼';
         }
-        if (span) span.textContent = text;
-        else th.textContent = text;
+        span.textContent = text;
     });
     const { key, direction } = detailSortState;
     currentUnfilteredDetails.sort((a, b) => {
@@ -323,7 +306,6 @@ function renderDetailTableBody(data) {
         return;
     }
     const isOrder = data[0].type === '주문' || data[0].type === '납품완료';
-
     data.forEach(item => {
         const row = tbody.insertRow();
         if (isOrder) {
@@ -331,24 +313,16 @@ function renderDetailTableBody(data) {
             row.insertCell().innerHTML = `<span class="badge ${badgeClass}">${item.type}</span>`;
             row.cells[0].className = 'text-center';
         }
-        const contractNameCell = row.insertCell();
-        contractNameCell.innerHTML = `<a href="#" class="text-blue-600 hover:underline">${item.contractName}</a>`;
-        contractNameCell.className = 'font-medium whitespace-nowrap';
-        const customerCell = row.insertCell();
-        customerCell.textContent = item.customer;
-        customerCell.className = 'whitespace-nowrap';
-        const amountCell = row.insertCell();
-        amountCell.textContent = CommonUtils.formatCurrency(item.totalAmount);
-        amountCell.className = 'text-right font-medium amount';
-        const dateCell = row.insertCell();
-        dateCell.textContent = CommonUtils.formatDate(item.date);
-        dateCell.className = 'text-center';
+        row.insertCell().innerHTML = `<a href="#" class="text-blue-600 hover:underline">${item.contractName}</a>`;
+        row.cells[isOrder ? 1 : 0].className = 'font-medium whitespace-nowrap';
+        row.insertCell().textContent = item.customer;
+        row.cells[isOrder ? 2 : 1].className = 'whitespace-nowrap';
+        row.insertCell().textContent = CommonUtils.formatCurrency(item.totalAmount);
+        row.cells[isOrder ? 3 : 2].className = 'text-right font-medium amount';
+        row.insertCell().textContent = CommonUtils.formatDate(item.date);
+        row.cells[isOrder ? 4 : 3].className = 'text-center';
         
-        const link = row.querySelector('a');
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            showContractItemDetail(item);
-        });
+        row.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); showContractItemDetail(item); });
     });
 }
 
