@@ -1,0 +1,35 @@
+/* monthly-sales.css - 월별매출 현황 페이지 전용 스타일 */
+
+#monthlyTable th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#monthlyTable tfoot tr {
+    background-color: #f1f5f9;
+    border-top: 2px solid #d1d5db;
+}
+
+#monthlyTable tfoot td {
+    font-weight: 700;
+    color: #374151;
+}
+
+#monthlyTable td:nth-child(3),
+#monthlyTable td:nth-child(5),
+#monthlyTable td:nth-child(7),
+#monthlyTable td:nth-child(8) {
+    min-width: 130px;
+    white-space: nowrap;
+}
+
+#detailSection {
+    animation: slideDown 0.3s ease-out;
+    border: 1px solid #e5e7eb;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
