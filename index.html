@@ -1,34 +1,63 @@
-<title>대시보드 홈 - 판매실적 대시보드</title>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대시보드 홈 - 판매실적 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="./assets/css/common.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800">
 
-<script defer src="/assets/js/dashboard.js"></script>
-
-<div class="mb-8">
-    <h1 class="text-3xl font-bold text-gray-900 mb-2">대시보드</h1>
-    <p class="text-gray-600">판매 및 구매 실적 데이터를 한눈에 확인하세요.</p>
-</div>
-
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-        <div class="p-6">
-            <div class="flex items-center mb-3">
-                <svg class="dashboard-icon text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                <h2 class="text-xl font-bold text-gray-900">월별매출 현황</h2>
-            </div>
-            <p class="text-gray-600 mb-4 text-sm">판매내역 데이터 기준<br>두발로의 월별, 연도별 총 매출 및 계약 내역</p>
-            <a href="/pages/monthly-sales.html" class="inline-flex items-center text-blue-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-6xl mx-auto px-4 py-4">
+            <a href="./index.html" class="text-lg font-semibold text-gray-900 nav-link">판매실적 대시보드</a>
         </div>
-    </div>
+    </nav>
 
-    <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-        <div class="p-6">
-            <div class="flex items-center mb-3">
-                <svg class="dashboard-icon text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-4h1m-1 4h1m-1-4h1"></path></svg>
-                <h2 class="text-xl font-bold text-gray-900">거래처 집계</h2>
-            </div>
-            <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>두발로의 거래처별, 지역별, 소관구분별 매출 현황</p>
-            <a href="/pages/customer-analysis.html" class="inline-flex items-center text-green-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+    <main id="main-content" class="max-w-6xl mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">대시보드</h1>
+            <p class="text-gray-600">판매 및 구매 실적 데이터를 한눈에 확인하세요.</p>
         </div>
-    </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                <div class="p-6">
+                    <div class="flex items-center mb-3">
+                        <svg class="dashboard-icon text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <h2 class="text-xl font-bold text-gray-900">월별매출 현황</h2>
+                    </div>
+                    <p class="text-gray-600 mb-4 text-sm">판매내역 데이터 기준<br>두발로의 월별, 연도별 총 매출 및 계약 내역</p>
+                    <a href="./pages/monthly-sales.html" class="inline-flex items-center text-blue-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+                </div>
+            </div>
+        
+            <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                <div class="p-6">
+                    <div class="flex items-center mb-3">
+                        <svg class="dashboard-icon text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-4h1m-1 4h1m-1-4h1"></path></svg>
+                        <h2 class="text-xl font-bold text-gray-900">거래처 집계</h2>
+                    </div>
+                    <p class="text-gray-600 mb-4 text-sm">조달 데이터 기준<br>두발로의 거래처별, 지역별, 소관구분별 매출 현황</p>
+                    <a href="./pages/customer-analysis.html" class="inline-flex items-center text-green-600 font-medium hover:underline text-sm">자세히 보기 <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>
+                </div>
+            </div>
+        
+        </div>
+    </main>
 
-    </div>
+    <footer class="bg-white border-t mt-12">
+        <div class="max-w-6xl mx-auto px-4 py-6">
+            <p class="text-center text-gray-500 text-sm">
+                © 2025 판매실적 대시보드. All Rights Reserved.
+            </p>
+        </div>
+    </footer>
+
+    <script src="./assets/js/common.js"></script>
+    <script src="./assets/js/sheets-api.js"></script>
+    <script src="./assets/js/dashboard.js"></script>
+</body>
+</html>
