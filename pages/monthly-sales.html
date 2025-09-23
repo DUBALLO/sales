@@ -51,7 +51,7 @@
             border-collapse: collapse; /* 테두리 한 줄로 */
             
             /* 2. 폰트 크기 줄이기 */
-            font-size: 8pt; 
+            font-size: 9pt; 
         }
 
         .data-table th, .data-table td {
@@ -83,6 +83,11 @@
             border: 1px solid #ccc;
             background-color: transparent !important;
             padding: 2px 4px;
+        }
+
+        /* 상세 내역 출력 시 페이지 나누기 (요청하신 코드 삽입) */
+        #detailSection {
+            break-before: page;
         }
         
         /* --- 인쇄 전용 스타일 끝 --- */
