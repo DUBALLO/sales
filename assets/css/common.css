@@ -80,3 +80,8 @@ body { font-family: 'Noto Sans KR', sans-serif; line-height: 1.6; color: #374151
 .whitespace-nowrap {
     white-space: nowrap;
 }
+
+/* 모든 data-table에 일관된 폰트 적용 */
+.data-table {
+    font-family: 'Noto Sans KR', sans-serif;
+}
