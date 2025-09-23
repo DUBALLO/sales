@@ -13,6 +13,46 @@
             .printable-area, .printable-area * { visibility: visible; }
             .printable-area { position: absolute; left: 0; top: 0; width: 100%; }
             .no-print { display: none !important; }
+            
+            /* 인쇄 전용 스타일 추가 */
+            @page {
+                size: A4;
+                margin: 1.5cm;
+            }
+            body {
+                background-color: #fff;
+            }
+            .data-table {
+                box-shadow: none;
+                border: 1px solid #dee2e6;
+                font-size: 9pt;
+                width: 100%;
+                table-layout: auto;
+            }
+            .data-table th, .data-table td {
+                border: 1px solid #dee2e6;
+                padding: 0.4rem;
+                color: #000 !important;
+                background-color: #fff !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .data-table th {
+                font-weight: bold;
+            }
+            .amount-clickable, .amount {
+                text-decoration: none;
+                color: inherit !important;
+            }
+            .badge {
+                border: 1px solid #ccc;
+                color: #000 !important;
+                background-color: #fff !important;
+            }
+            a {
+                text-decoration: none;
+                color: inherit !important;
+            }
         }
     </style>
 </head>
