@@ -62,28 +62,25 @@ body { font-family: 'Noto Sans KR', sans-serif; line-height: 1.6; color: #374151
 .nav-link:hover { color: #374151; background-color: #f3f4f6; }
 .nav-link.active { color: #2563eb; background-color: #dbeafe; }
 
-/* --- customer-analysis.css 내용 시작 --- */
-.analysis-tab.active { border-color: #10b981; color: #10b981; }
-.badge-secondary { background-color: #e5e7eb; color: #4b5563; }
-.badge-purple { background-color: #ede9fe; color: #5b21b6; }
-/* --- customer-analysis.css 내용 끝 --- */
-
-/* --- monthly-sales.css 내용 시작 --- */
+/* --- 페이지별 스타일 --- */
 #monthlyTable th { position: sticky; top: 0; z-index: 10; }
 #monthlyTable tfoot tr { background-color: #f1f5f9; border-top: 2px solid #d1d5db; }
 #monthlyTable tfoot td { font-weight: 700; color: #374151; }
 #detailSection { animation: slideDown 0.3s ease-out; border: 1px solid #e5e7eb; }
 @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-/* --- monthly-sales.css 내용 끝 --- */
 
-/* --- 줄바꿈 방지 스타일 --- */
-.whitespace-nowrap {
-    white-space: nowrap;
+/* 테이블 전체에 일관된 폰트 적용 */
+.data-table th, .data-table td {
+    font-family: 'Noto Sans KR', sans-serif;
 }
 
-/* 모든 data-table에 일관된 폰트 적용 */
-.data-table {
-    font-family: 'Noto Sans KR', sans-serif;
+/* 월별매출 현황 테이블 금액 줄바꿈 방지 */
+#monthlyTable td:nth-child(3),
+#monthlyTable td:nth-child(5),
+#monthlyTable td:nth-child(7),
+#monthlyTable td:nth-child(8) {
+    min-width: 130px;
+    white-space: nowrap;
 }
 
 /* 선택적 줄바꿈 방지 유틸리티 */
