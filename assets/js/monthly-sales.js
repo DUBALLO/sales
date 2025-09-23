@@ -1,10 +1,10 @@
-// 월별매출 현황 JavaScript (기능 개선 최종 버전)
+// 월별매출 현황 JavaScript (기능 개선 최종 버전 2)
 
 // 전역 변수
 let salesData = [];
 let currentDetailData = {}; 
 let currentUnfilteredDetails = [];
-let detailSortState = { key: 'amount', direction: 'desc' }; // 상세 테이블 정렬 상태
+let detailSortState = { key: 'amount', direction: 'desc' };
 
 // 안전한 요소 가져오기
 function $(id) {
@@ -18,10 +18,7 @@ async function loadSalesData() {
     try {
         console.log('CSV 데이터 로드 시작...');
         $('monthlyTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-4">데이터를 불러오는 중...</td></tr>';
-        
         const rawData = await window.sheetsAPI.loadCSVData('monthlySales');
-        console.log(`${rawData.length}개의 원시 데이터 로드 완료`);
-        
         if (rawData.length === 0) throw new Error('파싱된 데이터가 없습니다.');
         
         salesData = rawData.map(item => {
@@ -54,7 +51,6 @@ async function loadSalesData() {
 
         }).flat().filter(item => item.date && !isNaN(item.date.getTime()) && item.amount > 0 && item.contractName !== '계약명 없음' && item.customer !== '거래처 없음');
         
-        console.log(`${salesData.length}건의 유효한 데이터 변환 완료`);
         generateReport();
         CommonUtils.showAlert(`${salesData.length}건의 데이터를 성공적으로 로드했습니다.`, 'success');
         
@@ -110,7 +106,6 @@ function aggregateData(monthlyData, startDate, endDate) {
         if (date >= startDate && date <= endDate) {
             const yearMonth = CommonUtils.getYearMonth(date.getFullYear(), date.getMonth() + 1);
             if (!monthlyData[yearMonth]) return;
-
             const contractKey = `${yearMonth}-${item.type}-${item.contractName}`;
             let target;
             if (item.type === '주문' || item.type === '납품완료') target = monthlyData[yearMonth].order;
@@ -165,7 +160,6 @@ function renderMonthlyTable(monthlyData) {
     tbody.querySelectorAll('.amount-cell').forEach(cell => {
         if (parseInt(cell.textContent.replace(/[^\d]/g, '')) > 0) {
             cell.classList.add('amount-clickable', 'cursor-pointer', 'text-blue-600', 'hover:text-blue-800');
-            cell.title = '클릭하여 상세내역 보기';
             cell.addEventListener('click', () => {
                 const { yearMonth, type } = cell.dataset;
                 const typeName = { order: '주문', government: '관급매출', private: '사급매출' }[type];
@@ -187,7 +181,7 @@ function updateTotalRow(totals) {
         const el = $(id);
         if (el) el.textContent = totalCellsData[id];
     }
-    ['totalOrderAmount', 'totalGovAmount', 'totalPrivAmount'].forEach(id => {
+    ['totalOrderAmount', 'totalGovCount', 'totalPrivAmount'].forEach(id => {
         const el = $(id);
         if (!el) return;
         const type = id.replace('total', '').replace('Amount', '').toLowerCase();
@@ -204,7 +198,8 @@ function updateTotalRow(totals) {
 function showDetail(yearMonth, type, typeName) {
     let details, title;
     if (yearMonth === 'total') {
-        details = Object.values(currentDetailData).flatMap(monthData => monthData[type].details);
+        // ▼▼▼ 오류 수정: monthData[type]이 없을 경우를 대비하여 안전 장치 추가 ▼▼▼
+        details = Object.values(currentDetailData).flatMap(monthData => monthData[type] ? monthData[type].details : []);
         title = `전체 기간 ${typeName} 상세 내역`;
     } else {
         const [year, month] = yearMonth.split('-');
@@ -247,6 +242,7 @@ function processDetailData(details) {
     return Array.from(mergedData.values());
 }
 
+// 상세 테이블 헤더 생성 (정렬 기능으로 변경)
 function updateDetailTableHeader(type) {
     const table = $('detailTable');
     let thead = table.querySelector('thead');
@@ -254,8 +250,8 @@ function updateDetailTableHeader(type) {
     thead.innerHTML = '';
 
     const headers = type === 'order' 
-        ? [{key: 'type', text: '상태'}, {key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'displayDate', text: '날짜'}, {key: 'item', text: '품목'}]
-        : [{key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'displayDate', text: '날짜'}, {key: 'item', text: '품목'}];
+        ? [{key: 'type', text: '상태'}, {key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'displayDate', text: '날짜'}]
+        : [{key: 'contractName', text: '계약명'}, {key: 'customer', text: '거래처'}, {key: 'amount', text: '금액'}, {key: 'displayDate', text: '날짜'}];
     
     const headerRow = thead.insertRow();
     headers.forEach(header => {
@@ -285,13 +281,9 @@ function sortAndRenderDetailTable() {
     currentUnfilteredDetails.sort((a, b) => {
         const valA = a[key], valB = b[key];
         let comparison = 0;
-        if (typeof valA === 'string') {
-            comparison = valA.localeCompare(valB);
-        } else if (valA instanceof Date) {
-            comparison = valA.getTime() - valB.getTime();
-        } else {
-            comparison = valA - valB;
-        }
+        if (typeof valA === 'string') comparison = valA.localeCompare(valB);
+        else if (valA instanceof Date) comparison = valA.getTime() - valB.getTime();
+        else comparison = (valA || 0) - (valB || 0);
         return direction === 'asc' ? comparison : -comparison;
     });
     renderDetailTableBody(currentUnfilteredDetails);
@@ -302,34 +294,70 @@ function renderDetailTableBody(data) {
     tbody.innerHTML = '';
     
     if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4">데이터가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">데이터가 없습니다.</td></tr>';
         return;
     }
     const isOrder = data[0].hasOwnProperty('orderDate');
 
     data.forEach(item => {
         const row = tbody.insertRow();
-        const mostSoldItem = [...item.itemMap.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
-        const itemText = item.itemMap.size > 1 ? `${mostSoldItem} 외` : mostSoldItem;
-
         let cells = [];
+
         if (isOrder) {
             const badgeClass = item.type === '주문' ? 'badge-primary' : 'badge-success';
             cells.push(`<td class="text-center"><span class="badge ${badgeClass}">${item.type}</span></td>`);
         }
         cells.push(
-            `<td class="font-medium">${item.contractName}</td>`,
+            `<td class="font-medium"><a href="#" class="text-blue-600 hover:underline">${item.contractName}</a></td>`,
             `<td>${item.customer}</td>`,
             `<td class="text-right font-medium amount">${CommonUtils.formatCurrency(item.amount)}</td>`,
-            `<td class="text-center">${CommonUtils.formatDate(item.displayDate)}</td>`,
-            `<td class="text-center" title="${[...item.itemMap.keys()].join(', ')}">${itemText}</td>`
+            `<td class="text-center">${CommonUtils.formatDate(item.displayDate)}</td>`
         );
         row.innerHTML = cells.join('');
+        
+        // 계약명 클릭 이벤트 리스너 추가
+        const link = row.querySelector('a');
+        if (link) {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                showContractItemDetail(item);
+            });
+        }
     });
 }
 
-function hideDetailSection() { $('detailSection').classList.add('hidden'); }
+// 계약별 품목 상세 보기 팝업
+function showContractItemDetail(item) {
+    let contentHtml = '<p class="text-sm text-gray-600 mb-4">이 계약에 포함된 품목 목록입니다.</p>';
+    
+    if (item.itemMap.size > 0) {
+        contentHtml += `
+            <table class="w-full text-sm text-left">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="p-2">품목명</th>
+                        <th class="p-2 text-right">금액</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        [...item.itemMap.entries()].sort((a, b) => b[1] - a[1]).forEach(([name, amount]) => {
+            contentHtml += `
+                <tr class="border-b">
+                    <td class="p-2">${name}</td>
+                    <td class="p-2 text-right">${CommonUtils.formatCurrency(amount)}</td>
+                </tr>
+            `;
+        });
+        contentHtml += '</tbody></table>';
+    } else {
+        contentHtml += '<p class="text-center text-gray-500">이 계약에는 등록된 품목 정보가 없습니다.</p>';
+    }
+    
+    CommonUtils.showModal(`'${item.contractName}' 품목 내역`, contentHtml);
+}
 
+function hideDetailSection() { $('detailSection').classList.add('hidden'); }
 async function refreshData() {
     const btn = $('refreshBtn');
     btn.disabled = true;
@@ -342,10 +370,9 @@ async function refreshData() {
         CommonUtils.showAlert('데이터 새로고침에 실패했습니다.', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 G-01-15.357-2m15.357 2H15"></path></svg> 새로고침`;
+        btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 새로고침`;
     }
 }
-
 function printReport() { window.print(); }
 
 window.refreshData = refreshData;
