@@ -1,4 +1,4 @@
-// 월별매출 현황 JavaScript (정렬 기능 및 오류 최종 수정 3)
+// 월별매출 현황 JavaScript (최종 수정)
 
 // 전역 변수
 let salesData = [];
@@ -177,10 +177,17 @@ function updateTotalRow(totals) {
     
     ['totalOrderAmount', 'totalGovAmount', 'totalPrivAmount'].forEach(id => {
         const el = $(id);
-        const type = id.replace('total', '').replace('Amount', '').toLowerCase();
+        
+        // BUG FIX: 'gov'/'priv'를 'government'/'private'으로 변환
+        let type = id.replace('total', '').replace('Amount', '').toLowerCase();
+        if (type === 'gov') type = 'government';
+        if (type === 'priv') type = 'private';
+        
         const typeName = { order: '주문', government: '관급매출', private: '사급매출' }[type];
+        const totalAmountKey = `${type}Amount`;
+
         el.onclick = null; el.classList.remove('amount-clickable');
-        if (totals[type + 'Amount'] > 0) {
+        if (totals[totalAmountKey] > 0) {
             el.classList.add('amount-clickable');
             el.onclick = () => showDetail('total', type, typeName);
         }
@@ -205,8 +212,8 @@ function showDetail(yearMonth, type, typeName) {
     const detailTitle = $('detailTitle');
     if (detailTitle) detailTitle.textContent = `${title} (${processedDetails.length}건)`;
     
-    updateDetailTableHeaderAndEvents(type); // 이벤트 핸들러까지 여기서 설정
-    detailSortState = { key: 'date', direction: 'desc' }; // 상세내역 열 때 기본 정렬
+    updateDetailTableHeaderAndEvents(type);
+    detailSortState = { key: 'date', direction: 'desc' };
     sortAndRenderDetailTable();
     
     $('detailSection').classList.remove('hidden');
@@ -235,7 +242,6 @@ function processDetailData(details, type) {
     return Array.from(mergedData.values());
 }
 
-// 상세 테이블 헤더 생성 및 이벤트 핸들러 설정 (타이밍 문제 해결)
 function updateDetailTableHeaderAndEvents(type) {
     const table = $('detailTable');
     let thead = table.querySelector('thead');
@@ -272,7 +278,7 @@ function updateDetailTableHeaderAndEvents(type) {
         }
     };
     thead.addEventListener('click', newListener);
-    thead.listener = newListener; // 나중에 제거하기 위해 리스너 참조 저장
+    thead.listener = newListener;
 }
 
 function sortAndRenderDetailTable() {
@@ -321,13 +327,24 @@ function renderDetailTableBody(data) {
             row.cells[0].className = 'text-center no-wrap';
         }
         row.insertCell().innerHTML = `<a href="#" class="text-blue-600 hover:underline">${item.contractName}</a>`;
-        row.cells[isOrder ? 1 : 0].className = 'font-medium';
-        row.insertCell().textContent = item.customer;
+        row.cells[isOrder ? 1 : 0].className = 'font-medium'; // 계약명은 줄바꿈 허용
+        row.insertCell().textContent = item.customer; // 거래처는 줄바꿈 허용
         row.insertCell().textContent = CommonUtils.formatCurrency(item.totalAmount);
         row.cells[isOrder ? 3 : 2].className = 'text-right font-medium amount no-wrap';
         row.insertCell().textContent = CommonUtils.formatDate(item.date);
         row.cells[isOrder ? 4 : 3].className = 'text-center no-wrap';
-        row.querySelector('a').addEventListener('click', (e) => { e.preventDefault(); showContractItemDetail(item); });
+        
+        row.querySelector('a').addEventListener('click', (e) => {
+            e.preventDefault();
+            try {
+                // 정상적인 팝업 호출 (common.js 필요)
+                showContractItemDetail(item);
+            } catch (error) {
+                // common.js의 팝업 기능이 없을 경우를 대비한 디버깅용 알림창
+                console.error("showContractItemDetail 또는 CommonUtils.showModal에서 오류 발생:", error);
+                alert(`[디버깅] 계약명을 클릭했습니다.\n\n계약명: ${item.contractName}\n거래처: ${item.customer}\n품목 개수: ${item.items ? item.items.length : 0}\n\n(개발자 참고: common.js의 CommonUtils.showModal 함수 확인 필요)`);
+            }
+        });
     });
 }
 
@@ -369,7 +386,7 @@ async function refreshData() {
         CommonUtils.showAlert('데이터 새로고침에 실패했습니다.', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin-round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 새로고침`;
+        btn.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 새로고침`;
     }
 }
 function printReport() { window.print(); }
