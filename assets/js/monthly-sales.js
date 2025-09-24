@@ -62,11 +62,14 @@ async function loadSalesData() {
             results.push({ ...baseItem, date: recordDate, type: invoiceDate ? '납품완료' : '주문' });
             
             const saleDate = invoiceDate || recordDate;
+            if (invoiceDate) {
             if (typeValue.includes('관급')) {
-                results.push({ ...baseItem, date: saleDate, type: '관급매출' });
+            // 매출일(date)을 invoiceDate로 명확히 지정
+            results.push({ ...baseItem, date: invoiceDate, type: '관급매출' });
             } else if (typeValue.includes('사급')) {
-                results.push({ ...baseItem, date: saleDate, type: '사급매출' });
+            results.push({ ...baseItem, date: invoiceDate, type: '사급매출' });
             }
+        }
             return results;
         });
         generateReport();
