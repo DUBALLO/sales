@@ -1,4 +1,4 @@
-// supplier-purchase-history.js (v2.1 - 정렬 및 UI 수정)
+// supplier-purchase-history.js (v2.2 - 이벤트 리스너 오류 수정)
 
 // 전역 변수
 let allData = [];
@@ -109,7 +109,7 @@ function renderSupplierTable(data) {
     sortData(supplierData, sortStates.main);
     supplierData.forEach((item, index) => item.rank = index + 1);
 
-    const tbody = document.getElementById('supplierTableBody');
+    const tbody = panel.querySelector('#supplierTableBody');
     tbody.innerHTML = '';
     if (supplierData.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-3 text-center py-8 text-gray-500">데이터가 없습니다.</td></tr>`;
@@ -131,7 +131,8 @@ function renderSupplierTable(data) {
 
     updateSortIndicators('supplierTable', sortStates.main);
 
-    document.getElementById('supplierTable').querySelector('thead').addEventListener('click', e => {
+    // ▼▼▼ 오류 수정: document 대신 panel에서 요소를 찾아 이벤트를 연결합니다. ▼▼▼
+    panel.querySelector('#supplierTable thead').addEventListener('click', e => {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
             handleTableSort('main', th.dataset.sortKey, th.dataset.sortType);
@@ -139,8 +140,8 @@ function renderSupplierTable(data) {
         }
     });
     
-    document.getElementById('printMainBtn').addEventListener('click', () => printPanel(panel));
-    document.getElementById('exportMainBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('supplierTable'), '업체별_판매순위.csv'));
+    panel.querySelector('#printMainBtn').addEventListener('click', () => printPanel(panel));
+    panel.querySelector('#exportMainBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(panel.querySelector('#supplierTable'), '업체별_판매순위.csv'));
 }
 
 function showSupplierDetail(supplierName) {
@@ -190,7 +191,7 @@ function showSupplierDetail(supplierName) {
 
     const renderDetailTable = () => {
         sortData(detailData, sortStates.detail);
-        const tbody = document.getElementById('supplierDetailTableBody');
+        const tbody = detailPanel.querySelector('#supplierDetailTableBody');
         tbody.innerHTML = '';
         detailData.forEach(item => {
             const row = tbody.insertRow();
@@ -207,7 +208,7 @@ function showSupplierDetail(supplierName) {
 
     renderDetailTable();
 
-    document.getElementById('supplierDetailTable').querySelector('thead').addEventListener('click', e => {
+    detailPanel.querySelector('#supplierDetailTable thead').addEventListener('click', e => {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
             handleTableSort('detail', th.dataset.sortKey, th.dataset.sortType);
@@ -215,13 +216,13 @@ function showSupplierDetail(supplierName) {
         }
     });
 
-    document.getElementById('backToListBtn').addEventListener('click', () => {
+    detailPanel.querySelector('#backToListBtn').addEventListener('click', () => {
         detailPanel.classList.add('hidden');
         document.getElementById('supplierPanel').classList.remove('hidden');
     });
 
-    document.getElementById('printDetailBtn').addEventListener('click', () => printPanel(detailPanel));
-    document.getElementById('exportDetailBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('supplierDetailTable'), `${supplierName}_상세내역.csv`));
+    detailPanel.querySelector('#printDetailBtn').addEventListener('click', () => printPanel(detailPanel));
+    detailPanel.querySelector('#exportDetailBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(detailPanel.querySelector('#supplierDetailTable'), `${supplierName}_상세내역.csv`));
 
     document.getElementById('supplierPanel').classList.add('hidden');
     detailPanel.classList.remove('hidden');
@@ -273,12 +274,12 @@ function showLoadingState(isLoading, text = '분석 중...') {
 }
 
 function printPanel(panel) {
-    if (panel) {
-        // 인쇄 시 printable-area 클래스를 동적으로 추가/제거
-        panel.classList.add('printable-area');
+    const printable = panel.querySelector('.printable-area');
+    if (printable) {
+        printable.classList.add('printing-now');
         window.print();
         setTimeout(() => {
-            panel.classList.remove('printable-area');
+            printable.classList.remove('printing-now');
         }, 500);
     } else {
         CommonUtils.showAlert('인쇄할 내용이 없습니다.', 'warning');
