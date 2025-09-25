@@ -12,13 +12,11 @@ let sortStates = {
 document.addEventListener('DOMContentLoaded', async () => {
     showLoadingState(true, '데이터 로딩 중...');
     try {
-        // --- 이벤트 리스너를 데이터 로드보다 먼저 설정 ---
         const analyzeBtn = document.getElementById('analyzeBtn');
         if (analyzeBtn) {
             analyzeBtn.addEventListener('click', analyzeData);
         } else {
             console.error("'analyzeBtn' 버튼을 찾을 수 없습니다. HTML 파일이 최신 버전인지 확인해주세요.");
-            // 버튼이 없으면 분석을 시작할 수 없으므로 여기서 중단
             showLoadingState(false);
             return;
         }
@@ -33,7 +31,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         showLoadingState(false);
     }
 });
-
 
 async function loadAndParseData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
@@ -176,5 +173,217 @@ function renderAgencyRankPanel(data) {
     if(exportBtn) exportBtn.addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('agencyRankTable'), '수요기관_구매순위.csv'));
 }
 
-// ... 이하 나머지 함수들은 이전과 동일하게 유지됩니다.
-// showAgencyDetail, renderPurchaseDetail, renderContractDetail, handleTableSort, sortData, updateSortIndicators, showLoadingState, printPanel
+function showAgencyDetail(agencyName) {
+    const detailPanel = document.getElementById('agencyDetailPanel');
+    if (!detailPanel) return;
+    
+    detailPanel.innerHTML = `
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg"><strong class="font-bold">${agencyName}</strong> <span class="font-normal">상세 내역</span></h3>
+                <div class="flex items-center space-x-2 no-print">
+                    <button id="printDetailBtn" class="btn btn-secondary btn-sm">인쇄</button>
+                    <button id="exportDetailBtn" class="btn btn-secondary btn-sm">CSV 내보내기</button>
+                    <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
+                </div>
+            </div>
+            <div class="border-b border-gray-200 no-print"><nav class="-mb-px flex space-x-8" id="detailTabs"><button data-tab="purchase" class="analysis-tab active">상세 구매 내역</button><button data-tab="contract" class="analysis-tab">계약 상세</button></nav></div>
+            <div id="purchaseDetail" class="tab-content mt-4 printable-area"></div>
+            <div id="contractDetail" class="tab-content mt-4 printable-area hidden"></div>
+        </div>`;
+    
+    const agencyData = currentFilteredData.filter(item => item.agency === agencyName);
+    renderPurchaseDetail(agencyData);
+    renderContractDetail(agencyData);
+
+    const detailTabs = document.getElementById('detailTabs');
+    if(detailTabs) detailTabs.addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const tabName = e.target.dataset.tab;
+            detailTabs.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            detailPanel.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            const contentToShow = document.getElementById(tabName + 'Detail');
+            if(contentToShow) contentToShow.classList.remove('hidden');
+        }
+    });
+
+    const backBtn = document.getElementById('backToListBtn');
+    if (backBtn) backBtn.addEventListener('click', () => {
+        detailPanel.classList.add('hidden');
+        const rankPanel = document.getElementById('agencyRankPanel');
+        if (rankPanel) rankPanel.classList.remove('hidden');
+    });
+    
+    const printDetailBtn = document.getElementById('printDetailBtn');
+    if (printDetailBtn) printDetailBtn.addEventListener('click', () => printPanel(detailPanel.querySelector('.tab-content:not(.hidden)')));
+
+    const exportDetailBtn = document.getElementById('exportDetailBtn');
+    if (exportDetailBtn) exportDetailBtn.addEventListener('click', () => {
+        const activeTab = detailPanel.querySelector('.tab-content:not(.hidden)');
+        if (activeTab) {
+            CommonUtils.exportTableToCSV(activeTab.querySelector('table'), `${agencyName}_상세내역.csv`);
+        }
+    });
+
+    const rankPanel = document.getElementById('agencyRankPanel');
+    if (rankPanel) rankPanel.classList.add('hidden');
+    detailPanel.classList.remove('hidden');
+}
+
+function renderPurchaseDetail(agencyData) {
+    const container = document.getElementById('purchaseDetail');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <h4 class="text-md font-semibold mb-2">업체별 구매 내역</h4>
+        <table id="purchaseDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
+            <thead class="bg-gray-50"><tr>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순위</span></th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplier" data-sort-type="string"><span>업체명</span></th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractCount" data-sort-type="number"><span>거래건수</span></th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>구매금액</span></th>
+            </tr></thead>
+            <tbody id="purchaseDetailBody"></tbody>
+        </table>`;
+    
+    const supplierMap = new Map();
+    agencyData.forEach(item => {
+        if (!supplierMap.has(item.supplier)) supplierMap.set(item.supplier, { amount: 0, contracts: new Set() });
+        const info = supplierMap.get(item.supplier);
+        info.amount += item.amount;
+        info.contracts.add(item.contractName);
+    });
+
+    let data = [...supplierMap.entries()].map(([supplier, { amount, contracts }]) => ({ supplier, amount, contractCount: contracts.size }));
+    sortData(data, sortStates.purchase);
+    data.forEach((item, index) => item.rank = index + 1);
+    
+    const tbody = document.getElementById('purchaseDetailBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    data.forEach(item => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td class="px-4 py-3 text-center">${item.rank}</td>
+            <td class="px-4 py-3">${item.supplier}</td>
+            <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
+            <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
+        `;
+    });
+
+    updateSortIndicators('purchaseDetailTable', sortStates.purchase);
+    const purchaseTableHead = document.querySelector('#purchaseDetailTable thead');
+    if (purchaseTableHead) purchaseTableHead.addEventListener('click', e => {
+        const th = e.target.closest('th');
+        if (th && th.dataset.sortKey) {
+            handleTableSort('purchase', th.dataset.sortKey, th.dataset.sortType);
+            renderPurchaseDetail(agencyData);
+        }
+    });
+}
+
+function renderContractDetail(agencyData) {
+    const container = document.getElementById('contractDetail');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <h4 class="text-md font-semibold mb-2">계약별 상세 내역</h4>
+        <table id="contractDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
+            <thead class="bg-gray-50"><tr>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순번</span></th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractName" data-sort-type="string"><span>계약명</span></th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplier" data-sort-type="string"><span>업체명</span></th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="date" data-sort-type="string"><span>거래일자</span></th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>공급금액</span></th>
+            </tr></thead>
+            <tbody id="contractDetailBody"></tbody>
+        </table>`;
+    
+    let data = [...agencyData];
+    sortData(data, sortStates.contract);
+    data.forEach((item, index) => item.rank = index + 1);
+    
+    const tbody = document.getElementById('contractDetailBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    data.forEach(item => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td class="px-4 py-3 text-center">${item.rank}</td>
+            <td class="px-4 py-3">${item.contractName}</td>
+            <td class="px-4 py-3">${item.supplier}</td>
+            <td class="px-4 py-3 text-center">${item.date}</td>
+            <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
+        `;
+    });
+
+    updateSortIndicators('contractDetailTable', sortStates.contract);
+    const contractTableHead = document.querySelector('#contractDetailTable thead');
+    if (contractTableHead) contractTableHead.addEventListener('click', e => {
+        const th = e.target.closest('th');
+        if (th && th.dataset.sortKey) {
+            handleTableSort('contract', th.dataset.sortKey, th.dataset.sortType);
+            renderContractDetail(agencyData);
+        }
+    });
+}
+
+function handleTableSort(tableName, sortKey, sortType = 'string') {
+    const sortState = sortStates[tableName];
+    if (sortState.key === sortKey) {
+        sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortState.key = sortKey;
+        sortState.direction = 'desc';
+    }
+    sortState.type = sortType;
+}
+
+function sortData(data, sortState) {
+    const { key, direction, type } = sortState;
+    data.sort((a, b) => {
+        const valA = a[key], valB = b[key];
+        let comparison = 0;
+        if (type === 'number') comparison = (Number(valA) || 0) - (Number(valB) || 0);
+        else comparison = String(valA || '').localeCompare(String(valB || ''));
+        return direction === 'asc' ? comparison : -comparison;
+    });
+}
+
+function updateSortIndicators(tableId, sortState) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    table.querySelectorAll('thead th[data-sort-key]').forEach(th => {
+        const span = th.querySelector('span');
+        if (span) {
+            span.textContent = span.textContent.replace(/ [▲▼]$/, '');
+            if (th.dataset.sortKey === sortState.key) {
+                span.textContent += sortState.direction === 'asc' ? ' ▲' : ' ▼';
+            }
+        }
+    });
+}
+
+function showLoadingState(isLoading, text = '분석 중...') {
+    const button = document.getElementById('analyzeBtn');
+    if (button) {
+        button.disabled = isLoading;
+        const svgIcon = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>';
+        button.innerHTML = isLoading ? `<div class="loading-spinner mr-2"></div> ${text}...` : `${svgIcon}분석`;
+    }
+}
+
+function printPanel(panel) {
+    if (panel) {
+        panel.classList.add('printing-now');
+        window.print();
+        setTimeout(() => {
+            panel.classList.remove('printing-now');
+        }, 500);
+    } else {
+        CommonUtils.showAlert('인쇄할 내용이 없습니다.', 'warning');
+    }
+}
