@@ -1,389 +1,384 @@
-// agency-purchase-history.js (v2.1 - 오류 방어 로직 추가)
+// 업체별 판매내역 분석 JavaScript
 
 // 전역 변수
-let allData = [];
-let currentFilteredData = [];
-let sortStates = {
-    rank: { key: 'amount', direction: 'desc', type: 'number' },
-    purchase: { key: 'amount', direction: 'desc', type: 'number' },
-    contract: { key: 'amount', direction: 'desc', type: 'number' }
-};
+let purchaseData = [];
+let supplierRankingData = [];
+let allProcurementData = [];
+let isLoading = false;
+let detailSortState = { column: null, direction: 'asc' };
 
-document.addEventListener('DOMContentLoaded', async () => {
-    showLoadingState(true, '데이터 로딩 중...');
+// 안전한 요소 가져오기
+function $(id) {
+    const element = document.getElementById(id);
+    if (!element) console.warn(`요소를 찾을 수 없습니다: ${id}`);
+    return element;
+}
+
+// 포맷팅 함수들
+function formatCurrency(amount) {
+    if (typeof amount !== 'number' || isNaN(amount)) return '-';
+    return new Intl.NumberFormat('ko-KR').format(amount) + '원';
+}
+
+function formatNumber(number) {
+    if (typeof number !== 'number' || isNaN(number)) return '-';
+    return new Intl.NumberFormat('ko-KR').format(number);
+}
+
+function parseDate(dateStr) {
+    if (!dateStr) return null;
+    let date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+        if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
+            date = new Date(dateStr);
+        } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+            const [month, day, year] = dateStr.split('/');
+            date = new Date(year, month - 1, day);
+        }
+    }
+    return isNaN(date.getTime()) ? null : date;
+}
+
+function parseAmount(amountStr) {
+    if (!amountStr) return 0;
+    const cleanAmount = String(amountStr).replace(/[^\d.-]/g, '');
+    return parseInt(cleanAmount, 10) || 0;
+}
+
+// 메인 분석 함수
+async function analyzeData() {
     try {
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        if (analyzeBtn) {
-            analyzeBtn.addEventListener('click', analyzeData);
+        console.log('=== 업체별 판매내역 분석 시작 ===');
+        showLoadingState(true);
+        let useRealData = false;
+        
+        if (window.sheetsAPI) {
+            try {
+                allProcurementData = await window.sheetsAPI.loadCSVData('procurement');
+                if (allProcurementData && allProcurementData.length > 0) {
+                    parseRealData(allProcurementData);
+                    useRealData = true;
+                } else { throw new Error('로드된 데이터가 비어있습니다.'); }
+            } catch (error) {
+                console.warn('실제 데이터 로드 실패:', error.message);
+                useRealData = false;
+            }
         } else {
-            console.error("'analyzeBtn' 버튼을 찾을 수 없습니다. HTML 파일이 최신 버전인지 확인해주세요.");
-            showLoadingState(false);
-            return;
+            console.warn('sheets-api.js가 로드되지 않음');
+            useRealData = false;
+        }
+        
+        if (!useRealData) generateSampleData();
+        
+        const selectedYear = $('analysisYear')?.value || 'all';
+        const selectedProduct = $('productFilter')?.value || 'all';
+        let filteredData = [...purchaseData];
+        
+        if (selectedYear !== 'all') {
+            const year = parseInt(selectedYear);
+            filteredData = filteredData.filter(item => {
+                const date = parseDate(item.purchaseDate || '');
+                return date && date.getFullYear() === year;
+            });
         }
 
-        allData = await loadAndParseData();
-        populateFilters(allData);
-        await analyzeData();
+        if (selectedProduct !== 'all') {
+            filteredData = filteredData.filter(item => item.product === selectedProduct);
+        }
+        
+        analyzeSupplierRanking(filteredData);
+        updateSummaryStats(filteredData);
+        renderSupplierTable();
+        
+        console.log('=== 업체별 판매내역 분석 완료 ===');
+        
+        const message = useRealData ? `실제 데이터 분석 완료 (${filteredData.length}건)` : '샘플 데이터로 분석 완료';
+        showAlert(message, useRealData ? 'success' : 'warning');
+        
     } catch (error) {
-        console.error("초기화 실패:", error);
-        CommonUtils.showAlert("페이지 초기화 중 오류가 발생했습니다: " + error.message, 'error');
+        console.error('분석 오류:', error);
+        showAlert('분석 중 오류가 발생했습니다: ' + error.message, 'error');
     } finally {
         showLoadingState(false);
     }
-});
+}
 
-async function loadAndParseData() {
-    if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
-    const rawData = await window.sheetsAPI.loadCSVData('procurement');
-    return rawData.map(item => ({
+// 실제 데이터 파싱 함수
+function parseRealData(rawData) {
+    purchaseData = rawData.map(item => ({
         agency: (item['수요기관명'] || '').trim(),
         supplier: (item['업체'] || '').trim(),
-        region: (item['수요기관지역'] || '').trim().split(' ')[0],
+        region: (item['수요기관지역'] || '').trim(),
         agencyType: item['소관구분'] || '기타',
         product: (item['세부품명'] || '').trim(),
-        amount: parseInt(String(item['공급금액']).replace(/[^\d]/g, '') || '0', 10),
-        date: item['기준일자'] || '',
+        amount: parseAmount(item['공급금액'] || '0'),
+        purchaseDate: item['기준일자'] || '',
         contractName: (item['계약명'] || '').trim()
     })).filter(item => item.agency && item.supplier && item.amount > 0);
 }
 
-function populateFilters(data) {
-    const regions = [...new Set(data.map(item => item.region).filter(Boolean))].sort();
-    const agencyTypes = [...new Set(data.map(item => item.agencyType).filter(Boolean))].sort();
-
-    const regionFilter = document.getElementById('regionFilter');
-    const agencyTypeFilter = document.getElementById('agencyTypeFilter');
-
-    if (regionFilter) {
-        regions.forEach(region => regionFilter.add(new Option(region, region)));
-    }
-    if (agencyTypeFilter) {
-        agencyTypes.forEach(type => agencyTypeFilter.add(new Option(type, type)));
-    }
+// 샘플 데이터 생성
+function generateSampleData() {
+    purchaseData = [
+        { agency: '경기도 양주시', supplier: '두발로 주식회사', region: '경기도', agencyType: '지방자치단체', product: '보행매트', amount: 15000000, purchaseDate: '2024-01-15', contractName: '천보산 산림욕장 보완사업' },
+        { agency: '의정부시', supplier: '두발로 주식회사', region: '경기도', agencyType: '지방자치단체', product: '보행매트', amount: 28000000, purchaseDate: '2024-02-10', contractName: '의정부시 녹지조성사업' },
+        { agency: '서울시 한강사업본부', supplier: '한솔기술', region: '서울특별시', agencyType: '지방자치단체', product: '식생매트', amount: 32000000, purchaseDate: '2024-02-05', contractName: '서울시 한강공원 보행로 개선' },
+        { agency: '부천시청', supplier: '두발로 주식회사', region: '경기도', agencyType: '지방자치단체', product: '논슬립', amount: 45000000, purchaseDate: '2024-03-12', contractName: '부천시 중앙공원 조성사업' },
+        { agency: '춘천시 공원과', supplier: '산하건설', region: '강원도', agencyType: '지방자치단체', product: '보행매트', amount: 22000000, purchaseDate: '2024-03-20', contractName: '춘천시 공원 조성사업' }
+    ];
 }
 
-function analyzeData() {
-    showLoadingState(true, '데이터 분석 중...');
-    const detailPanel = document.getElementById('agencyDetailPanel');
-    const rankPanel = document.getElementById('agencyRankPanel');
-    if(detailPanel) detailPanel.classList.add('hidden');
-    if(rankPanel) rankPanel.classList.remove('hidden');
-    
-    const year = document.getElementById('analysisYear').value;
-    const product = document.getElementById('productFilter').value;
-    const region = document.getElementById('regionFilter').value;
-    const agencyType = document.getElementById('agencyTypeFilter').value;
-
-    currentFilteredData = allData.filter(item => 
-        (year === 'all' || (item.date && item.date.startsWith(year))) &&
-        (product === 'all' || item.product === product) &&
-        (region === 'all' || item.region === region) &&
-        (agencyType === 'all' || item.agencyType === agencyType)
-    );
-
-    renderAgencyRankPanel(currentFilteredData);
-    showLoadingState(false);
-}
-
-function renderAgencyRankPanel(data) {
-    const panel = document.getElementById('agencyRankPanel');
-    if (!panel) return;
-    
-    panel.innerHTML = `
-        <div class="p-6 printable-area">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-gray-900">수요기관 구매 순위</h3>
-                <div class="flex space-x-2 no-print">
-                    <button id="printRankBtn" class="btn btn-secondary btn-sm">인쇄</button>
-                    <button id="exportRankBtn" class="btn btn-secondary btn-sm">CSV 내보내기</button>
-                </div>
-            </div>
-            <div class="overflow-x-auto">
-                <table id="agencyRankTable" class="min-w-full divide-y divide-gray-200 data-table">
-                    <thead class="bg-gray-50"><tr>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순위</span></th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="agency" data-sort-type="string"><span>수요기관명</span></th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="region" data-sort-type="string"><span>지역</span></th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="agencyType" data-sort-type="string"><span>소관구분</span></th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractCount" data-sort-type="number"><span>거래건수</span></th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>총 구매액</span></th>
-                    </tr></thead>
-                    <tbody id="agencyRankBody"></tbody>
-                </table>
-            </div>
-        </div>`;
-
-    const agencyMap = new Map();
+// 업체별 순위 데이터 분석
+function analyzeSupplierRanking(data) {
+    const supplierMap = new Map();
     data.forEach(item => {
-        if (!agencyMap.has(item.agency)) {
-            agencyMap.set(item.agency, { amount: 0, contracts: new Set(), region: item.region, agencyType: item.agencyType });
+        const supplier = item.supplier || '';
+        if (!supplierMap.has(supplier)) {
+            supplierMap.set(supplier, {
+                supplier: supplier,
+                contracts: new Set(),
+                amount: 0
+            });
         }
-        const agencyInfo = agencyMap.get(item.agency);
-        agencyInfo.amount += item.amount;
-        agencyInfo.contracts.add(item.contractName);
+        const supplierInfo = supplierMap.get(supplier);
+        supplierInfo.contracts.add(item.contractName);
+        supplierInfo.amount += item.amount || 0;
     });
-
-    let rankedAgencies = [...agencyMap.entries()].map(([agency, { amount, contracts, region, agencyType }]) => ({
-        agency, amount, contractCount: contracts.size, region, agencyType 
+    
+    supplierRankingData = Array.from(supplierMap.values()).map(item => ({
+        ...item,
+        contractCount: item.contracts.size
     }));
     
-    sortData(rankedAgencies, sortStates.rank);
-    rankedAgencies.forEach((item, index) => item.rank = index + 1);
-
-    const tbody = document.getElementById('agencyRankBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-    if (rankedAgencies.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-3 text-center py-8 text-gray-500">표시할 데이터가 없습니다.</td></tr>`;
-    } else {
-        rankedAgencies.forEach(item => {
-            const row = tbody.insertRow();
-            row.innerHTML = `
-                <td class="px-4 py-3 text-center">${item.rank}</td>
-                <td class="px-4 py-3"><a href="#" data-agency="${item.agency}" class="text-blue-600 hover:underline">${item.agency}</a></td>
-                <td class="px-4 py-3">${item.region}</td>
-                <td class="px-4 py-3">${item.agencyType}</td>
-                <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
-                <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
-            `;
-            const link = row.querySelector('a');
-            if (link) link.addEventListener('click', (e) => {
-                e.preventDefault();
-                showAgencyDetail(e.target.dataset.agency);
-            });
-        });
-    }
-
-    updateSortIndicators('agencyRankTable', sortStates.rank);
-    
-    const rankTableHead = document.querySelector('#agencyRankTable thead');
-    if(rankTableHead) rankTableHead.addEventListener('click', e => {
-        const th = e.target.closest('th');
-        if (th && th.dataset.sortKey) {
-            handleTableSort('rank', th.dataset.sortKey, th.dataset.sortType);
-            renderAgencyRankPanel(currentFilteredData);
-        }
-    });
-
-    const printBtn = document.getElementById('printRankBtn');
-    if(printBtn) printBtn.addEventListener('click', () => printPanel(panel));
-    
-    const exportBtn = document.getElementById('exportRankBtn');
-    if(exportBtn) exportBtn.addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('agencyRankTable'), '수요기관_구매순위.csv'));
+    supplierRankingData.sort((a, b) => b.amount - a.amount);
+    supplierRankingData.forEach((item, index) => { item.rank = index + 1; });
 }
 
-function showAgencyDetail(agencyName) {
-    const detailPanel = document.getElementById('agencyDetailPanel');
-    if (!detailPanel) return;
+// 요약 통계 업데이트
+function updateSummaryStats(data) {
+    const totalSuppliers = new Set(data.map(item => item.supplier)).size;
+    const totalContracts = new Set(data.map(item => item.contractName)).size;
+    const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
+    
+    const elements = {
+        totalSuppliers: $('totalSuppliers'),
+        totalContracts: $('totalContracts'),
+        totalSales: $('totalSales')
+    };
+    
+    if (elements.totalSuppliers) elements.totalSuppliers.textContent = formatNumber(totalSuppliers) + '개';
+    if (elements.totalContracts) elements.totalContracts.textContent = formatNumber(totalContracts) + '건';
+    if (elements.totalSales) elements.totalSales.textContent = formatCurrency(totalAmount);
+}
+
+// 업체별 순위 테이블 렌더링
+function renderSupplierTable() {
+    const tbody = $('supplierTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    if (supplierRankingData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">업체 데이터가 없습니다.</td></tr>';
+        return;
+    }
+    
+    supplierRankingData.forEach((supplier, index) => {
+        const row = document.createElement('tr');
+        row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-500">${supplier.rank}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><a href="#" class="text-blue-600 hover:underline" data-supplier="${supplier.supplier}">${supplier.supplier}</a></td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">${formatNumber(supplier.contractCount)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">${formatCurrency(supplier.amount)}</td>
+        `;
+        tbody.appendChild(row);
+
+        row.querySelector('a').addEventListener('click', (e) => {
+            e.preventDefault();
+            const supplierName = e.target.dataset.supplier;
+            showSupplierDetail(supplierName);
+        });
+    });
+}
+
+// 상세 정보 분석 및 렌더링
+function showSupplierDetail(supplierName) {
+    const supplierPanel = $('supplierPanel');
+    if (supplierPanel) supplierPanel.classList.add('hidden');
+    
+    let detailPanel = $('supplierDetailPanel');
+    if (!detailPanel) {
+        const mainContent = document.querySelector('main');
+        detailPanel = document.createElement('div');
+        detailPanel.id = 'supplierDetailPanel';
+        detailPanel.className = 'bg-white rounded-lg shadow-md mb-8';
+        mainContent.appendChild(detailPanel);
+    }
+    
+    detailPanel.classList.remove('hidden');
     
     detailPanel.innerHTML = `
         <div class="p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg"><strong class="font-bold">${agencyName}</strong> <span class="font-normal">상세 내역</span></h3>
-                <div class="flex items-center space-x-2 no-print">
-                    <button id="printDetailBtn" class="btn btn-secondary btn-sm">인쇄</button>
-                    <button id="exportDetailBtn" class="btn btn-secondary btn-sm">CSV 내보내기</button>
-                    <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
+                <h3 class="text-lg text-gray-900">
+                    <strong class="font-bold">${supplierName}</strong>
+                    <span class="font-normal">판매 상세 내역</span>
+                </h3>
+                <div class="flex space-x-2">
+                    <button id="printDetailBtn" class="btn btn-secondary btn-sm"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm7-8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v4h14z"></path></svg>인쇄</button>
+                    <button id="closeDetailBtn" class="btn btn-secondary btn-sm">목록으로</button>
                 </div>
             </div>
-            <div class="border-b border-gray-200 no-print"><nav class="-mb-px flex space-x-8" id="detailTabs"><button data-tab="purchase" class="analysis-tab active">상세 구매 내역</button><button data-tab="contract" class="analysis-tab">계약 상세</button></nav></div>
-            <div id="purchaseDetail" class="tab-content mt-4 printable-area"></div>
-            <div id="contractDetail" class="tab-content mt-4 printable-area hidden"></div>
-        </div>`;
-    
-    const agencyData = currentFilteredData.filter(item => item.agency === agencyName);
-    renderPurchaseDetail(agencyData);
-    renderContractDetail(agencyData);
+            <div class="overflow-x-auto">
+                <table id="supplierDetailTable" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">수요기관명</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="region">소재지</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="agencyType">소관기관</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="amount">업체 판매금액</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort="totalAmount">수요기관 전체</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">점유율</th>
+                        </tr>
+                    </thead>
+                    <tbody id="supplierDetailTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+    `;
 
-    const detailTabs = document.getElementById('detailTabs');
-    if(detailTabs) detailTabs.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            const tabName = e.target.dataset.tab;
-            detailTabs.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-            e.target.classList.add('active');
-            detailPanel.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
-            const contentToShow = document.getElementById(tabName + 'Detail');
-            if(contentToShow) contentToShow.classList.remove('hidden');
-        }
-    });
-
-    const backBtn = document.getElementById('backToListBtn');
-    if (backBtn) backBtn.addEventListener('click', () => {
+    $('closeDetailBtn').addEventListener('click', () => {
+        if (supplierPanel) supplierPanel.classList.remove('hidden');
         detailPanel.classList.add('hidden');
-        const rankPanel = document.getElementById('agencyRankPanel');
-        if (rankPanel) rankPanel.classList.remove('hidden');
     });
+    $('printDetailBtn').addEventListener('click', printCurrentView);
     
-    const printDetailBtn = document.getElementById('printDetailBtn');
-    if (printDetailBtn) printDetailBtn.addEventListener('click', () => printPanel(detailPanel.querySelector('.tab-content:not(.hidden)')));
-
-    const exportDetailBtn = document.getElementById('exportDetailBtn');
-    if (exportDetailBtn) exportDetailBtn.addEventListener('click', () => {
-        const activeTab = detailPanel.querySelector('.tab-content:not(.hidden)');
-        if (activeTab) {
-            CommonUtils.exportTableToCSV(activeTab.querySelector('table'), `${agencyName}_상세내역.csv`);
-        }
-    });
-
-    const rankPanel = document.getElementById('agencyRankPanel');
-    if (rankPanel) rankPanel.classList.add('hidden');
-    detailPanel.classList.remove('hidden');
-}
-
-function renderPurchaseDetail(agencyData) {
-    const container = document.getElementById('purchaseDetail');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <h4 class="text-md font-semibold mb-2">업체별 구매 내역</h4>
-        <table id="purchaseDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
-            <thead class="bg-gray-50"><tr>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순위</span></th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplier" data-sort-type="string"><span>업체명</span></th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractCount" data-sort-type="number"><span>거래건수</span></th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>구매금액</span></th>
-            </tr></thead>
-            <tbody id="purchaseDetailBody"></tbody>
-        </table>`;
-    
-    const supplierMap = new Map();
-    agencyData.forEach(item => {
-        if (!supplierMap.has(item.supplier)) supplierMap.set(item.supplier, { amount: 0, contracts: new Set() });
-        const info = supplierMap.get(item.supplier);
-        info.amount += item.amount;
-        info.contracts.add(item.contractName);
-    });
-
-    let data = [...supplierMap.entries()].map(([supplier, { amount, contracts }]) => ({ supplier, amount, contractCount: contracts.size }));
-    sortData(data, sortStates.purchase);
-    data.forEach((item, index) => item.rank = index + 1);
-    
-    const tbody = document.getElementById('purchaseDetailBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-    data.forEach(item => {
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td class="px-4 py-3 text-center">${item.rank}</td>
-            <td class="px-4 py-3">${item.supplier}</td>
-            <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
-            <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
-        `;
-    });
-
-    updateSortIndicators('purchaseDetailTable', sortStates.purchase);
-    const purchaseTableHead = document.querySelector('#purchaseDetailTable thead');
-    if (purchaseTableHead) purchaseTableHead.addEventListener('click', e => {
-        const th = e.target.closest('th');
-        if (th && th.dataset.sortKey) {
-            handleTableSort('purchase', th.dataset.sortKey, th.dataset.sortType);
-            renderPurchaseDetail(agencyData);
-        }
-    });
-}
-
-function renderContractDetail(agencyData) {
-    const container = document.getElementById('contractDetail');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <h4 class="text-md font-semibold mb-2">계약별 상세 내역</h4>
-        <table id="contractDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
-            <thead class="bg-gray-50"><tr>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순번</span></th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractName" data-sort-type="string"><span>계약명</span></th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplier" data-sort-type="string"><span>업체명</span></th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="date" data-sort-type="string"><span>거래일자</span></th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>공급금액</span></th>
-            </tr></thead>
-            <tbody id="contractDetailBody"></tbody>
-        </table>`;
-    
-    let data = [...agencyData];
-    sortData(data, sortStates.contract);
-    data.forEach((item, index) => item.rank = index + 1);
-    
-    const tbody = document.getElementById('contractDetailBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-    data.forEach(item => {
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td class="px-4 py-3 text-center">${item.rank}</td>
-            <td class="px-4 py-3">${item.contractName}</td>
-            <td class="px-4 py-3">${item.supplier}</td>
-            <td class="px-4 py-3 text-center">${item.date}</td>
-            <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
-        `;
-    });
-
-    updateSortIndicators('contractDetailTable', sortStates.contract);
-    const contractTableHead = document.querySelector('#contractDetailTable thead');
-    if (contractTableHead) contractTableHead.addEventListener('click', e => {
-        const th = e.target.closest('th');
-        if (th && th.dataset.sortKey) {
-            handleTableSort('contract', th.dataset.sortKey, th.dataset.sortType);
-            renderContractDetail(agencyData);
-        }
-    });
-}
-
-function handleTableSort(tableName, sortKey, sortType = 'string') {
-    const sortState = sortStates[tableName];
-    if (sortState.key === sortKey) {
-        sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
-    } else {
-        sortState.key = sortKey;
-        sortState.direction = 'desc';
+    const selectedYear = $('analysisYear')?.value || 'all';
+    let yearFilteredData = [...purchaseData];
+    if (selectedYear !== 'all') {
+        const year = parseInt(selectedYear);
+        yearFilteredData = yearFilteredData.filter(item => {
+            const date = parseDate(item.purchaseDate || '');
+            return date && date.getFullYear() === year;
+        });
     }
-    sortState.type = sortType;
-}
 
-function sortData(data, sortState) {
-    const { key, direction, type } = sortState;
-    data.sort((a, b) => {
-        const valA = a[key], valB = b[key];
-        let comparison = 0;
-        if (type === 'number') comparison = (Number(valA) || 0) - (Number(valB) || 0);
-        else comparison = String(valA || '').localeCompare(String(valB || ''));
-        return direction === 'asc' ? comparison : -comparison;
+    const supplierSpecificData = yearFilteredData.filter(item => item.supplier === supplierName);
+    
+    const agencyTotalMap = new Map();
+    yearFilteredData.forEach(item => {
+        const agencyName = item.agency;
+        agencyTotalMap.set(agencyName, (agencyTotalMap.get(agencyName) || 0) + item.amount);
     });
-}
 
-function updateSortIndicators(tableId, sortState) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-    table.querySelectorAll('thead th[data-sort-key]').forEach(th => {
-        const span = th.querySelector('span');
-        if (span) {
-            span.textContent = span.textContent.replace(/ [▲▼]$/, '');
-            if (th.dataset.sortKey === sortState.key) {
-                span.textContent += sortState.direction === 'asc' ? ' ▲' : ' ▼';
+    const agencySalesMap = new Map();
+    supplierSpecificData.forEach(item => {
+        const agencyName = item.agency;
+        if (!agencySalesMap.has(agencyName)) {
+            agencySalesMap.set(agencyName, {
+                agency: item.agency, region: item.region, agencyType: item.agencyType,
+                amount: 0, totalAmount: agencyTotalMap.get(agencyName) || 0
+            });
+        }
+        agencySalesMap.get(agencyName).amount += item.amount;
+    });
+
+    let supplierDetailData = Array.from(agencySalesMap.values());
+    supplierDetailData.sort((a, b) => b.amount - a.amount);
+    
+    renderDetailTable(supplierDetailData);
+
+    detailPanel.querySelectorAll('th[data-sort]').forEach(header => {
+        header.addEventListener('click', () => {
+            const column = header.dataset.sort;
+            if (detailSortState.column === column) {
+                detailSortState.direction = detailSortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                detailSortState.column = column;
+                detailSortState.direction = 'asc';
             }
-        }
+            
+            supplierDetailData.sort((a, b) => {
+                let valA = a[column]; let valB = b[column];
+                if (typeof valA === 'string') {
+                    return detailSortState.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else {
+                    return detailSortState.direction === 'asc' ? valA - valB : valB - valA;
+                }
+            });
+            renderDetailTable(supplierDetailData);
+        });
     });
 }
 
-function showLoadingState(isLoading, text = '분석 중...') {
-    const button = document.getElementById('analyzeBtn');
-    if (button) {
-        button.disabled = isLoading;
-        const svgIcon = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>';
-        button.innerHTML = isLoading ? `<div class="loading-spinner mr-2"></div> ${text}...` : `${svgIcon}분석`;
+function renderDetailTable(data) {
+    const tbody = $('supplierDetailTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">상세 내역이 없습니다.</td></tr>';
+    } else {
+        data.forEach((item, index) => {
+            const share = item.totalAmount > 0 ? (item.amount / item.totalAmount) * 100 : 0;
+            const row = document.createElement('tr');
+            row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.agency}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.region}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.agencyType}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">${formatCurrency(item.amount)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">${formatCurrency(item.totalAmount)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">${share.toFixed(1)}%</td>
+            `;
+            tbody.appendChild(row);
+        });
     }
 }
 
-function printPanel(panel) {
-    if (panel) {
-        panel.classList.add('printing-now');
-        window.print();
-        setTimeout(() => {
-            panel.classList.remove('printing-now');
-        }, 500);
-    } else {
-        CommonUtils.showAlert('인쇄할 내용이 없습니다.', 'warning');
+function showLoadingState(show) {
+    isLoading = show;
+    const analyzeBtn = $('analyzeBtn');
+    if (analyzeBtn) {
+        analyzeBtn.disabled = show;
+        analyzeBtn.innerHTML = show 
+            ? '<div class="loading-spinner"></div>분석 중...' 
+            : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>분석`;
     }
+    const statElements = ['totalSuppliers', 'totalContracts', 'totalSales'];
+    statElements.forEach(id => {
+        const element = $(id);
+        if (element) element.textContent = show ? '로딩중...' : element.textContent;
+    });
 }
+
+function showAlert(message, type = 'info') {
+    if (window.CommonUtils && CommonUtils.showAlert) {
+        window.CommonUtils.showAlert(message, type);
+    } else { alert(message); }
+}
+
+function printCurrentView() {
+    const supplierPanel = $('supplierPanel');
+    const detailPanel = $('supplierDetailPanel');
+    let panelToPrint = null;
+    if (detailPanel && !detailPanel.classList.contains('hidden')) {
+        panelToPrint = detailPanel;
+    } else if (supplierPanel && !supplierPanel.classList.contains('hidden')) {
+        panelToPrint = supplierPanel;
+    }
+    if (panelToPrint) {
+        panelToPrint.classList.add('printable-area');
+        window.print();
+    } else { showAlert('인쇄할 데이터가 없습니다.', 'warning'); }
+}
+
+window.onafterprint = () => {
+    document.querySelectorAll('.printable-area').forEach(el => el.classList.remove('printable-area'));
+};
+
+window.SupplierAnalysis = {
+    analyzeData: analyzeData,
+    printCurrentView: printCurrentView
+};
+
+console.log('=== SupplierAnalysis 모듈 로드 완료 ===');
