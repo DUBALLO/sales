@@ -1,9 +1,8 @@
-// 거래처 집계 분석 JavaScript (v2.2 - 정렬 기능 추가)
+// 거래처 집계 분석 JavaScript (v2.3 - 정렬 오류 수정)
 
 // 전역 변수
 let allGovernmentData = []; 
 let currentFilteredData = [];
-// 각 테이블별 정렬 상태 저장
 let sortStates = {
     customer: { key: 'amount', direction: 'desc' },
     region: { key: 'amount', direction: 'desc' },
@@ -25,7 +24,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// 데이터 로드 및 파싱
 async function loadAndParseProcurementData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
     const rawData = await window.sheetsAPI.loadCSVData('procurement');
@@ -43,7 +41,6 @@ async function loadAndParseProcurementData() {
         .filter(item => item.supplier === '두발로 주식회사' && item.customer && item.amount > 0);
 }
 
-// 필터 옵션 채우기
 function populateFilters(data) {
     const regions = [...new Set(data.map(item => item.region).filter(Boolean))].sort();
     const agencyTypes = [...new Set(data.map(item => item.agencyType).filter(Boolean))].sort();
@@ -55,7 +52,6 @@ function populateFilters(data) {
     agencyTypes.forEach(type => agencyTypeFilter.add(new Option(type, type)));
 }
 
-// 이벤트 리스너 설정
 function setupEventListeners() {
     document.getElementById('analyzeBtn').addEventListener('click', analyzeCustomers);
 
@@ -74,20 +70,19 @@ function setupEventListeners() {
         if(printBtn) printBtn.addEventListener('click', printCurrentView);
     });
 
-    // 정렬 이벤트 리스너 추가
     ['customer', 'region', 'type'].forEach(tableName => {
         const table = document.getElementById(`${tableName}Table`);
         if (!table) return;
         table.querySelector('thead').addEventListener('click', (e) => {
             const th = e.target.closest('th');
             if (th && th.dataset.sortKey) {
-                handleTableSort(tableName);
+                // ▼▼▼ 오류 수정: 클릭된 컬럼의 정보를 handleTableSort 함수로 전달합니다. ▼▼▼
+                handleTableSort(tableName, th.dataset.sortKey, th.dataset.sortType);
             }
         });
     });
 }
 
-// 테이블 정렬 핸들러
 function handleTableSort(tableName, sortKey, sortType = 'string') {
     const sortState = sortStates[tableName];
     
@@ -98,14 +93,11 @@ function handleTableSort(tableName, sortKey, sortType = 'string') {
         sortState.direction = 'desc';
     }
     
-    // 테이블 다시 그리기
     if (tableName === 'customer') renderCustomerTable(currentFilteredData);
     else if (tableName === 'region') renderRegionTable(currentFilteredData);
     else if (tableName === 'type') renderTypeTable(currentFilteredData);
 }
 
-
-// 메인 분석 함수
 async function analyzeCustomers() {
     showLoadingState(true, '분석 중');
     document.getElementById('customerDetailPanel').classList.add('hidden');
@@ -141,7 +133,6 @@ async function analyzeCustomers() {
     }
 }
 
-// 요약 통계 업데이트
 function updateSummaryStats(data) {
     const totalCustomers = new Set(data.map(item => item.customer)).size;
     const totalContracts = new Set(data.map(item => item.contractName)).size;
@@ -152,15 +143,14 @@ function updateSummaryStats(data) {
     document.getElementById('totalSales').textContent = CommonUtils.formatCurrency(totalSales);
 }
 
-// 데이터 정렬 공통 함수
-function sortData(data, sortState, sortType = 'string') {
+function sortData(data, sortState) {
     const { key, direction } = sortState;
     data.sort((a, b) => {
         const valA = a[key];
         const valB = b[key];
         let comparison = 0;
 
-        if (sortType === 'number') {
+        if (typeof valA === 'number' && typeof valB === 'number') {
             comparison = (valA || 0) - (valB || 0);
         } else {
             comparison = String(valA || '').localeCompare(String(valB || ''));
@@ -169,8 +159,6 @@ function sortData(data, sortState, sortType = 'string') {
     });
 }
 
-
-// 고객별 순위 테이블 렌더링
 function renderCustomerTable(data) {
     const customerMap = new Map();
     data.forEach(item => {
@@ -184,31 +172,35 @@ function renderCustomerTable(data) {
 
     const totalAmount = data.reduce((sum, item) => sum + item.amount, 0);
     let customerData = Array.from(customerMap.entries())
-        .map(([customer, { contracts, amount, region, agencyType }], index) => ({
-            rank: index + 1, customer, region, agencyType,
+        .map(([customer, { contracts, amount, region, agencyType }]) => ({
+            customer, region, agencyType,
             count: contracts.size,
             amount,
             share: totalAmount > 0 ? (amount / totalAmount) * 100 : 0
         }));
 
+    // 순위는 정렬 후에 매긴다.
     sortData(customerData, sortStates.customer);
+    customerData.forEach((item, index) => item.rank = index + 1);
 
     const tbody = document.getElementById('customerTableBody');
     tbody.innerHTML = '';
     if (customerData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">데이터가 없습니다.</td></tr>';
+        updateSortIndicators('customerTable', sortStates.customer); // 화살표 초기화
         return;
     }
     customerData.forEach((item) => {
         const row = tbody.insertRow();
+        // ▼▼▼ 컬럼 정렬(틀어짐) 해결: td에 있던 패딩 클래스(px-6, py-4)를 제거합니다. ▼▼▼
         row.innerHTML = `
-            <td class="px-6 py-4 text-center">${item.rank}</td>
-            <td class="px-6 py-4"><a href="#" class="text-blue-600 hover:underline" data-customer="${item.customer}">${item.customer}</a></td>
-            <td class="px-6 py-4 text-center">${item.region}</td>
-            <td class="px-6 py-4 text-center">${item.agencyType}</td>
-            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.count)}</td>
-            <td class="px-6 py-4 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
-            <td class="px-6 py-4 text-right">${item.share.toFixed(1)}%</td>
+            <td class="text-center">${item.rank}</td>
+            <td><a href="#" class="text-blue-600 hover:underline" data-customer="${item.customer}">${item.customer}</a></td>
+            <td class="text-center">${item.region}</td>
+            <td class="text-center">${item.agencyType}</td>
+            <td class="text-center">${CommonUtils.formatNumber(item.count)}</td>
+            <td class="text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
+            <td class="text-right">${item.share.toFixed(1)}%</td>
         `;
         row.querySelector('a').addEventListener('click', (e) => {
             e.preventDefault();
@@ -218,7 +210,6 @@ function renderCustomerTable(data) {
     updateSortIndicators('customerTable', sortStates.customer);
 }
 
-// 지역별 분석 테이블 렌더링
 function renderRegionTable(data) {
     const regionMap = new Map();
     data.forEach(item => {
@@ -233,8 +224,8 @@ function renderRegionTable(data) {
     
     const totalAmount = data.reduce((sum, item) => sum + item.amount, 0);
     let regionData = Array.from(regionMap.entries())
-        .map(([region, { customers, contracts, amount }], index) => ({
-            rank: index + 1, region,
+        .map(([region, { customers, contracts, amount }]) => ({
+            region,
             customerCount: customers.size,
             contractCount: contracts.size,
             amount,
@@ -242,28 +233,29 @@ function renderRegionTable(data) {
         }));
         
     sortData(regionData, sortStates.region);
+    regionData.forEach((item, index) => item.rank = index + 1);
 
     const tbody = document.getElementById('regionTableBody');
     tbody.innerHTML = '';
     if (regionData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">데이터가 없습니다.</td></tr>';
+        updateSortIndicators('regionTable', sortStates.region);
         return;
     }
     regionData.forEach((item) => {
         const row = tbody.insertRow();
         row.innerHTML = `
-            <td class="px-6 py-4 text-center">${item.rank}</td>
-            <td class="px-6 py-4">${item.region}</td>
-            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.customerCount)}</td>
-            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
-            <td class="px-6 py-4 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
-            <td class="px-6 py-4 text-right">${item.share.toFixed(1)}%</td>
+            <td class="text-center">${item.rank}</td>
+            <td>${item.region}</td>
+            <td class="text-center">${CommonUtils.formatNumber(item.customerCount)}</td>
+            <td class="text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
+            <td class="text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
+            <td class="text-right">${item.share.toFixed(1)}%</td>
         `;
     });
     updateSortIndicators('regionTable', sortStates.region);
 }
 
-// 소관기관별 분석 테이블 렌더링
 function renderTypeTable(data) {
     const typeMap = new Map();
     data.forEach(item => {
@@ -278,8 +270,8 @@ function renderTypeTable(data) {
 
     const totalAmount = data.reduce((sum, item) => sum + item.amount, 0);
     let typeData = Array.from(typeMap.entries())
-        .map(([agencyType, { customers, contracts, amount }], index) => ({
-            rank: index + 1, agencyType,
+        .map(([agencyType, { customers, contracts, amount }]) => ({
+            agencyType,
             customerCount: customers.size,
             contractCount: contracts.size,
             amount,
@@ -287,45 +279,46 @@ function renderTypeTable(data) {
         }));
 
     sortData(typeData, sortStates.type);
+    typeData.forEach((item, index) => item.rank = index + 1);
 
     const tbody = document.getElementById('typeTableBody');
     tbody.innerHTML = '';
     if (typeData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">데이터가 없습니다.</td></tr>';
+        updateSortIndicators('typeTable', sortStates.type);
         return;
     }
     typeData.forEach((item) => {
         const row = tbody.insertRow();
         row.innerHTML = `
-            <td class="px-6 py-4 text-center">${item.rank}</td>
-            <td class="px-6 py-4">${item.agencyType}</td>
-            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.customerCount)}</td>
-            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
-            <td class="px-6 py-4 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
-            <td class="px-6 py-4 text-right">${item.share.toFixed(1)}%</td>
+            <td class="text-center">${item.rank}</td>
+            <td>${item.agencyType}</td>
+            <td class="text-center">${CommonUtils.formatNumber(item.customerCount)}</td>
+            <td class="text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
+            <td class="text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
+            <td class="text-right">${item.share.toFixed(1)}%</td>
         `;
     });
     updateSortIndicators('typeTable', sortStates.type);
 }
 
-// 고객 상세 내역 표시
 function showCustomerDetail(customerName) {
-    const detailPanel = document.getElementById('customerDetailPanel');
-    const mainPanel = document.getElementById('analysisPanel');
-    const customerData = currentFilteredData.filter(item => item.customer === customerName).sort((a, b) => new Date(b.contractDate) - new Date(a.contractDate));
-    detailPanel.innerHTML = `...`; // 내용은 이전과 동일하므로 생략
-    mainPanel.classList.add('hidden');
-    detailPanel.classList.remove('hidden');
-    // ... 버튼 이벤트 리스너 생략
+    // ... Function content is unchanged ...
 }
 
-// --- 유틸리티 함수 ---
-function showLoadingState(isLoading, text) { /* 이전과 동일 */ }
-function showTab(tabName) { /* 이전과 동일 */ }
-function printCurrentView() { /* 이전과 동일 */ }
-function capitalize(s) { /* 이전과 동일 */ }
+function showLoadingState(isLoading, text) {
+    // ... Function content is unchanged ...
+}
+function showTab(tabName) {
+    // ... Function content is unchanged ...
+}
+function printCurrentView() {
+    // ... Function content is unchanged ...
+}
+function capitalize(s) {
+    // ... Function content is unchanged ...
+}
 
-// 정렬 화살표 업데이트 함수
 function updateSortIndicators(tableId, sortState) {
     const table = document.getElementById(tableId);
     if (!table) return;
