@@ -1,4 +1,4 @@
-// supplier-purchase-history.js (v2 - 기능 개선)
+// supplier-purchase-history.js (v2.1 - 정렬 및 UI 수정)
 
 // 전역 변수
 let allData = [];
@@ -12,7 +12,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     showLoadingState(true, '데이터 로딩 중...');
     try {
         allData = await loadAndParseData();
-        document.getElementById('analyzeBtn').addEventListener('click', analyzeData);
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', analyzeData);
+        }
         await analyzeData();
     } catch (error) {
         console.error("초기화 실패:", error);
@@ -157,9 +160,9 @@ function showSupplierDetail(supplierName) {
                     <thead class="bg-gray-50"><tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="agency" data-sort-type="string"><span>수요기관명</span></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="region" data-sort-type="string"><span>소재지</span></th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>업체 판매금액</span></th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="totalAmount" data-sort-type="number"><span>수요기관 전체</span></th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="share" data-sort-type="number"><span>점유율</span></th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>업체 판매금액</span></th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="totalAmount" data-sort-type="number"><span>수요기관 전체</span></th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="share" data-sort-type="number"><span>점유율</span></th>
                     </tr></thead>
                     <tbody id="supplierDetailTableBody"></tbody>
                 </table>
@@ -224,7 +227,6 @@ function showSupplierDetail(supplierName) {
     detailPanel.classList.remove('hidden');
 }
 
-// --- 유틸리티 함수 ---
 function handleTableSort(tableName, sortKey, sortType = 'string') {
     const sortState = sortStates[tableName];
     if (sortState.key === sortKey) {
@@ -272,10 +274,11 @@ function showLoadingState(isLoading, text = '분석 중...') {
 
 function printPanel(panel) {
     if (panel) {
-        panel.classList.add('printing-now');
+        // 인쇄 시 printable-area 클래스를 동적으로 추가/제거
+        panel.classList.add('printable-area');
         window.print();
         setTimeout(() => {
-            panel.classList.remove('printing-now');
+            panel.classList.remove('printable-area');
         }, 500);
     } else {
         CommonUtils.showAlert('인쇄할 내용이 없습니다.', 'warning');
