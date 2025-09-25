@@ -1,4 +1,4 @@
-// 거래처 집계 분석 JavaScript (v2 - 2025-09-25 요청사항 반영)
+// 거래처 집계 분석 JavaScript (v2.1 - 오류 수정)
 
 // 전역 변수
 let allGovernmentData = []; // 최초 로드된 전체 데이터
@@ -6,7 +6,7 @@ let currentFilteredData = []; // 현재 필터가 적용된 데이터
 
 // DOMContentLoaded 이벤트 핸들러
 document.addEventListener('DOMContentLoaded', async () => {
-    showLoadingState(true, '데이터 로딩 중...');
+    showLoadingState(true, '데이터 로딩 중');
     try {
         allGovernmentData = await loadAndParseProcurementData();
         populateFilters(allGovernmentData);
@@ -14,7 +14,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         await analyzeCustomers();
     } catch (error) {
         console.error("초기화 실패:", error);
-        CommonUtils.showAlert("페이지 초기화 중 오류 발생: " + error.message, 'error');
+        // CommonUtils가 로드되지 않았을 수 있으므로 안전하게 alert 사용
+        alert("페이지 초기화 중 오류가 발생했습니다. 개발자 콘솔을 확인해주세요.");
     } finally {
         showLoadingState(false, '분석');
     }
@@ -40,8 +41,8 @@ async function loadAndParseProcurementData() {
 
 // 필터 옵션 채우기
 function populateFilters(data) {
-    const regions = [...new Set(data.map(item => item.region))].sort();
-    const agencyTypes = [...new Set(data.map(item => item.agencyType))].sort();
+    const regions = [...new Set(data.map(item => item.region).filter(Boolean))].sort();
+    const agencyTypes = [...new Set(data.map(item => item.agencyType).filter(Boolean))].sort();
     
     const regionFilter = document.getElementById('regionFilter');
     const agencyTypeFilter = document.getElementById('agencyTypeFilter');
@@ -50,23 +51,34 @@ function populateFilters(data) {
     agencyTypes.forEach(type => agencyTypeFilter.add(new Option(type, type)));
 }
 
-// 이벤트 리스너 설정
+// 이벤트 리스너 설정 (오류 수정)
 function setupEventListeners() {
-    document.getElementById('analyzeBtn').addEventListener('click', analyzeCustomers);
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    if(analyzeBtn) analyzeBtn.addEventListener('click', analyzeCustomers);
 
     const tabs = ['customer', 'region', 'type'];
     tabs.forEach(tab => {
-        document.getElementById(`${tab}Tab`).addEventListener('click', () => showTab(tab));
-        document.getElementById(`export${capitalize(tab)}Btn`).addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById(`${tab}Table`), `${tab}_data.csv`));
-        document.getElementById(`print${capitalize(tab)}Btn`).addEventListener('click', printCurrentView);
+        const tabBtn = document.getElementById(`${tab}Tab`);
+        if(tabBtn) tabBtn.addEventListener('click', () => showTab(tab));
+
+        // ID를 정확하게 찾도록 수정
+        const exportBtn = document.getElementById(`export${capitalize(tab)}Btn`);
+        const table = document.getElementById(`${tab}Table`);
+        if(exportBtn && table) {
+            exportBtn.addEventListener('click', () => CommonUtils.exportTableToCSV(table, `${tab}_data.csv`));
+        }
+
+        const printBtn = document.getElementById(`print${capitalize(tab)}Btn`);
+        if(printBtn) printBtn.addEventListener('click', printCurrentView);
     });
 }
 
+
 // 메인 분석 함수
 async function analyzeCustomers() {
-    showLoadingState(true, '분석 중...');
-    document.getElementById('customerDetailPanel').classList.add('hidden'); // 상세 패널 숨기기
-    document.getElementById('analysisPanel').classList.remove('hidden');   // 메인 패널 보이기
+    showLoadingState(true, '분석 중');
+    document.getElementById('customerDetailPanel').classList.add('hidden');
+    document.getElementById('analysisPanel').classList.remove('hidden');
 
     try {
         const year = document.getElementById('analysisYear').value;
@@ -140,13 +152,13 @@ function renderCustomerTable(data) {
     customerData.forEach((item, index) => {
         const row = tbody.insertRow();
         row.innerHTML = `
-            <td class="text-center">${index + 1}</td>
-            <td><a href="#" class="text-blue-600 hover:underline" data-customer="${item.customer}">${item.customer}</a></td>
-            <td class="text-center">${item.region}</td>
-            <td class="text-center">${item.agencyType}</td>
-            <td class="text-center">${CommonUtils.formatNumber(item.count)}</td>
-            <td class="text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
-            <td class="text-right">${item.share.toFixed(1)}%</td>
+            <td class="px-6 py-4 text-center">${index + 1}</td>
+            <td class="px-6 py-4"><a href="#" class="text-blue-600 hover:underline" data-customer="${item.customer}">${item.customer}</a></td>
+            <td class="px-6 py-4 text-center">${item.region}</td>
+            <td class="px-6 py-4 text-center">${item.agencyType}</td>
+            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.count)}</td>
+            <td class="px-6 py-4 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
+            <td class="px-6 py-4 text-right">${item.share.toFixed(1)}%</td>
         `;
         row.querySelector('a').addEventListener('click', (e) => {
             e.preventDefault();
@@ -188,12 +200,12 @@ function renderRegionTable(data) {
     regionData.forEach((item, index) => {
         const row = tbody.insertRow();
         row.innerHTML = `
-            <td class="text-center">${index + 1}</td>
-            <td>${item.region}</td>
-            <td class="text-center">${CommonUtils.formatNumber(item.customerCount)}</td>
-            <td class="text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
-            <td class="text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
-            <td class="text-right">${item.share.toFixed(1)}%</td>
+            <td class="px-6 py-4 text-center">${index + 1}</td>
+            <td class="px-6 py-4">${item.region}</td>
+            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.customerCount)}</td>
+            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
+            <td class="px-6 py-4 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
+            <td class="px-6 py-4 text-right">${item.share.toFixed(1)}%</td>
         `;
     });
 }
@@ -231,12 +243,12 @@ function renderTypeTable(data) {
     typeData.forEach((item, index) => {
         const row = tbody.insertRow();
         row.innerHTML = `
-            <td class="text-center">${index + 1}</td>
-            <td>${item.agencyType}</td>
-            <td class="text-center">${CommonUtils.formatNumber(item.customerCount)}</td>
-            <td class="text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
-            <td class="text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
-            <td class="text-right">${item.share.toFixed(1)}%</td>
+            <td class="px-6 py-4 text-center">${index + 1}</td>
+            <td class="px-6 py-4">${item.agencyType}</td>
+            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.customerCount)}</td>
+            <td class="px-6 py-4 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
+            <td class="px-6 py-4 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
+            <td class="px-6 py-4 text-right">${item.share.toFixed(1)}%</td>
         `;
     });
 }
@@ -246,7 +258,7 @@ function showCustomerDetail(customerName) {
     const detailPanel = document.getElementById('customerDetailPanel');
     const mainPanel = document.getElementById('analysisPanel');
     
-    const customerData = currentFilteredData.filter(item => item.customer === customerName);
+    const customerData = currentFilteredData.filter(item => item.customer === customerName).sort((a, b) => new Date(b.contractDate) - new Date(a.contractDate));
     
     detailPanel.innerHTML = `
         <div class="p-6">
@@ -268,14 +280,14 @@ function showCustomerDetail(customerName) {
                         </tr>
                     </thead>
                     <tbody>
-                        ${customerData.map(item => `
+                        ${customerData.length > 0 ? customerData.map(item => `
                             <tr>
-                                <td>${item.contractName}</td>
-                                <td>${item.product}</td>
-                                <td class="text-center">${CommonUtils.formatDate(item.contractDate)}</td>
-                                <td class="text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
+                                <td class="px-6 py-4">${item.contractName}</td>
+                                <td class="px-6 py-4">${item.product}</td>
+                                <td class="px-6 py-4 text-center">${CommonUtils.formatDate(item.contractDate, 'short')}</td>
+                                <td class="px-6 py-4 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
                             </tr>
-                        `).join('')}
+                        `).join('') : '<tr><td colspan="4" class="text-center py-8 text-gray-500">상세 계약 내역이 없습니다.</td></tr>'}
                     </tbody>
                 </table>
             </div>
@@ -290,9 +302,10 @@ function showCustomerDetail(customerName) {
         mainPanel.classList.remove('hidden');
     });
     document.getElementById('printDetailBtn').addEventListener('click', () => {
-        detailPanel.classList.add('printable-area');
+        const detailContent = detailPanel.querySelector('.p-6');
+        detailContent.classList.add('printable-area');
         window.print();
-        detailPanel.classList.remove('printable-area');
+        detailContent.classList.remove('printable-area');
     });
 }
 
@@ -302,9 +315,10 @@ function showLoadingState(isLoading, text) {
     const btn = document.getElementById('analyzeBtn');
     if (btn) {
         btn.disabled = isLoading;
+        const svgIcon = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>';
         btn.innerHTML = isLoading 
-            ? `<div class="loading-spinner"></div> ${text}...`
-            : `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>${text}`;
+            ? `<div class="loading-spinner mr-2"></div> ${text}...`
+            : `${svgIcon}${text}`;
     }
 }
 
@@ -316,14 +330,18 @@ function showTab(tabName) {
 }
 
 function printCurrentView() {
-    const activePanel = document.querySelector('.tab-panel:not(.hidden)');
-    if (activePanel) {
-        document.getElementById('analysisPanel').classList.add('printable-area');
+    const printableContent = document.getElementById('analysisPanel');
+    if (printableContent) {
+        printableContent.classList.add('printable-area');
         window.print();
-        document.getElementById('analysisPanel').classList.remove('printable-area');
+        // 인쇄 후 클래스 제거를 위해 약간의 지연시간을 줌
+        setTimeout(() => {
+            printableContent.classList.remove('printable-area');
+        }, 500);
     }
 }
 
 function capitalize(s) {
+    if (typeof s !== 'string' || s.length === 0) return '';
     return s.charAt(0).toUpperCase() + s.slice(1);
 }
