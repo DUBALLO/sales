@@ -113,6 +113,10 @@ async function analyzeCustomers() {
         }
 
         updateSummaryStats(currentFilteredData);
+        // 정렬 상태를 기본값(매출액 내림차순)으로 초기화
+        sortStates.customer = { key: 'amount', direction: 'desc', type: 'number' };
+        sortStates.region = { key: 'amount', direction: 'desc', type: 'number' };
+        sortStates.type = { key: 'amount', direction: 'desc', type: 'number' };
         renderCustomerTable(currentFilteredData);
         renderRegionTable(currentFilteredData);
         renderTypeTable(currentFilteredData);
@@ -168,8 +172,10 @@ function renderCustomerTable(data) {
             amount,
             share: totalAmount > 0 ? (amount / totalAmount) * 100 : 0
         }));
+        
     sortData(customerData, sortStates.customer);
     customerData.forEach((item, index) => item.rank = index + 1);
+
     const tbody = document.getElementById('customerTableBody');
     tbody.innerHTML = '';
     if (customerData.length === 0) {
@@ -179,6 +185,7 @@ function renderCustomerTable(data) {
     }
     customerData.forEach((item) => {
         const row = tbody.insertRow();
+        // ▼▼▼ 여기에 px-4 py-3 클래스를 추가하여 헤더와 정렬을 맞춥니다. ▼▼▼
         row.innerHTML = `
             <td class="px-4 py-3 text-center">${item.rank}</td>
             <td class="px-4 py-3"><a href="#" class="text-blue-600 hover:underline" data-customer="${item.customer}">${item.customer}</a></td>
@@ -216,8 +223,10 @@ function renderRegionTable(data) {
             amount,
             share: totalAmount > 0 ? (amount / totalAmount) * 100 : 0
         }));
+
     sortData(regionData, sortStates.region);
     regionData.forEach((item, index) => item.rank = index + 1);
+
     const tbody = document.getElementById('regionTableBody');
     tbody.innerHTML = '';
     if (regionData.length === 0) {
@@ -257,126 +266,4 @@ function renderTypeTable(data) {
             customerCount: customers.size,
             contractCount: contracts.size,
             amount,
-            share: totalAmount > 0 ? (amount / totalAmount) * 100 : 0
-        }));
-    sortData(typeData, sortStates.type);
-    typeData.forEach((item, index) => item.rank = index + 1);
-    const tbody = document.getElementById('typeTableBody');
-    tbody.innerHTML = '';
-    if (typeData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-center py-8 text-gray-500">데이터가 없습니다.</td></tr>';
-        updateSortIndicators('typeTable', sortStates.type);
-        return;
-    }
-    typeData.forEach((item) => {
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td class="px-4 py-3 text-center">${item.rank}</td>
-            <td class="px-4 py-3">${item.agencyType}</td>
-            <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.customerCount)}</td>
-            <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
-            <td class="px-4 py-3 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
-            <td class="px-4 py-3 text-right">${item.share.toFixed(1)}%</td>
-        `;
-    });
-    updateSortIndicators('typeTable', sortStates.type);
-}
-
-function showCustomerDetail(customerName) {
-    const detailPanel = document.getElementById('customerDetailPanel');
-    const mainPanel = document.getElementById('analysisPanel');
-    const customerData = currentFilteredData.filter(item => item.customer === customerName).sort((a, b) => new Date(b.contractDate) - new Date(a.contractDate));
-    detailPanel.innerHTML = `
-        <div class="p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg"><strong class="font-bold">${customerName}</strong> <span class="font-normal">상세 계약 내역</span></h3>
-                <div class="flex items-center space-x-2 no-print">
-                    <button id="printDetailBtn" class="btn btn-secondary btn-sm">인쇄</button>
-                    <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
-                </div>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 data-table">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">계약명</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">품목</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">계약일</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">매출액</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${customerData.length > 0 ? customerData.map(item => `
-                            <tr>
-                                <td class="px-4 py-3">${item.contractName}</td>
-                                <td class="px-4 py-3">${item.product}</td>
-                                <td class="px-4 py-3 text-center">${CommonUtils.formatDate(item.contractDate, 'short')}</td>
-                                <td class="px-4 py-3 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
-                            </tr>
-                        `).join('') : '<tr><td colspan="4" class="px-4 py-3 text-center py-8 text-gray-500">상세 계약 내역이 없습니다.</td></tr>'}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-    mainPanel.classList.add('hidden');
-    detailPanel.classList.remove('hidden');
-    document.getElementById('backToListBtn').addEventListener('click', () => {
-        detailPanel.classList.add('hidden');
-        mainPanel.classList.remove('hidden');
-    });
-    document.getElementById('printDetailBtn').addEventListener('click', () => {
-        const detailContent = detailPanel.querySelector('.p-6');
-        detailContent.classList.add('printable-area');
-        window.print();
-        detailContent.classList.remove('printable-area');
-    });
-}
-
-function showLoadingState(isLoading, text) {
-    const btn = document.getElementById('analyzeBtn');
-    if (btn) {
-        btn.disabled = isLoading;
-        const svgIcon = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>';
-        btn.innerHTML = isLoading 
-            ? `<div class="loading-spinner mr-2"></div> ${text}...`
-            : `${svgIcon}${text}`;
-    }
-}
-
-function showTab(tabName) {
-    document.querySelectorAll('.analysis-tab').forEach(tab => tab.classList.remove('active'));
-    document.getElementById(`${tabName}Tab`).classList.add('active');
-    document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
-    document.getElementById(`${tabName}Panel`).classList.remove('hidden');
-}
-
-function printCurrentView() {
-    const printableContent = document.getElementById('analysisPanel');
-    if (printableContent) {
-        printableContent.classList.add('printable-area');
-        window.print();
-        setTimeout(() => {
-            printableContent.classList.remove('printable-area');
-        }, 500);
-    }
-}
-
-function capitalize(s) {
-    if (typeof s !== 'string' || s.length === 0) return '';
-    return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function updateSortIndicators(tableId, sortState) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-    table.querySelectorAll('thead th[data-sort-key]').forEach(th => {
-        const span = th.querySelector('span');
-        if (span) {
-            span.textContent = span.textContent.replace(/ [▲▼]$/, '');
-            if (th.dataset.sortKey === sortState.key) {
-                span.textContent += sortState.direction === 'asc' ? ' ▲' : ' ▼';
-            }
-        }
-    });
-}
+            share: totalAmount > 0 ? (amount / totalAmount) * 100
