@@ -1,11 +1,11 @@
-// supplier-purchase-history.js (v2.2 - 이벤트 리스너 오류 수정)
+// supplier-purchase-history.js (v2.4 - 점유율 위치 수정)
 
 // 전역 변수
 let allData = [];
 let currentFilteredData = [];
 let sortStates = {
     main: { key: 'amount', direction: 'desc', type: 'number' },
-    detail: { key: 'amount', direction: 'desc', type: 'number' }
+    detail: { key: 'share', direction: 'desc', type: 'number' } // 상세 점유율 기준 정렬
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -101,7 +101,8 @@ function renderSupplierTable(data) {
         info.amount += item.amount;
         info.contracts.add(item.contractName);
     });
-
+    
+    // ▼▼▼ 메인 테이블에서는 점유율 계산 로직 삭제 ▼▼▼
     let supplierData = [...supplierMap.entries()].map(([supplier, { amount, contracts }]) => ({
         supplier, amount, contractCount: contracts.size
     }));
@@ -116,6 +117,7 @@ function renderSupplierTable(data) {
     } else {
         supplierData.forEach(item => {
             const row = tbody.insertRow();
+            // ▼▼▼ 메인 테이블에서는 점유율 표시 td 삭제 ▼▼▼
             row.innerHTML = `
                 <td class="px-4 py-3 text-center">${item.rank}</td>
                 <td class="px-4 py-3"><a href="#" data-supplier="${item.supplier}" class="text-blue-600 hover:underline">${item.supplier}</a></td>
@@ -131,7 +133,6 @@ function renderSupplierTable(data) {
 
     updateSortIndicators('supplierTable', sortStates.main);
 
-    // ▼▼▼ 오류 수정: document 대신 panel에서 요소를 찾아 이벤트를 연결합니다. ▼▼▼
     panel.querySelector('#supplierTable thead').addEventListener('click', e => {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
@@ -184,6 +185,7 @@ function showSupplierDetail(supplierName) {
         agencySalesMap.get(item.agency).amount += item.amount;
     });
 
+    // ▼▼▼ 상세 내역 테이블에 필요한 점유율 계산 로직 ▼▼▼
     let detailData = [...agencySalesMap.values()].map(item => {
         const totalAmount = agencyTotalMap.get(item.agency) || 0;
         return { ...item, totalAmount, share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0 };
@@ -195,6 +197,7 @@ function showSupplierDetail(supplierName) {
         tbody.innerHTML = '';
         detailData.forEach(item => {
             const row = tbody.insertRow();
+            // ▼▼▼ 상세 내역 테이블에 점유율 표시 td 추가 ▼▼▼
             row.innerHTML = `
                 <td class="px-4 py-3">${item.agency}</td>
                 <td class="px-4 py-3">${item.region}</td>
