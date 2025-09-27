@@ -1,8 +1,9 @@
-// agency-purchase-history.js (v2.1 - 상세 내역 점유율 추가)
+// agency-purchase-history.js (v3 - 연도별 추이 탭 추가)
 
 // 전역 변수
 let allData = [];
 let currentFilteredData = [];
+let chartInstance = null;
 let sortStates = {
     rank: { key: 'amount', direction: 'desc', type: 'number' },
     purchase: { key: 'amount', direction: 'desc', type: 'number' },
@@ -46,6 +47,10 @@ function populateFilters(data) {
     const agencyTypeFilter = document.getElementById('agencyTypeFilter');
     regions.forEach(region => regionFilter.add(new Option(region, region)));
     agencyTypes.forEach(type => agencyTypeFilter.add(new Option(type, type)));
+    
+    if (regionFilter.querySelector('option[value="경기도"]')) {
+        regionFilter.value = '경기도';
+    }
 }
 
 function analyzeData() {
@@ -101,11 +106,9 @@ function renderAgencyRankPanel(data) {
         agencyInfo.amount += item.amount;
         agencyInfo.contracts.add(item.contractName);
     });
-
     let rankedAgencies = [...agencyMap.entries()].map(([agency, { amount, contracts, region, agencyType }]) => ({
         agency, amount, contractCount: contracts.size, region, agencyType 
     }));
-    
     sortData(rankedAgencies, sortStates.rank);
     rankedAgencies.forEach((item, index) => item.rank = index + 1);
 
@@ -130,9 +133,7 @@ function renderAgencyRankPanel(data) {
             });
         });
     }
-
     updateSortIndicators('agencyRankTable', sortStates.rank);
-
     document.getElementById('agencyRankTable').querySelector('thead').addEventListener('click', e => {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
@@ -140,7 +141,6 @@ function renderAgencyRankPanel(data) {
             renderAgencyRankPanel(currentFilteredData);
         }
     });
-
     document.getElementById('printRankBtn').addEventListener('click', () => printPanel(panel));
     document.getElementById('exportRankBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('agencyRankTable'), '수요기관_구매순위.csv'));
 }
@@ -157,14 +157,22 @@ function showAgencyDetail(agencyName) {
                     <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
                 </div>
             </div>
-            <div class="border-b border-gray-200 no-print"><nav class="-mb-px flex space-x-8" id="detailTabs"><button data-tab="purchase" class="analysis-tab active">상세 구매 내역</button><button data-tab="contract" class="analysis-tab">계약 상세</button></nav></div>
+            <div class="border-b border-gray-200 no-print">
+                <nav class="-mb-px flex space-x-8" id="detailTabs">
+                    <button data-tab="purchase" class="analysis-tab active">구매 내역</button>
+                    <button data-tab="contract" class="analysis-tab">계약 상세</button>
+                    <button data-tab="trend" class="analysis-tab">연도별 추이</button>
+                </nav>
+            </div>
             <div id="purchaseDetail" class="tab-content mt-4 printable-area"></div>
             <div id="contractDetail" class="tab-content mt-4 printable-area hidden"></div>
+            <div id="trendDetail" class="tab-content mt-4 printable-area hidden"></div>
         </div>`;
     
     const agencyData = currentFilteredData.filter(item => item.agency === agencyName);
     renderPurchaseDetail(agencyData);
     renderContractDetail(agencyData);
+    renderTrendDetail(agencyName);
 
     document.getElementById('detailTabs').addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
@@ -175,18 +183,20 @@ function showAgencyDetail(agencyName) {
             document.getElementById(tabName + 'Detail').classList.remove('hidden');
         }
     });
-
     document.getElementById('backToListBtn').addEventListener('click', () => {
         detailPanel.classList.add('hidden');
         document.getElementById('agencyRankPanel').classList.remove('hidden');
     });
-    
     document.getElementById('printDetailBtn').addEventListener('click', () => printPanel(detailPanel.querySelector('.tab-content:not(.hidden)')));
     document.getElementById('exportDetailBtn').addEventListener('click', () => {
         const activeTab = detailPanel.querySelector('.tab-content:not(.hidden)');
-        CommonUtils.exportTableToCSV(activeTab.querySelector('table'), `${agencyName}_상세내역.csv`);
+        const table = activeTab.querySelector('table');
+        if (table) {
+             CommonUtils.exportTableToCSV(table, `${agencyName}_상세내역.csv`);
+        } else {
+             CommonUtils.showAlert('내보낼 데이터 테이블이 없습니다.', 'warning');
+        }
     });
-
     document.getElementById('agencyRankPanel').classList.add('hidden');
     detailPanel.classList.remove('hidden');
 }
@@ -288,6 +298,81 @@ function renderContractDetail(agencyData) {
             renderContractDetail(agencyData);
         }
     });
+}
+
+function renderTrendDetail(agencyName) {
+    const container = document.getElementById('trendDetail');
+    container.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="md:col-span-2 bg-white p-4 rounded-lg shadow">
+                <h4 class="text-md font-semibold mb-2">최근 5년간 구매 추이</h4>
+                <canvas id="trendChart"></canvas>
+            </div>
+            <div class="md:col-span-1 bg-white p-4 rounded-lg shadow">
+                <h4 class="text-md font-semibold mb-2">주요 지표 요약</h4>
+                <table id="trendSummaryTable" class="min-w-full text-sm">
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>`;
+
+    const selectedYearValue = document.getElementById('analysisYear').value;
+    const selectedYear = selectedYearValue === 'all' ? new Date().getFullYear() : parseInt(selectedYearValue);
+    const lastFiveYears = Array.from({length: 5}, (_, i) => selectedYear - i).sort();
+    const yearlyData = allData.filter(d => d.agency === agencyName && d.date && lastFiveYears.includes(new Date(d.date).getFullYear()));
+    
+    const salesByYear = {};
+    lastFiveYears.forEach(year => salesByYear[year] = 0);
+    yearlyData.forEach(d => {
+        const year = new Date(d.date).getFullYear();
+        if (salesByYear.hasOwnProperty(year)) {
+            salesByYear[year] += d.amount;
+        }
+    });
+
+    if(chartInstance) chartInstance.destroy();
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: lastFiveYears.map(String),
+            datasets: [{
+                label: '연간 구매액',
+                data: Object.values(salesByYear),
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: { scales: { y: { beginAtZero: true, ticks: { callback: value => CommonUtils.formatCurrency(value) } } } }
+    });
+
+    const actualTransactionYears = Object.values(salesByYear).filter(amount => amount > 0);
+    const totalAmount = actualTransactionYears.reduce((sum, amount) => sum + amount, 0);
+    const avgAmount = actualTransactionYears.length > 0 ? totalAmount / actualTransactionYears.length : 0;
+    
+    let peakAmount = 0;
+    let peakYear = '-';
+    for (const year in salesByYear) {
+        if (salesByYear[year] > peakAmount) {
+            peakAmount = salesByYear[year];
+            peakYear = year;
+        }
+    }
+
+    const selectedYearAmount = salesByYear[selectedYear] || 0;
+    const vsAvgRatio = avgAmount > 0 ? ((selectedYearAmount / avgAmount) - 1) * 100 : 0;
+    const diffText = vsAvgRatio === 0 ? '-' : (vsAvgRatio > 0 ? `▲ ${vsAvgRatio.toFixed(1)}%` : `▼ ${Math.abs(vsAvgRatio).toFixed(1)}%`);
+    const diffColor = vsAvgRatio > 0 ? 'text-red-500' : 'text-blue-500';
+
+    const summaryBody = document.getElementById('trendSummaryTable').querySelector('tbody');
+    summaryBody.innerHTML = `
+        <tr class="border-b"><td class="py-2 font-semibold">연평균 구매액</td><td class="py-2 text-right">${CommonUtils.formatCurrency(avgAmount)}</td></tr>
+        <tr class="border-b"><td class="py-2 font-semibold">최고 구매 연도</td><td class="py-2 text-right">${peakYear}</td></tr>
+        <tr class="border-b"><td class="py-2 font-semibold">최고 구매액</td><td class="py-2 text-right">${CommonUtils.formatCurrency(peakAmount)}</td></tr>
+        <tr class="border-b"><td class="py-2 font-semibold">${selectedYear}년 구매액</td><td class="py-2 text-right">${CommonUtils.formatCurrency(selectedYearAmount)}</td></tr>
+        <tr><td class="py-2 font-semibold">평균 대비 증감</td><td class="py-2 text-right font-bold ${diffColor}">${diffText}</td></tr>
+    `;
 }
 
 function handleTableSort(tableName, sortKey, sortType = 'string') {
