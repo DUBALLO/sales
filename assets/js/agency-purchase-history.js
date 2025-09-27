@@ -1,4 +1,4 @@
-// agency-purchase-history.js (v3.1 - 평균 대비 컬럼 및 차트/툴팁 개선)
+// agency-purchase-history.js (v3.2 - 평균 대비 로직 수정 및 차트 변경)
 
 // 전역 변수
 let allData = [];
@@ -110,10 +110,27 @@ function renderAgencyRankPanel(data) {
         agency, amount, contractCount: contracts.size, region, agencyType 
     }));
     
-    const totalPurchaseAmount = rankedAgencies.reduce((sum, agency) => sum + agency.amount, 0);
-    const averageAmount = rankedAgencies.length > 0 ? totalPurchaseAmount / rankedAgencies.length : 0;
+    // ▼▼▼ '평균 대비' 계산 로직을 '연도별 추이' 기준으로 변경 ▼▼▼
+    const selectedYearValue = document.getElementById('analysisYear').value;
+    const selectedYear = selectedYearValue === 'all' ? new Date().getFullYear() : parseInt(selectedYearValue);
+
     rankedAgencies.forEach(agency => {
-        agency.vsAvg = averageAmount > 0 ? ((agency.amount / averageAmount) - 1) * 100 : 0;
+        const lastFiveYears = Array.from({length: 5}, (_, i) => selectedYear - i).sort();
+        const agencyAllData = allData.filter(d => d.agency === agency.agency && d.date && lastFiveYears.includes(new Date(d.date).getFullYear()));
+        
+        const salesByYear = {};
+        lastFiveYears.forEach(year => salesByYear[year] = 0);
+        agencyAllData.forEach(d => {
+            const year = new Date(d.date).getFullYear();
+            if (salesByYear.hasOwnProperty(year)) salesByYear[year] += d.amount;
+        });
+
+        const actualTransactionYears = Object.values(salesByYear).filter(amount => amount > 0);
+        const totalAmount = actualTransactionYears.reduce((sum, amount) => sum + amount, 0);
+        const avgAmount = actualTransactionYears.length > 0 ? totalAmount / actualTransactionYears.length : 0;
+        const selectedYearAmount = salesByYear[selectedYear] || 0;
+        
+        agency.vsAvg = avgAmount > 0 ? ((selectedYearAmount / avgAmount) - 1) * 100 : 0;
     });
 
     sortData(rankedAgencies, sortStates.rank);
@@ -343,17 +360,16 @@ function renderTrendDetail(agencyName) {
     if(chartInstance) chartInstance.destroy();
     const ctx = document.getElementById('trendChart').getContext('2d');
     chartInstance = new Chart(ctx, {
-        type: 'line',
+        // ▼▼▼ 차트 타입을 'bar'로 변경 ▼▼▼
+        type: 'bar',
         data: {
             labels: lastFiveYears.map(String),
             datasets: [{
                 label: '연간 구매액',
                 data: lastFiveYears.map(year => salesByYear[year].amount),
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
                 borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1,
-                fill: true,
-                tension: 0.1
+                borderWidth: 1
             }]
         },
         options: {
