@@ -1,4 +1,4 @@
-// agency-purchase-history.js (v2.1 - 오류 방어 로직 추가)
+// agency-purchase-history.js (v2.1 - 상세 내역 점유율 추가)
 
 // 전역 변수
 let allData = [];
@@ -12,21 +12,13 @@ let sortStates = {
 document.addEventListener('DOMContentLoaded', async () => {
     showLoadingState(true, '데이터 로딩 중...');
     try {
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        if (analyzeBtn) {
-            analyzeBtn.addEventListener('click', analyzeData);
-        } else {
-            console.error("'analyzeBtn' 버튼을 찾을 수 없습니다. HTML 파일이 최신 버전인지 확인해주세요.");
-            showLoadingState(false);
-            return;
-        }
-
         allData = await loadAndParseData();
         populateFilters(allData);
+        document.getElementById('analyzeBtn').addEventListener('click', analyzeData);
         await analyzeData();
     } catch (error) {
         console.error("초기화 실패:", error);
-        CommonUtils.showAlert("페이지 초기화 중 오류가 발생했습니다: " + error.message, 'error');
+        CommonUtils.showAlert("페이지 초기화 중 오류가 발생했습니다.", 'error');
     } finally {
         showLoadingState(false);
     }
@@ -50,45 +42,32 @@ async function loadAndParseData() {
 function populateFilters(data) {
     const regions = [...new Set(data.map(item => item.region).filter(Boolean))].sort();
     const agencyTypes = [...new Set(data.map(item => item.agencyType).filter(Boolean))].sort();
-
     const regionFilter = document.getElementById('regionFilter');
     const agencyTypeFilter = document.getElementById('agencyTypeFilter');
-
-    if (regionFilter) {
-        regions.forEach(region => regionFilter.add(new Option(region, region)));
-    }
-    if (agencyTypeFilter) {
-        agencyTypes.forEach(type => agencyTypeFilter.add(new Option(type, type)));
-    }
+    regions.forEach(region => regionFilter.add(new Option(region, region)));
+    agencyTypes.forEach(type => agencyTypeFilter.add(new Option(type, type)));
 }
 
 function analyzeData() {
     showLoadingState(true, '데이터 분석 중...');
-    const detailPanel = document.getElementById('agencyDetailPanel');
-    const rankPanel = document.getElementById('agencyRankPanel');
-    if(detailPanel) detailPanel.classList.add('hidden');
-    if(rankPanel) rankPanel.classList.remove('hidden');
-    
+    document.getElementById('agencyDetailPanel').classList.add('hidden');
+    document.getElementById('agencyRankPanel').classList.remove('hidden');
     const year = document.getElementById('analysisYear').value;
     const product = document.getElementById('productFilter').value;
     const region = document.getElementById('regionFilter').value;
     const agencyType = document.getElementById('agencyTypeFilter').value;
-
     currentFilteredData = allData.filter(item => 
         (year === 'all' || (item.date && item.date.startsWith(year))) &&
         (product === 'all' || item.product === product) &&
         (region === 'all' || item.region === region) &&
         (agencyType === 'all' || item.agencyType === agencyType)
     );
-
     renderAgencyRankPanel(currentFilteredData);
     showLoadingState(false);
 }
 
 function renderAgencyRankPanel(data) {
     const panel = document.getElementById('agencyRankPanel');
-    if (!panel) return;
-    
     panel.innerHTML = `
         <div class="p-6 printable-area">
             <div class="flex justify-between items-center mb-4">
@@ -131,8 +110,6 @@ function renderAgencyRankPanel(data) {
     rankedAgencies.forEach((item, index) => item.rank = index + 1);
 
     const tbody = document.getElementById('agencyRankBody');
-    if (!tbody) return;
-
     tbody.innerHTML = '';
     if (rankedAgencies.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-3 text-center py-8 text-gray-500">표시할 데이터가 없습니다.</td></tr>`;
@@ -147,8 +124,7 @@ function renderAgencyRankPanel(data) {
                 <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
                 <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
             `;
-            const link = row.querySelector('a');
-            if (link) link.addEventListener('click', (e) => {
+            row.querySelector('a').addEventListener('click', (e) => {
                 e.preventDefault();
                 showAgencyDetail(e.target.dataset.agency);
             });
@@ -156,9 +132,8 @@ function renderAgencyRankPanel(data) {
     }
 
     updateSortIndicators('agencyRankTable', sortStates.rank);
-    
-    const rankTableHead = document.querySelector('#agencyRankTable thead');
-    if(rankTableHead) rankTableHead.addEventListener('click', e => {
+
+    document.getElementById('agencyRankTable').querySelector('thead').addEventListener('click', e => {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
             handleTableSort('rank', th.dataset.sortKey, th.dataset.sortType);
@@ -166,17 +141,12 @@ function renderAgencyRankPanel(data) {
         }
     });
 
-    const printBtn = document.getElementById('printRankBtn');
-    if(printBtn) printBtn.addEventListener('click', () => printPanel(panel));
-    
-    const exportBtn = document.getElementById('exportRankBtn');
-    if(exportBtn) exportBtn.addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('agencyRankTable'), '수요기관_구매순위.csv'));
+    document.getElementById('printRankBtn').addEventListener('click', () => printPanel(panel));
+    document.getElementById('exportRankBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('agencyRankTable'), '수요기관_구매순위.csv'));
 }
 
 function showAgencyDetail(agencyName) {
     const detailPanel = document.getElementById('agencyDetailPanel');
-    if (!detailPanel) return;
-    
     detailPanel.innerHTML = `
         <div class="p-6">
             <div class="flex justify-between items-center mb-4">
@@ -196,52 +166,41 @@ function showAgencyDetail(agencyName) {
     renderPurchaseDetail(agencyData);
     renderContractDetail(agencyData);
 
-    const detailTabs = document.getElementById('detailTabs');
-    if(detailTabs) detailTabs.addEventListener('click', (e) => {
+    document.getElementById('detailTabs').addEventListener('click', (e) => {
         if (e.target.tagName === 'BUTTON') {
             const tabName = e.target.dataset.tab;
-            detailTabs.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('detailTabs').querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             e.target.classList.add('active');
             detailPanel.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
-            const contentToShow = document.getElementById(tabName + 'Detail');
-            if(contentToShow) contentToShow.classList.remove('hidden');
+            document.getElementById(tabName + 'Detail').classList.remove('hidden');
         }
     });
 
-    const backBtn = document.getElementById('backToListBtn');
-    if (backBtn) backBtn.addEventListener('click', () => {
+    document.getElementById('backToListBtn').addEventListener('click', () => {
         detailPanel.classList.add('hidden');
-        const rankPanel = document.getElementById('agencyRankPanel');
-        if (rankPanel) rankPanel.classList.remove('hidden');
+        document.getElementById('agencyRankPanel').classList.remove('hidden');
     });
     
-    const printDetailBtn = document.getElementById('printDetailBtn');
-    if (printDetailBtn) printDetailBtn.addEventListener('click', () => printPanel(detailPanel.querySelector('.tab-content:not(.hidden)')));
-
-    const exportDetailBtn = document.getElementById('exportDetailBtn');
-    if (exportDetailBtn) exportDetailBtn.addEventListener('click', () => {
+    document.getElementById('printDetailBtn').addEventListener('click', () => printPanel(detailPanel.querySelector('.tab-content:not(.hidden)')));
+    document.getElementById('exportDetailBtn').addEventListener('click', () => {
         const activeTab = detailPanel.querySelector('.tab-content:not(.hidden)');
-        if (activeTab) {
-            CommonUtils.exportTableToCSV(activeTab.querySelector('table'), `${agencyName}_상세내역.csv`);
-        }
+        CommonUtils.exportTableToCSV(activeTab.querySelector('table'), `${agencyName}_상세내역.csv`);
     });
 
-    const rankPanel = document.getElementById('agencyRankPanel');
-    if (rankPanel) rankPanel.classList.add('hidden');
+    document.getElementById('agencyRankPanel').classList.add('hidden');
     detailPanel.classList.remove('hidden');
 }
 
 function renderPurchaseDetail(agencyData) {
     const container = document.getElementById('purchaseDetail');
-    if (!container) return;
-    
     container.innerHTML = `
-        <h4 class="text-md font-semibold mb-2">업체별 구매 내역</h4>
+        <h4 class="text-md font-semibold mb-2">수요기관 구매 내역</h4>
         <table id="purchaseDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
             <thead class="bg-gray-50"><tr>
                 <th class="w-1/12 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순위</span></th>
-                <th class="w-7/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplier" data-sort-type="string"><span>업체명</span></th>
+                <th class="w-5/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplier" data-sort-type="string"><span>업체명</span></th>
                 <th class="w-2/12 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractCount" data-sort-type="number"><span>거래건수</span></th>
+                <th class="w-2/12 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="share" data-sort-type="number"><span>점유율</span></th>
                 <th class="w-2/12 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>구매금액</span></th>
             </tr></thead>
             <tbody id="purchaseDetailBody"></tbody>
@@ -255,13 +214,18 @@ function renderPurchaseDetail(agencyData) {
         info.contracts.add(item.contractName);
     });
 
-    let data = [...supplierMap.entries()].map(([supplier, { amount, contracts }]) => ({ supplier, amount, contractCount: contracts.size }));
+    const agencyTotalAmount = agencyData.reduce((sum, item) => sum + item.amount, 0);
+    let data = [...supplierMap.entries()].map(([supplier, { amount, contracts }]) => ({ 
+        supplier, 
+        amount, 
+        contractCount: contracts.size,
+        share: agencyTotalAmount > 0 ? (amount / agencyTotalAmount) * 100 : 0
+    }));
+
     sortData(data, sortStates.purchase);
     data.forEach((item, index) => item.rank = index + 1);
     
     const tbody = document.getElementById('purchaseDetailBody');
-    if (!tbody) return;
-
     tbody.innerHTML = '';
     data.forEach(item => {
         const row = tbody.insertRow();
@@ -269,13 +233,13 @@ function renderPurchaseDetail(agencyData) {
             <td class="px-4 py-3 text-center">${item.rank}</td>
             <td class="px-4 py-3">${item.supplier}</td>
             <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
+            <td class="px-4 py-3 text-right font-medium">${item.share.toFixed(1)}%</td>
             <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
         `;
     });
 
     updateSortIndicators('purchaseDetailTable', sortStates.purchase);
-    const purchaseTableHead = document.querySelector('#purchaseDetailTable thead');
-    if (purchaseTableHead) purchaseTableHead.addEventListener('click', e => {
+    document.getElementById('purchaseDetailTable').querySelector('thead').addEventListener('click', e => {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
             handleTableSort('purchase', th.dataset.sortKey, th.dataset.sortType);
@@ -286,8 +250,6 @@ function renderPurchaseDetail(agencyData) {
 
 function renderContractDetail(agencyData) {
     const container = document.getElementById('contractDetail');
-    if (!container) return;
-    
     container.innerHTML = `
         <h4 class="text-md font-semibold mb-2">계약별 상세 내역</h4>
         <table id="contractDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
@@ -306,8 +268,6 @@ function renderContractDetail(agencyData) {
     data.forEach((item, index) => item.rank = index + 1);
     
     const tbody = document.getElementById('contractDetailBody');
-    if (!tbody) return;
-
     tbody.innerHTML = '';
     data.forEach(item => {
         const row = tbody.insertRow();
@@ -321,8 +281,7 @@ function renderContractDetail(agencyData) {
     });
 
     updateSortIndicators('contractDetailTable', sortStates.contract);
-    const contractTableHead = document.querySelector('#contractDetailTable thead');
-    if (contractTableHead) contractTableHead.addEventListener('click', e => {
+    document.getElementById('contractDetailTable').querySelector('thead').addEventListener('click', e => {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
             handleTableSort('contract', th.dataset.sortKey, th.dataset.sortType);
