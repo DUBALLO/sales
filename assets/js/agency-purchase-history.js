@@ -73,7 +73,6 @@ function analyzeData() {
 
 function renderAgencyRankPanel(data) {
     const panel = document.getElementById('agencyRankPanel');
-    // ▼▼▼ '평균 대비' 컬럼 헤더 추가 ▼▼▼
     panel.innerHTML = `
         <div class="p-6 printable-area">
             <div class="flex justify-between items-center mb-4">
@@ -111,7 +110,6 @@ function renderAgencyRankPanel(data) {
         agency, amount, contractCount: contracts.size, region, agencyType 
     }));
     
-    // ▼▼▼ 평균 대비 증감률 계산 로직 추가 ▼▼▼
     const totalPurchaseAmount = rankedAgencies.reduce((sum, agency) => sum + agency.amount, 0);
     const averageAmount = rankedAgencies.length > 0 ? totalPurchaseAmount / rankedAgencies.length : 0;
     rankedAgencies.forEach(agency => {
@@ -130,7 +128,6 @@ function renderAgencyRankPanel(data) {
             const row = tbody.insertRow();
             const diffText = item.vsAvg === 0 ? '-' : (item.vsAvg > 0 ? `▲ ${item.vsAvg.toFixed(1)}%` : `▼ ${Math.abs(item.vsAvg).toFixed(1)}%`);
             const diffColor = item.vsAvg > 0 ? 'text-red-500' : 'text-blue-500';
-            // ▼▼▼ 평균 대비 td 추가 ▼▼▼
             row.innerHTML = `
                 <td class="px-4 py-3 text-center">${item.rank}</td>
                 <td class="px-4 py-3"><a href="#" data-agency="${item.agency}" class="text-blue-600 hover:underline">${item.agency}</a></td>
@@ -158,13 +155,158 @@ function renderAgencyRankPanel(data) {
 }
 
 function showAgencyDetail(agencyName) {
-    // ... (이전과 동일)
+    const detailPanel = document.getElementById('agencyDetailPanel');
+    detailPanel.innerHTML = `
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg"><strong class="font-bold">${agencyName}</strong> <span class="font-normal">상세 내역</span></h3>
+                <div class="flex items-center space-x-2 no-print">
+                    <button id="printDetailBtn" class="btn btn-secondary btn-sm">인쇄</button>
+                    <button id="exportDetailBtn" class="btn btn-secondary btn-sm">CSV 내보내기</button>
+                    <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
+                </div>
+            </div>
+            <div class="border-b border-gray-200 no-print">
+                <nav class="-mb-px flex space-x-8" id="detailTabs">
+                    <button data-tab="purchase" class="analysis-tab active">구매 내역</button>
+                    <button data-tab="contract" class="analysis-tab">계약 상세</button>
+                    <button data-tab="trend" class="analysis-tab">연도별 추이</button>
+                </nav>
+            </div>
+            <div id="purchaseDetail" class="tab-content mt-4 printable-area"></div>
+            <div id="contractDetail" class="tab-content mt-4 printable-area hidden"></div>
+            <div id="trendDetail" class="tab-content mt-4 printable-area hidden"></div>
+        </div>`;
+    
+    const agencyData = currentFilteredData.filter(item => item.agency === agencyName);
+    renderPurchaseDetail(agencyData);
+    renderContractDetail(agencyData);
+    renderTrendDetail(agencyName);
+
+    document.getElementById('detailTabs').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const tabName = e.target.dataset.tab;
+            document.getElementById('detailTabs').querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            detailPanel.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(tabName + 'Detail').classList.remove('hidden');
+        }
+    });
+    document.getElementById('backToListBtn').addEventListener('click', () => {
+        detailPanel.classList.add('hidden');
+        document.getElementById('agencyRankPanel').classList.remove('hidden');
+    });
+    document.getElementById('printDetailBtn').addEventListener('click', () => printPanel(detailPanel.querySelector('.tab-content:not(.hidden)')));
+    document.getElementById('exportDetailBtn').addEventListener('click', () => {
+        const activeTab = detailPanel.querySelector('.tab-content:not(.hidden)');
+        const table = activeTab.querySelector('table');
+        if (table) {
+             CommonUtils.exportTableToCSV(table, `${agencyName}_상세내역.csv`);
+        } else {
+             CommonUtils.showAlert('내보낼 데이터 테이블이 없습니다.', 'warning');
+        }
+    });
+    document.getElementById('agencyRankPanel').classList.add('hidden');
+    detailPanel.classList.remove('hidden');
 }
+
 function renderPurchaseDetail(agencyData) {
-    // ... (이전과 동일)
+    const container = document.getElementById('purchaseDetail');
+    container.innerHTML = `
+        <h4 class="text-md font-semibold mb-2">수요기관 구매 내역</h4>
+        <table id="purchaseDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
+            <thead class="bg-gray-50"><tr>
+                <th class="w-1/12 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순위</span></th>
+                <th class="w-5/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplier" data-sort-type="string"><span>업체명</span></th>
+                <th class="w-2/12 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractCount" data-sort-type="number"><span>거래건수</span></th>
+                <th class="w-2/12 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="share" data-sort-type="number"><span>점유율</span></th>
+                <th class="w-2/12 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>구매금액</span></th>
+            </tr></thead>
+            <tbody id="purchaseDetailBody"></tbody>
+        </table>`;
+    
+    const supplierMap = new Map();
+    agencyData.forEach(item => {
+        if (!supplierMap.has(item.supplier)) supplierMap.set(item.supplier, { amount: 0, contracts: new Set() });
+        const info = supplierMap.get(item.supplier);
+        info.amount += item.amount;
+        info.contracts.add(item.contractName);
+    });
+
+    const agencyTotalAmount = agencyData.reduce((sum, item) => sum + item.amount, 0);
+    let data = [...supplierMap.entries()].map(([supplier, { amount, contracts }]) => ({ 
+        supplier, 
+        amount, 
+        contractCount: contracts.size,
+        share: agencyTotalAmount > 0 ? (amount / agencyTotalAmount) * 100 : 0
+    }));
+
+    sortData(data, sortStates.purchase);
+    data.forEach((item, index) => item.rank = index + 1);
+    
+    const tbody = document.getElementById('purchaseDetailBody');
+    tbody.innerHTML = '';
+    data.forEach(item => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td class="px-4 py-3 text-center">${item.rank}</td>
+            <td class="px-4 py-3">${item.supplier}</td>
+            <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
+            <td class="px-4 py-3 text-right font-medium">${item.share.toFixed(1)}%</td>
+            <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
+        `;
+    });
+
+    updateSortIndicators('purchaseDetailTable', sortStates.purchase);
+    document.getElementById('purchaseDetailTable').querySelector('thead').addEventListener('click', e => {
+        const th = e.target.closest('th');
+        if (th && th.dataset.sortKey) {
+            handleTableSort('purchase', th.dataset.sortKey, th.dataset.sortType);
+            renderPurchaseDetail(agencyData);
+        }
+    });
 }
+
 function renderContractDetail(agencyData) {
-    // ... (이전과 동일)
+    const container = document.getElementById('contractDetail');
+    container.innerHTML = `
+        <h4 class="text-md font-semibold mb-2">계약별 상세 내역</h4>
+        <table id="contractDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
+            <thead class="bg-gray-50"><tr>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순번</span></th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractName" data-sort-type="string"><span>계약명</span></th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplier" data-sort-type="string"><span>업체명</span></th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="date" data-sort-type="string"><span>거래일자</span></th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>공급금액</span></th>
+            </tr></thead>
+            <tbody id="contractDetailBody"></tbody>
+        </table>`;
+    
+    let data = [...agencyData];
+    sortData(data, sortStates.contract);
+    data.forEach((item, index) => item.rank = index + 1);
+    
+    const tbody = document.getElementById('contractDetailBody');
+    tbody.innerHTML = '';
+    data.forEach(item => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td class="px-4 py-3 text-center">${item.rank}</td>
+            <td class="px-4 py-3">${item.contractName}</td>
+            <td class="px-4 py-3">${item.supplier}</td>
+            <td class="px-4 py-3 text-center">${item.date}</td>
+            <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
+        `;
+    });
+
+    updateSortIndicators('contractDetailTable', sortStates.contract);
+    document.getElementById('contractDetailTable').querySelector('thead').addEventListener('click', e => {
+        const th = e.target.closest('th');
+        if (th && th.dataset.sortKey) {
+            handleTableSort('contract', th.dataset.sortKey, th.dataset.sortType);
+            renderContractDetail(agencyData);
+        }
+    });
 }
 
 function renderTrendDetail(agencyName) {
@@ -186,14 +328,13 @@ function renderTrendDetail(agencyName) {
     const lastFiveYears = Array.from({length: 5}, (_, i) => selectedYear - i).sort();
     const yearlyData = allData.filter(d => d.agency === agencyName && d.date && lastFiveYears.includes(new Date(d.date).getFullYear()));
     
-    // ▼▼▼ 구매 건수(계약 기준)도 함께 집계하도록 수정 ▼▼▼
     const salesByYear = {};
     lastFiveYears.forEach(year => {
         salesByYear[year] = { amount: 0, contracts: new Set() };
     });
     yearlyData.forEach(d => {
         const year = new Date(d.date).getFullYear();
-        if (salesByYear[year]) {
+        if (salesByYear.hasOwnProperty(year)) {
             salesByYear[year].amount += d.amount;
             salesByYear[year].contracts.add(d.contractName);
         }
@@ -202,7 +343,6 @@ function renderTrendDetail(agencyName) {
     if(chartInstance) chartInstance.destroy();
     const ctx = document.getElementById('trendChart').getContext('2d');
     chartInstance = new Chart(ctx, {
-        // ▼▼▼ 차트 타입을 'line'으로 변경 ▼▼▼
         type: 'line',
         data: {
             labels: lastFiveYears.map(String),
@@ -216,7 +356,6 @@ function renderTrendDetail(agencyName) {
                 tension: 0.1
             }]
         },
-        // ▼▼▼ 툴팁에 구매 건수도 표시되도록 수정 ▼▼▼
         options: {
             scales: { y: { beginAtZero: true, ticks: { callback: value => CommonUtils.formatCurrency(value) } } },
             plugins: {
@@ -261,17 +400,58 @@ function renderTrendDetail(agencyName) {
 }
 
 function handleTableSort(tableName, sortKey, sortType = 'string') {
-    // ... (이전과 동일)
+    const sortState = sortStates[tableName];
+    if (sortState.key === sortKey) {
+        sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortState.key = sortKey;
+        sortState.direction = 'desc';
+    }
+    sortState.type = sortType;
 }
+
 function sortData(data, sortState) {
-    // ... (이전과 동일)
+    const { key, direction, type } = sortState;
+    data.sort((a, b) => {
+        const valA = a[key], valB = b[key];
+        let comparison = 0;
+        if (type === 'number') comparison = (Number(valA) || 0) - (Number(valB) || 0);
+        else comparison = String(valA || '').localeCompare(String(valB || ''));
+        return direction === 'asc' ? comparison : -comparison;
+    });
 }
+
 function updateSortIndicators(tableId, sortState) {
-    // ... (이전과 동일)
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    table.querySelectorAll('thead th[data-sort-key]').forEach(th => {
+        const span = th.querySelector('span');
+        if (span) {
+            span.textContent = span.textContent.replace(/ [▲▼]$/, '');
+            if (th.dataset.sortKey === sortState.key) {
+                span.textContent += sortState.direction === 'asc' ? ' ▲' : ' ▼';
+            }
+        }
+    });
 }
+
 function showLoadingState(isLoading, text = '분석 중...') {
-    // ... (이전과 동일)
+    const button = document.getElementById('analyzeBtn');
+    if (button) {
+        button.disabled = isLoading;
+        const svgIcon = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>';
+        button.innerHTML = isLoading ? `<div class="loading-spinner mr-2"></div> ${text}...` : `${svgIcon}분석`;
+    }
 }
+
 function printPanel(panel) {
-    // ... (이전과 동일)
+    if (panel) {
+        panel.classList.add('printing-now');
+        window.print();
+        setTimeout(() => {
+            panel.classList.remove('printing-now');
+        }, 500);
+    } else {
+        CommonUtils.showAlert('인쇄할 내용이 없습니다.', 'warning');
+    }
 }
