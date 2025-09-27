@@ -1,4 +1,4 @@
-// supplier-purchase-history.js (v2.2 - 이벤트 리스너 오류 수정)
+// supplier-purchase-history.js (v2.5 - 상세 내역 점유율 제거)
 
 // 전역 변수
 let allData = [];
@@ -131,7 +131,6 @@ function renderSupplierTable(data) {
 
     updateSortIndicators('supplierTable', sortStates.main);
 
-    // ▼▼▼ 오류 수정: document 대신 panel에서 요소를 찾아 이벤트를 연결합니다. ▼▼▼
     panel.querySelector('#supplierTable thead').addEventListener('click', e => {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
@@ -182,10 +181,11 @@ function showSupplierDetail(supplierName) {
         }
         agencySalesMap.get(item.agency).amount += item.amount;
     });
-
+    
+    // ▼▼▼ 상세 내역 테이블 데이터 생성 시 점유율 계산 로직 제거 ▼▼▼
     let detailData = [...agencySalesMap.values()].map(item => {
         const totalAmount = agencyTotalMap.get(item.agency) || 0;
-        return { ...item, totalAmount, share: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0 };
+        return { ...item, totalAmount };
     });
 
     const renderDetailTable = () => {
@@ -194,12 +194,12 @@ function showSupplierDetail(supplierName) {
         tbody.innerHTML = '';
         detailData.forEach(item => {
             const row = tbody.insertRow();
+            // ▼▼▼ 상세 내역 테이블에서 점유율 td 제거 ▼▼▼
             row.innerHTML = `
                 <td class="px-4 py-3">${item.agency}</td>
                 <td class="px-4 py-3">${item.region}</td>
                 <td class="px-4 py-3 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
                 <td class="px-4 py-3 text-right">${CommonUtils.formatCurrency(item.totalAmount)}</td>
-                <td class="px-4 py-3 text-right font-medium">${item.share.toFixed(1)}%</td>
             `;
         });
         updateSortIndicators('supplierDetailTable', sortStates.detail);
