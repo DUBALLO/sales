@@ -1,4 +1,4 @@
-// agency-purchase-history.js (v3.2 - 평균 대비 로직 수정 및 차트 변경)
+// agency-purchase-history.js (v4 - 상세 필터 및 거래처 수 추가)
 
 // 전역 변수
 let allData = [];
@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         allData = await loadAndParseData();
         populateFilters(allData);
         document.getElementById('analyzeBtn').addEventListener('click', analyzeData);
+        document.getElementById('regionFilter').addEventListener('change', populateCityFilter);
         await analyzeData();
     } catch (error) {
         console.error("초기화 실패:", error);
@@ -28,16 +29,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadAndParseData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
     const rawData = await window.sheetsAPI.loadCSVData('procurement');
-    return rawData.map(item => ({
-        agency: (item['수요기관명'] || '').trim(),
-        supplier: (item['업체'] || '').trim(),
-        region: (item['수요기관지역'] || '').trim().split(' ')[0],
-        agencyType: item['소관구분'] || '기타',
-        product: (item['세부품명'] || '').trim(),
-        amount: parseInt(String(item['공급금액']).replace(/[^\d]/g, '') || '0', 10),
-        date: item['기준일자'] || '',
-        contractName: (item['계약명'] || '').trim()
-    })).filter(item => item.agency && item.supplier && item.amount > 0);
+    return rawData.map(item => {
+        const fullRegion = (item['수요기관지역'] || '').trim();
+        const regionParts = fullRegion.split(' ');
+        return {
+            agency: (item['수요기관명'] || '').trim(),
+            supplier: (item['업체'] || '').trim(),
+            region: regionParts[0] || '', // 시/도
+            city: regionParts[1] || '',   // 시/군/구
+            agencyType: item['소관구분'] || '기타',
+            product: (item['세부품명'] || '').trim(),
+            amount: parseInt(String(item['공급금액']).replace(/[^\d]/g, '') || '0', 10),
+            date: item['기준일자'] || '',
+            contractName: (item['계약명'] || '').trim()
+        };
+    }).filter(item => item.agency && item.supplier && item.amount > 0);
 }
 
 function populateFilters(data) {
@@ -45,11 +51,27 @@ function populateFilters(data) {
     const agencyTypes = [...new Set(data.map(item => item.agencyType).filter(Boolean))].sort();
     const regionFilter = document.getElementById('regionFilter');
     const agencyTypeFilter = document.getElementById('agencyTypeFilter');
+
     regions.forEach(region => regionFilter.add(new Option(region, region)));
     agencyTypes.forEach(type => agencyTypeFilter.add(new Option(type, type)));
     
     if (regionFilter.querySelector('option[value="경기도"]')) {
         regionFilter.value = '경기도';
+    }
+    populateCityFilter();
+}
+
+function populateCityFilter() {
+    const selectedRegion = document.getElementById('regionFilter').value;
+    const cityFilter = document.getElementById('cityFilter');
+    cityFilter.innerHTML = '<option value="all">전체</option>';
+
+    if (selectedRegion !== 'all') {
+        const cities = [...new Set(allData
+            .filter(item => item.region === selectedRegion && item.city)
+            .map(item => item.city))]
+            .sort();
+        cities.forEach(city => cityFilter.add(new Option(city, city)));
     }
 }
 
@@ -57,14 +79,18 @@ function analyzeData() {
     showLoadingState(true, '데이터 분석 중...');
     document.getElementById('agencyDetailPanel').classList.add('hidden');
     document.getElementById('agencyRankPanel').classList.remove('hidden');
+
     const year = document.getElementById('analysisYear').value;
     const product = document.getElementById('productFilter').value;
     const region = document.getElementById('regionFilter').value;
+    const city = document.getElementById('cityFilter').value;
     const agencyType = document.getElementById('agencyTypeFilter').value;
+
     currentFilteredData = allData.filter(item => 
         (year === 'all' || (item.date && item.date.startsWith(year))) &&
         (product === 'all' || item.product === product) &&
         (region === 'all' || item.region === region) &&
+        (city === 'all' || item.city === city) &&
         (agencyType === 'all' || item.agencyType === agencyType)
     );
     renderAgencyRankPanel(currentFilteredData);
@@ -89,6 +115,7 @@ function renderAgencyRankPanel(data) {
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="agency" data-sort-type="string"><span>수요기관명</span></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="region" data-sort-type="string"><span>지역</span></th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractCount" data-sort-type="number"><span>거래건수</span></th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplierCount" data-sort-type="number"><span>거래처 수</span></th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>총 구매액</span></th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="vsAvg" data-sort-type="number"><span>평균 대비</span></th>
                     </tr></thead>
@@ -100,17 +127,21 @@ function renderAgencyRankPanel(data) {
     const agencyMap = new Map();
     data.forEach(item => {
         if (!agencyMap.has(item.agency)) {
-            agencyMap.set(item.agency, { amount: 0, contracts: new Set(), region: item.region, agencyType: item.agencyType });
+            agencyMap.set(item.agency, { amount: 0, contracts: new Set(), suppliers: new Set(), region: item.region, city: item.city, agencyType: item.agencyType });
         }
         const agencyInfo = agencyMap.get(item.agency);
         agencyInfo.amount += item.amount;
         agencyInfo.contracts.add(item.contractName);
+        agencyInfo.suppliers.add(item.supplier);
     });
-    let rankedAgencies = [...agencyMap.entries()].map(([agency, { amount, contracts, region, agencyType }]) => ({
-        agency, amount, contractCount: contracts.size, region, agencyType 
+
+    let rankedAgencies = [...agencyMap.entries()].map(([agency, { amount, contracts, suppliers, region, city, agencyType }]) => ({
+        agency, amount, 
+        contractCount: contracts.size, 
+        supplierCount: suppliers.size,
+        region, city, agencyType 
     }));
     
-    // ▼▼▼ '평균 대비' 계산 로직을 '연도별 추이' 기준으로 변경 ▼▼▼
     const selectedYearValue = document.getElementById('analysisYear').value;
     const selectedYear = selectedYearValue === 'all' ? new Date().getFullYear() : parseInt(selectedYearValue);
 
@@ -148,8 +179,9 @@ function renderAgencyRankPanel(data) {
             row.innerHTML = `
                 <td class="px-4 py-3 text-center">${item.rank}</td>
                 <td class="px-4 py-3"><a href="#" data-agency="${item.agency}" class="text-blue-600 hover:underline">${item.agency}</a></td>
-                <td class="px-4 py-3">${item.region}</td>
+                <td class="px-4 py-3">${item.city ? `${item.region} ${item.city}`: item.region}</td>
                 <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
+                <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.supplierCount)}</td>
                 <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
                 <td class="px-4 py-3 text-right font-medium ${diffColor}">${diffText}</td>
             `;
@@ -360,7 +392,6 @@ function renderTrendDetail(agencyName) {
     if(chartInstance) chartInstance.destroy();
     const ctx = document.getElementById('trendChart').getContext('2d');
     chartInstance = new Chart(ctx, {
-        // ▼▼▼ 차트 타입을 'bar'로 변경 ▼▼▼
         type: 'bar',
         data: {
             labels: lastFiveYears.map(String),
