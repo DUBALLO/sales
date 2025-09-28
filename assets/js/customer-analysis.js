@@ -76,6 +76,28 @@ function setupEventListeners() {
     });
 }
 
+function showTab(tabName) {
+    // 모든 탭 버튼과 패널을 가져옵니다.
+    const tabs = document.querySelectorAll('.analysis-tab');
+    const panels = document.querySelectorAll('.tab-panel');
+
+    // 모든 탭 버튼에서 'active' 클래스를 제거하고 모든 패널을 숨깁니다.
+    tabs.forEach(tab => tab.classList.remove('active'));
+    panels.forEach(panel => panel.classList.add('hidden'));
+
+    // 클릭된 탭 버튼에 'active' 클래스를 추가합니다.
+    const selectedTab = document.getElementById(`${tabName}Tab`);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+
+    // 클릭된 탭에 해당하는 패널을 보여줍니다.
+    const selectedPanel = document.getElementById(`${tabName}Panel`);
+    if (selectedPanel) {
+        selectedPanel.classList.remove('hidden');
+    }
+}
+
 function handleTableSort(tableName, sortKey, sortType = 'string') {
     const sortState = sortStates[tableName];
     if (sortState.key === sortKey) {
@@ -299,9 +321,7 @@ function showCustomerDetail(customerName) {
 function showLoadingState(isLoading, text = '분석 중...') {
     // ... (This function remains the same)
 }
-function showTab(tabName) {
-    // ... (This function remains the same)
-}
+// This function was originally missing and is now included in this complete code.
 function printCurrentView() {
     // ... (This function remains the same)
 }
