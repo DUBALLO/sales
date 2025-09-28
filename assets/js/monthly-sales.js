@@ -1,4 +1,4 @@
-// monthly-sales.js (캐시 우선, 수동 새로고침 적용)
+// monthly-sales.js (캐시 우선, 수동 새로고침, 금액 파싱 오류 수정)
 
 let salesData = [];
 let currentDetailData = {};
@@ -34,6 +34,7 @@ async function loadSalesData() {
             const dateValue = item['날짜'] || item['주문일자'] || item['기준일자'] || '';
             const recordDate = parseDate(dateValue);
             if (!recordDate) return [];
+
             const invoiceDateValue = item['세금계산서'] || '';
             const invoiceDate = parseDate(invoiceDateValue);
             const typeValue = item['구분'] || '';
@@ -42,17 +43,21 @@ async function loadSalesData() {
             const amountValue = item['합계'] || '0';
             const itemValue = item['품목구분'] || '';
             const specValue = item['규격'] || '';
-            const quantityValue = parseInt(String(item['수량'] || '0').replace(/[^\d]/g, ''));
-            const unitPriceValue = parseInt(String(item['단가'] || '0').replace(/[^\d]/g, ''));
-            const parsedAmount = parseInt(String(amountValue).replace(/[^\d]/g, '')) || 0;
+            
+            const quantityValue = parseInt(String(item['수량'] || '0').replace(/,/g, ''));
+            const unitPriceValue = parseInt(String(item['단가'] || '0').replace(/,/g, ''));
+            const parsedAmount = parseInt(String(amountValue).replace(/,/g, '')) || 0;
+
             if(parsedAmount === 0 || contractValue === '계약명 없음' || customerValue === '거래처 없음') return [];
+
             const baseItem = {
                 contractName: contractValue.trim(), customer: customerValue.trim(),
                 amount: parsedAmount, item: itemValue.trim(), spec: specValue.trim(),
                 quantity: quantityValue, unitPrice: unitPriceValue
             };
             results.push({ ...baseItem, date: recordDate, type: invoiceDate ? '납품완료' : '주문' });
-            if (invoiceDate) { // 세금계산서가 발행된 경우에만 매출로 집계
+            
+            if (invoiceDate) { 
                 if (typeValue.includes('관급')) {
                     results.push({ ...baseItem, date: invoiceDate, type: '관급매출' });
                 } else if (typeValue.includes('사급')) {
@@ -143,7 +148,7 @@ function renderMonthlyTable(monthlyData) {
     });
 
     tbody.querySelectorAll('.amount-cell').forEach(cell => {
-        if (parseInt(cell.textContent.replace(/[^\d]/g, '')) > 0) {
+        if (parseInt(String(cell.textContent).replace(/[^0-9-]/g, '')) > 0) {
             cell.classList.add('amount-clickable');
             cell.addEventListener('click', () => {
                 const { yearMonth, type } = cell.dataset;
@@ -338,7 +343,7 @@ async function refreshData() {
     try {
         await window.sheetsAPI.refreshCache('monthlySales');
         await loadSalesData();
-        CommonUtils.showAlert('데이터가 새로고침되었습니다.', 'success');
+        CommonUtils.showAlert('데이터를 새로고침했습니다.', 'success');
     } catch (error) {
         CommonUtils.showAlert('데이터 새로고침에 실패했습니다.', 'error');
     } finally {
