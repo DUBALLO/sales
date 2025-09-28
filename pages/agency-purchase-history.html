@@ -46,7 +46,7 @@
         </div>
 
         <div class="filter-section bg-white rounded-lg shadow-md p-6 mb-8 no-print">
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <div>
                     <label class="form-label">분석 기간</label>
                     <select id="analysisYear" class="form-select">
@@ -68,8 +68,14 @@
                     </select>
                 </div>
                 <div>
-                    <label class="form-label">지역구분</label>
+                    <label class="form-label">지역구분 (시/도)</label>
                     <select id="regionFilter" class="form-select">
+                        <option value="all">전체</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">지역구분 (시/군/구)</label>
+                    <select id="cityFilter" class="form-select">
                         <option value="all">전체</option>
                     </select>
                 </div>
