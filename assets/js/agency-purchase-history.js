@@ -546,27 +546,42 @@ function showLoadingState(isLoading, text = '분석 중...') {
 }
 
 
-// ▼▼▼ [수정됨] printPanel 함수 전체 변경 ▼▼▼
+// ▼▼▼ [수정됨] printPanel 함수 전체를 아래 코드로 교체하세요. ▼▼▼
 function printPanel(panel) {
     if (!panel) {
         CommonUtils.showAlert('인쇄할 내용이 없습니다.', 'warning');
         return;
     }
 
-    // [수정] 인쇄 시 현재 화면의 펼침/접힘 상태를 그대로 반영
-    const isReportView = panel.id === 'comprehensiveReport';
-    
-    // 인쇄용 스타일을 동적으로 추가 (섹션 간 간격)
+    // [수정] 인쇄 레이아웃을 위한 전용 스타일 대폭 강화
     const style = document.createElement('style');
     style.id = 'print-style';
     style.innerHTML = `
         @media print {
+            /* 보고서 섹션 간의 간격 및 페이지 나누기 방지 */
             .report-section {
-                margin-top: 3rem; /* 약 3행 간격 */
-                page-break-inside: avoid;
+                margin-top: 3rem !important;
+                page-break-inside: avoid !important;
             }
             .no-print {
                 display: none !important;
+            }
+            /* [핵심 수정] 연도별 추이 섹션의 레이아웃을 강제 */
+            #trendDetail .flex {
+                display: flex !important;
+                flex-direction: row !important;
+                width: 100%;
+            }
+            #trendDetail .flex > div {
+                padding: 0 !important; /* 내부 여백 제거 */
+            }
+            /* 그래프 60%, 지표 40%로 너비 재조정 */
+            #trendDetail .flex > div:first-child {
+                width: 60% !important;
+            }
+            #trendDetail .flex > div:last-child {
+                width: 40% !important;
+                padding-left: 1rem !important; /* 지표 왼쪽에만 약간의 여백 */
             }
         }
     `;
