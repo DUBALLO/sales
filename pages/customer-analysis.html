@@ -7,19 +7,54 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="../assets/css/common.css" rel="stylesheet">
     <script src="../assets/js/sheets-api.js"></script>
-    <style>
-        @media print {
-            body * { visibility: hidden; }
-            .printable-area, .printable-area * { visibility: visible; }
-            .printable-area { position: absolute; left: 0; top: 0; width: 100%; }
-            .no-print { display: none !important; }
-            table thead { display: table-header-group; }
-            @page { size: A4 landscape; margin: 1.5cm; }
-            .data-table { font-size: 9pt; box-shadow: none; border: 1px solid #dee2e6; }
-            .data-table th, .data-table td { border: 1px solid #dee2e6; padding: 5px; color: #000 !important; background-color: #fff !important; }
-            .data-table th { background-color: #f8f9fa !important; }
+<style>
+    @media print {
+        body * {
+            visibility: hidden; /* 1. 기본적으로 모든 요소를 숨깁니다. */
         }
-    </style>
+        .printable-area, .printable-area * {
+            visibility: visible; /* 2. 인쇄할 영역만 다시 보이게 합니다. */
+        }
+        .no-print {
+            display: none !important; /* 인쇄 제외할 요소는 확실히 숨깁니다. */
+        }
+        
+        /* [핵심 수정 1] 겹침의 원인인 absolute 포지션을 해제하여 자연스러운 흐름으로 변경 */
+        .printable-area {
+            position: static; 
+        }
+
+        /* [핵심 수정 2] 요약 카드 인쇄 후, 다음 내용은 새 페이지에서 시작하도록 강제 */
+        .stats-grid.printable-area {
+            page-break-after: always;
+        }
+        
+        /* 인쇄 용지 설정 */
+        @page {
+            size: A4 landscape;
+            margin: 1.5cm;
+        }
+        
+        /* 인쇄용 테이블 스타일 */
+        table thead {
+            display: table-header-group; /* 페이지가 넘어가도 표 머리글이 반복되도록 설정 */
+        }
+        .data-table {
+            font-size: 9pt;
+            box-shadow: none;
+            border: 1px solid #dee2e6;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #dee2e6;
+            padding: 5px;
+            color: #000 !important;
+            background-color: #fff !important;
+        }
+        .data-table th {
+            background-color: #f8f9fa !important;
+        }
+    }
+</style>
 </head>
 <body class="bg-gray-50">
     <nav class="bg-white shadow-sm border-b no-print">
