@@ -1,18 +1,22 @@
 // strategic-customer-analysis.js
 
-// 전역 변수로 모든 원본 데이터를 저장
+// 전역 변수로 모든 원본 데이터를 저장하여 재분석 시 다시 로드하지 않도록 합니다.
 let allRawData = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // 분석 버튼을 로딩 상태로 초기화
     CommonUtils.toggleLoading(document.getElementById('analyzeBtn'), true);
     try {
         allRawData = await window.sheetsAPI.loadCSVData('procurement');
         const allData = parseData(allRawData);
-        populateFilters(allData); // 필터 채우기
         
-        // 시/도 필터 변경 시 시/군/구 필터 동적 업데이트
+        // 데이터 로딩 후 필터 옵션을 동적으로 채웁니다.
+        populateFilters(allData);
+        
+        // 시/도 필터 변경 시 시/군/구 필터가 동적으로 업데이트되도록 이벤트를 연결합니다.
         document.getElementById('regionFilter').addEventListener('change', () => populateCityFilter(allData));
-        // 분석 버튼에 이벤트 리스너 추가
+        
+        // '분석' 버튼 클릭 시 runAnalysis 함수가 실행되도록 이벤트를 연결합니다.
         document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
 
     } catch (error) {
@@ -24,8 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
- * ▼▼▼ [수정] 필터링을 위해 파싱 항목 추가 ▼▼▼
- * 원본 데이터를 분석에 용이한 형태로 파싱합니다.
+ * 원본 데이터를 분석에 용이한 형태로 파싱하고, 필터링을 위한 항목(지역, 소관)을 추가합니다.
  */
 function parseData(rawData) {
     return rawData.map(item => {
@@ -55,7 +58,7 @@ function runAnalysis() {
     const city = document.getElementById('cityFilter').value;
     const agencyType = document.getElementById('agencyTypeFilter').value;
 
-    // 선택된 필터 값으로 데이터 필터링
+    // 선택된 필터 값으로 원본 데이터에서 필요한 데이터만 필터링합니다.
     const filteredData = parseData(allRawData).filter(item => 
         (region === 'all' || item.region === region) &&
         (city === 'all' || item.city === city) &&
@@ -68,7 +71,7 @@ function runAnalysis() {
         return;
     }
 
-    // 분석 함수들을 비동기적으로 실행
+    // 두 가지 분석을 동시에(비동기적으로) 실행하여 사용자 대기 시간을 줄입니다.
     Promise.all([
         analyzeAndRenderProjects(filteredData),
         analyzeAndRenderOpportunities(filteredData)
@@ -81,8 +84,8 @@ function runAnalysis() {
 // 1. 주요 프로젝트 교체 주기 알림 기능
 // ==================================================================
 async function analyzeAndRenderProjects(data) {
-    const container = document.getElementById('projectAlertContent');
-    container.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500">분석 중...</div>`;
+    const tbody = document.getElementById('projectAlertTableBody');
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-gray-500">분석 중...</td></tr>`;
 
     const projectKeywords = ['조성', '설치', '공사', '신설', '개선', '정비'];
     const REPLACEMENT_CYCLE_YEARS = 3;
@@ -102,33 +105,31 @@ async function analyzeAndRenderProjects(data) {
     const majorProjects = data.filter(d => {
         const avgAmount = agencyStats.has(d.agency) ? agencyStats.get(d.agency).total / agencyStats.get(d.agency).count : 0;
         const isProject = projectKeywords.some(keyword => d.contractName.includes(keyword));
-        // ▼▼▼ [수정] 금액 조건 완화 (5천만->3천만, 3배->2.5배) ▼▼▼
         const isLargeScale = d.amount > avgAmount * 2.5 && d.amount > 30000000;
         
         return isProject && isLargeScale && d.date >= alertStartDate && d.date < alertEndDate;
     });
     
-    container.innerHTML = '';
+    tbody.innerHTML = '';
     if (majorProjects.length === 0) {
-        container.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500">교체 주기가 임박한 주요 프로젝트가 없습니다.</div>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-gray-500">교체 주기가 임박한 주요 프로젝트가 없습니다.</td></tr>`;
         return;
     }
 
+    // ▼▼▼ [수정됨] 카드 대신 테이블 행(row)을 생성하는 로직 ▼▼▼
     majorProjects
-        .sort((a, b) => b.amount - a.amount)
+        .sort((a, b) => b.date - a.date) // 최신 계약일 순으로 정렬
         .forEach(p => {
-            const card = document.createElement('div');
-            card.className = "bg-white p-5 rounded-lg shadow hover:shadow-xl transition-shadow duration-300";
-            card.innerHTML = `
-                <p class="text-sm text-gray-500">${CommonUtils.formatDate(p.date)} 계약</p>
-                <h3 class="font-bold text-lg text-gray-800 mt-1">${p.agency}</h3>
-                <p class="text-gray-600 mt-2 text-sm">${p.contractName}</p>
-                <p class="text-right font-semibold text-pink-600 mt-3 text-lg">${CommonUtils.formatCurrency(p.amount)}</p>
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td class="px-4 py-3 whitespace-nowrap">${CommonUtils.formatDate(p.date)}</td>
+                <td class="px-4 py-3">${p.agency}</td>
+                <td class="px-4 py-3">${p.contractName}</td>
+                <td class="px-4 py-3">${p.supplier}</td>
+                <td class="px-4 py-3 text-right font-medium text-pink-600">${CommonUtils.formatCurrency(p.amount)}</td>
             `;
-            container.appendChild(card);
         });
 }
-
 
 // ==================================================================
 // 2. 기회 고객 포착 기능
@@ -222,7 +223,6 @@ async function analyzeAndRenderOpportunities(data) {
     });
 }
 
-
 // ==================================================================
 // 3. 필터 및 상세 분석 팝업 기능
 // ==================================================================
@@ -259,7 +259,6 @@ function populateCityFilter(data) {
         cities.forEach(city => cityFilter.add(new Option(city, city)));
     }
 }
-
 
 /**
  * '상세 분석' 버튼 클릭 시 상세 리포트 팝업 표시
