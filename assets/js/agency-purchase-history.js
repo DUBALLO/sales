@@ -71,7 +71,6 @@ async function runAnalysis(forceList = false) {
     showLoadingState(false);
 }
 
-// 이하 loadAndParseData, populateFilters, populateCityFilter, renderAgencyRankPanel 함수는 이전과 동일합니다.
 async function loadAndParseData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
     const rawData = await window.sheetsAPI.loadCSVData('procurement');
@@ -246,15 +245,15 @@ function showAgencyDetail(agencyName) {
                     <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
                 </div>
             </div>
-            <div id="purchaseDetail" class="mt-4 report-section"></div>
-            <div class="mt-6 no-print">
+            <div id="purchaseDetail" class="report-section"></div>
+            <div class="mt-12 no-print">
                 <button id="toggleTrendBtn" class="w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center">
                     <span class="font-semibold">연도별 추이</span>
                     <span class="toggle-icon">▼</span>
                 </button>
             </div>
             <div id="trendDetail" class="mt-4 hidden report-section"></div>
-            <div class="mt-2 no-print">
+            <div class="mt-4 no-print">
                 <button id="toggleContractBtn" class="w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center">
                     <span class="font-semibold">계약 상세</span>
                     <span class="toggle-icon">▼</span>
@@ -405,18 +404,17 @@ function renderContractDetail(agencyData) {
     });
 }
 
-
 // ▼▼▼ [수정됨] renderTrendDetail 함수 전체 변경 ▼▼▼
 function renderTrendDetail(agencyName) {
     const container = document.getElementById('trendDetail');
-    // [수정] 인쇄 레이아웃을 위해 flex 구조로 변경
+    // [수정] 인쇄 레이아웃을 위해 flex 구조 및 그래프/지표 너비 조정
     container.innerHTML = `
         <h4 class="text-md font-semibold mb-2">연도별 구매 추이</h4>
         <div class="flex flex-col md:flex-row gap-6">
-            <div class="md:w-2/3 p-4">
+            <div class="md:w-1/2 p-4">
                 <canvas id="trendChart"></canvas>
             </div>
-            <div class="md:w-1/3 p-4">
+            <div class="md:w-1/2 p-4">
                  <h5 class="text-sm font-semibold mb-2">주요 지표 요약</h5>
                 <table id="trendSummaryTable" class="min-w-full text-sm"><tbody></tbody></table>
             </div>
@@ -498,7 +496,7 @@ function renderTrendDetail(agencyName) {
     `;
 }
 
-
+// ... 이하 handleTableSort, sortData, updateSortIndicators, showLoadingState 함수는 이전과 동일 ...
 function handleTableSort(tableName, sortKey, sortType = 'string') {
     const sortState = sortStates[tableName];
     if (sortState.key === sortKey) {
@@ -547,33 +545,42 @@ function showLoadingState(isLoading, text = '분석 중...') {
     }
 }
 
+
+// ▼▼▼ [수정됨] printPanel 함수 전체 변경 ▼▼▼
 function printPanel(panel) {
-    if (panel) {
-        const isReportView = panel.id === 'comprehensiveReport';
-        if (isReportView) {
-            // 보고서 뷰일 경우, 숨겨진 섹션을 모두 펼침
-            panel.querySelectorAll('.report-section.hidden').forEach(el => el.classList.remove('hidden'));
-        }
-       
-        panel.classList.add('printing-now');
-        window.print();
-        
-        // 인쇄 후, 펼쳤던 섹션을 다시 숨김 (선택적)
-        setTimeout(() => {
-            if (isReportView) {
-                // 버튼 상태를 보고 원래대로 복원
-                panel.querySelectorAll('button[id^="toggle"]').forEach(btn => {
-                    const isCollapsed = btn.querySelector('.toggle-icon').textContent === '▼';
-                    const contentId = btn.id.replace('toggle', '').replace('Btn', 'Detail').toLowerCase();
-                    const contentEl = document.getElementById(contentId);
-                    if (contentEl && isCollapsed) {
-                        contentEl.classList.add('hidden');
-                    }
-                });
-            }
-            panel.classList.remove('printing-now');
-        }, 500);
-    } else {
+    if (!panel) {
         CommonUtils.showAlert('인쇄할 내용이 없습니다.', 'warning');
+        return;
     }
+
+    // [수정] 인쇄 시 현재 화면의 펼침/접힘 상태를 그대로 반영
+    const isReportView = panel.id === 'comprehensiveReport';
+    
+    // 인쇄용 스타일을 동적으로 추가 (섹션 간 간격)
+    const style = document.createElement('style');
+    style.id = 'print-style';
+    style.innerHTML = `
+        @media print {
+            .report-section {
+                margin-top: 3rem; /* 약 3행 간격 */
+                page-break-inside: avoid;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    panel.classList.add('printing-now');
+    window.print();
+    
+    // 인쇄 후 동적으로 추가한 스타일과 클래스 제거
+    setTimeout(() => {
+        panel.classList.remove('printing-now');
+        const printStyle = document.getElementById('print-style');
+        if (printStyle) {
+            printStyle.remove();
+        }
+    }, 500);
 }
