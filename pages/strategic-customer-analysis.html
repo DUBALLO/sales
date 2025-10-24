@@ -31,12 +31,40 @@
             <p class="text-gray-600">데이터 분석을 통해 공략 가능한 기회 고객을 발굴하고, 잠재적 교체 수요를 예측합니다.</p>
         </div>
 
+        <div class="filter-section bg-white rounded-lg shadow-md p-6 mb-8 no-print">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="form-label">지역구분 (시/도)</label>
+                    <select id="regionFilter" class="form-select">
+                        <option value="all">전체</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">지역구분 (시/군/구)</label>
+                    <select id="cityFilter" class="form-select">
+                        <option value="all">전체</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">소관구분</label>
+                    <select id="agencyTypeFilter" class="form-select">
+                        <option value="all">전체</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button id="analyzeBtn" class="btn btn-success w-full">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                        분석
+                    </button>
+                </div>
+            </div>
+        </div>
         <div id="projectAlertPanel" class="mb-8">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 border-l-4 border-pink-500 pl-4">
                 주요 프로젝트 교체 주기 알림 🚨
             </h2>
             <div id="projectAlertContent" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div class="text-center py-10 text-gray-500">분석 중...</div>
+                 <div class="col-span-full text-center py-10 text-gray-500">분석 대기 중...</div>
             </div>
         </div>
 
@@ -61,7 +89,7 @@
                             </tr>
                         </thead>
                         <tbody id="opportunityTableBody">
-                           <tr><td colspan="6" class="text-center py-10 text-gray-500">데이터를 불러오는 중입니다...</td></tr>
+                           <tr><td colspan="6" class="text-center py-10 text-gray-500">상단 필터로 조건을 선택 후 '분석' 버튼을 클릭해주세요.</td></tr>
                         </tbody>
                     </table>
                 </div>
