@@ -4,13 +4,11 @@
 let allData = [];
 let currentFilteredData = [];
 let chartInstance = null;
-// 현재 상세 분석 중인 수요기관을 저장하여, 필터 변경 시 상태를 유지하기 위함
 let currentAgencyInDetailView = null;
 
 let sortStates = {
     rank: { key: 'amount', direction: 'desc', type: 'number' },
     purchase: { key: 'amount', direction: 'desc', type: 'number' },
-    // [수정] 계약 상세의 기본 정렬을 거래일자 내림차순(최신순)으로 설정
     contract: { key: 'date', direction: 'desc', type: 'string' }
 };
 
@@ -20,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         allData = await loadAndParseData();
         populateFilters(allData);
         setupEventListeners();
-        await runAnalysis(true); // 초기 로딩 시 목록 표시
+        await runAnalysis(true);
     } catch (error) {
         console.error("초기화 실패:", error);
         CommonUtils.showAlert("페이지 초기화 중 오류가 발생했습니다.", 'error');
@@ -29,31 +27,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// [수정] 이벤트 리스너 설정 함수 분리
 function setupEventListeners() {
-    // '분석' 버튼 클릭
     document.getElementById('analyzeBtn').addEventListener('click', () => runAnalysis());
-
-    // [수정] 보고서 상태 유지를 위한 필터별 동작 구분
-    // 연도, 품목 필터 변경: 보고서 상태 유지
     document.getElementById('analysisYear').addEventListener('change', () => runAnalysis());
     document.getElementById('productFilter').addEventListener('change', () => runAnalysis());
-
-    // 지역, 소관 필터 변경: 목록으로 돌아가기
     document.getElementById('regionFilter').addEventListener('change', () => {
         populateCityFilter();
-        runAnalysis(true); // true는 '목록으로 강제 이동'을 의미
+        runAnalysis(true);
     });
     document.getElementById('cityFilter').addEventListener('change', () => runAnalysis(true));
     document.getElementById('agencyTypeFilter').addEventListener('change', () => runAnalysis(true));
 }
 
-
-// [수정] 메인 분석 실행 함수
 async function runAnalysis(forceList = false) {
     showLoadingState(true, '데이터 분석 중...');
     
-    // 지역/소관 필터 변경 시, 상세 보기 상태 해제
     if (forceList) {
         currentAgencyInDetailView = null;
     }
@@ -72,7 +60,6 @@ async function runAnalysis(forceList = false) {
         (agencyType === 'all' || item.agencyType === agencyType)
     );
 
-    // 상세 보고서 화면 상태인지, 목록 화면 상태인지에 따라 다른 함수 호출
     if (currentAgencyInDetailView) {
         showAgencyDetail(currentAgencyInDetailView);
     } else {
@@ -84,7 +71,7 @@ async function runAnalysis(forceList = false) {
     showLoadingState(false);
 }
 
-
+// 이하 loadAndParseData, populateFilters, populateCityFilter, renderAgencyRankPanel 함수는 이전과 동일합니다.
 async function loadAndParseData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
     const rawData = await window.sheetsAPI.loadCSVData('procurement');
@@ -244,14 +231,11 @@ function renderAgencyRankPanel(data) {
 }
 
 function showAgencyDetail(agencyName) {
-    // [수정] 상세 보기 상태로 전환
     currentAgencyInDetailView = agencyName;
-
     const detailPanel = document.getElementById('agencyDetailPanel');
     const yearFilter = document.getElementById('analysisYear');
     const selectedYearText = yearFilter.value === 'all' ? '전체 기간' : yearFilter.options[yearFilter.selectedIndex].text;
     
-    // [수정] 보고서 UI/UX 전체 개편
     detailPanel.innerHTML = `
         <div id="comprehensiveReport" class="p-6 printable-area">
             <div class="flex justify-between items-center mb-4">
@@ -262,9 +246,7 @@ function showAgencyDetail(agencyName) {
                     <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
                 </div>
             </div>
-
-            <div id="purchaseDetail" class="mt-4"></div>
-
+            <div id="purchaseDetail" class="mt-4 report-section"></div>
             <div class="mt-6 no-print">
                 <button id="toggleTrendBtn" class="w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center">
                     <span class="font-semibold">연도별 추이</span>
@@ -272,7 +254,6 @@ function showAgencyDetail(agencyName) {
                 </button>
             </div>
             <div id="trendDetail" class="mt-4 hidden report-section"></div>
-
             <div class="mt-2 no-print">
                 <button id="toggleContractBtn" class="w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center">
                     <span class="font-semibold">계약 상세</span>
@@ -288,7 +269,6 @@ function showAgencyDetail(agencyName) {
     renderContractDetail(agencyData);
     renderTrendDetail(agencyName);
 
-    // --- 이벤트 리스너 설정 ---
     const sections = {
         trend: { btn: 'toggleTrendBtn', content: 'trendDetail' },
         contract: { btn: 'toggleContractBtn', content: 'contractDetail' }
@@ -314,7 +294,7 @@ function showAgencyDetail(agencyName) {
     });
 
     document.getElementById('backToListBtn').addEventListener('click', () => {
-        currentAgencyInDetailView = null; // 상세 보기 상태 해제
+        currentAgencyInDetailView = null;
         detailPanel.classList.add('hidden');
         document.getElementById('agencyRankPanel').classList.remove('hidden');
     });
@@ -325,13 +305,11 @@ function showAgencyDetail(agencyName) {
     detailPanel.classList.remove('hidden');
 }
 
-
 function renderPurchaseDetail(agencyData) {
     const container = document.getElementById('purchaseDetail');
     const productFilter = document.getElementById('productFilter');
     const selectedProductText = productFilter.value === 'all' ? '전체 품목' : productFilter.options[productFilter.selectedIndex].text;
 
-    // [수정] 동적 부제목
     container.innerHTML = `
         <h4 class="text-md font-semibold mb-2">${selectedProductText} 구매 내역 요약</h4>
         <table id="purchaseDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
@@ -355,9 +333,7 @@ function renderPurchaseDetail(agencyData) {
 
     const agencyTotalAmount = agencyData.reduce((sum, item) => sum + item.amount, 0);
     let data = [...supplierMap.entries()].map(([supplier, { amount, contracts }]) => ({ 
-        supplier, 
-        amount, 
-        contractCount: contracts.size,
+        supplier, amount, contractCount: contracts.size,
         share: agencyTotalAmount > 0 ? (amount / agencyTotalAmount) * 100 : 0
     }));
 
@@ -403,7 +379,6 @@ function renderContractDetail(agencyData) {
         </table>`;
     
     let data = [...agencyData];
-    // [수정] 기본 정렬을 바로 적용
     sortData(data, sortStates.contract);
     data.forEach((item, index) => item.rank = index + 1);
     
@@ -425,33 +400,39 @@ function renderContractDetail(agencyData) {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
             handleTableSort('contract', th.dataset.sortKey, th.dataset.sortType);
-            renderContractDetail(agencyData); // 정렬 후 다시 렌더링
+            renderContractDetail(agencyData);
         }
     });
 }
 
+
+// ▼▼▼ [수정됨] renderTrendDetail 함수 전체 변경 ▼▼▼
 function renderTrendDetail(agencyName) {
     const container = document.getElementById('trendDetail');
-    // [수정] 인쇄 레이아웃을 위해 grid 구조 변경
+    // [수정] 인쇄 레이아웃을 위해 flex 구조로 변경
     container.innerHTML = `
         <h4 class="text-md font-semibold mb-2">연도별 구매 추이</h4>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="md:col-span-2 bg-white p-4 rounded-lg shadow">
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="md:w-2/3 p-4">
                 <canvas id="trendChart"></canvas>
             </div>
-            <div class="md:col-span-1 bg-white p-4 rounded-lg shadow">
+            <div class="md:w-1/3 p-4">
                  <h5 class="text-sm font-semibold mb-2">주요 지표 요약</h5>
                 <table id="trendSummaryTable" class="min-w-full text-sm"><tbody></tbody></table>
             </div>
         </div>`;
 
+    // [수정] 그래프는 항상 현재 연도 기준, 요약 지표는 드롭다운 기준
+    const currentSystemYear = new Date().getFullYear();
+    const chartYears = Array.from({length: 5}, (_, i) => currentSystemYear - i).sort();
+
     const selectedYearValue = document.getElementById('analysisYear').value;
-    const selectedYear = selectedYearValue === 'all' ? new Date().getFullYear() : parseInt(selectedYearValue);
-    const lastFiveYears = Array.from({length: 5}, (_, i) => selectedYear - i).sort();
-    const yearlyData = allData.filter(d => d.agency === agencyName && d.date && lastFiveYears.includes(new Date(d.date).getFullYear()));
+    const summaryYear = selectedYearValue === 'all' ? currentSystemYear : parseInt(selectedYearValue);
+    
+    const yearlyData = allData.filter(d => d.agency === agencyName && d.date && chartYears.includes(new Date(d.date).getFullYear()));
     
     const salesByYear = {};
-    lastFiveYears.forEach(year => {
+    chartYears.forEach(year => {
         salesByYear[year] = { amount: 0, contracts: new Set() };
     });
     yearlyData.forEach(d => {
@@ -467,17 +448,17 @@ function renderTrendDetail(agencyName) {
     chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: lastFiveYears.map(String),
+            labels: chartYears.map(String),
             datasets: [{
                 label: '연간 구매액',
-                data: lastFiveYears.map(year => salesByYear[year].amount),
+                data: chartYears.map(year => salesByYear[year].amount),
                 backgroundColor: 'rgba(54, 162, 235, 0.6)',
                 borderColor: 'rgba(54, 162, 235, 1)',
                 borderWidth: 1
             }]
         },
         options: {
-            maintainAspectRatio: false, // 인쇄 시 비율 유지 해제
+            maintainAspectRatio: false,
             scales: { y: { beginAtZero: true, ticks: { callback: value => CommonUtils.formatCurrency(value) } } },
             plugins: {
                 tooltip: {
@@ -494,28 +475,29 @@ function renderTrendDetail(agencyName) {
         }
     });
 
-    const yearAmounts = lastFiveYears.map(year => salesByYear[year].amount);
+    const yearAmounts = chartYears.map(year => salesByYear[year].amount);
     const actualTransactionYears = yearAmounts.filter(amount => amount > 0);
     const totalAmount = actualTransactionYears.reduce((sum, amount) => sum + amount, 0);
     const avgAmount = actualTransactionYears.length > 0 ? totalAmount / actualTransactionYears.length : 0;
     
     let peakAmount = Math.max(...yearAmounts);
-    let peakYear = peakAmount > 0 ? lastFiveYears[yearAmounts.indexOf(peakAmount)] : '-';
+    let peakYear = peakAmount > 0 ? chartYears[yearAmounts.indexOf(peakAmount)] : '-';
     
-    const selectedYearAmount = salesByYear[selectedYear] ? salesByYear[selectedYear].amount : 0;
-    const vsAvgRatio = avgAmount > 0 ? ((selectedYearAmount / avgAmount) - 1) * 100 : 0;
+    const summaryYearAmount = salesByYear[summaryYear] ? salesByYear[summaryYear].amount : 0;
+    const vsAvgRatio = avgAmount > 0 ? ((summaryYearAmount / avgAmount) - 1) * 100 : 0;
     const diffText = vsAvgRatio === 0 ? '-' : (vsAvgRatio > 0 ? `▲ ${vsAvgRatio.toFixed(1)}%` : `▼ ${Math.abs(vsAvgRatio).toFixed(1)}%`);
     const diffColor = vsAvgRatio > 0 ? 'text-red-500' : 'text-blue-500';
 
     const summaryBody = document.getElementById('trendSummaryTable').querySelector('tbody');
     summaryBody.innerHTML = `
-        <tr class="border-b"><td class="py-2 font-semibold">연평균 구매액</td><td class="py-2 text-right">${CommonUtils.formatCurrency(avgAmount)}</td></tr>
+        <tr class="border-b"><td class="py-2 font-semibold">5년 평균 구매액</td><td class="py-2 text-right">${CommonUtils.formatCurrency(avgAmount)}</td></tr>
         <tr class="border-b"><td class="py-2 font-semibold">최고 구매 연도</td><td class="py-2 text-right">${peakYear}</td></tr>
         <tr class="border-b"><td class="py-2 font-semibold">최고 구매액</td><td class="py-2 text-right">${CommonUtils.formatCurrency(peakAmount)}</td></tr>
-        <tr class="border-b"><td class="py-2 font-semibold">${selectedYear}년 구매액</td><td class="py-2 text-right">${CommonUtils.formatCurrency(selectedYearAmount)}</td></tr>
+        <tr class="border-b"><td class="py-2 font-semibold">${summaryYear}년 구매액</td><td class="py-2 text-right">${CommonUtils.formatCurrency(summaryYearAmount)}</td></tr>
         <tr><td class="py-2 font-semibold">평균 대비 증감</td><td class="py-2 text-right font-bold ${diffColor}">${diffText}</td></tr>
     `;
 }
+
 
 function handleTableSort(tableName, sortKey, sortType = 'string') {
     const sortState = sortStates[tableName];
@@ -567,19 +549,28 @@ function showLoadingState(isLoading, text = '분석 중...') {
 
 function printPanel(panel) {
     if (panel) {
-        const toggleAllBtn = panel.querySelector('#toggleAllBtn');
-        if (toggleAllBtn) {
-             // 인쇄 전 모든 섹션을 강제로 펼칩니다.
-            Object.values({trend: { btn: 'toggleTrendBtn', content: 'trendDetail' }, contract: { btn: 'toggleContractBtn', content: 'contractDetail' }}).forEach(({ content }) => {
-                document.getElementById(content).classList.remove('hidden');
-            });
+        const isReportView = panel.id === 'comprehensiveReport';
+        if (isReportView) {
+            // 보고서 뷰일 경우, 숨겨진 섹션을 모두 펼침
+            panel.querySelectorAll('.report-section.hidden').forEach(el => el.classList.remove('hidden'));
         }
        
         panel.classList.add('printing-now');
         window.print();
         
-        // 인쇄 후 원래 상태로 복원 (선택적)
+        // 인쇄 후, 펼쳤던 섹션을 다시 숨김 (선택적)
         setTimeout(() => {
+            if (isReportView) {
+                // 버튼 상태를 보고 원래대로 복원
+                panel.querySelectorAll('button[id^="toggle"]').forEach(btn => {
+                    const isCollapsed = btn.querySelector('.toggle-icon').textContent === '▼';
+                    const contentId = btn.id.replace('toggle', '').replace('Btn', 'Detail').toLowerCase();
+                    const contentEl = document.getElementById(contentId);
+                    if (contentEl && isCollapsed) {
+                        contentEl.classList.add('hidden');
+                    }
+                });
+            }
             panel.classList.remove('printing-now');
         }, 500);
     } else {
