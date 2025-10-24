@@ -462,8 +462,12 @@ function sortData(data, sortState) {
     data.sort((a, b) => {
         const valA = a[key], valB = b[key];
         let comparison = 0;
-        if (type === 'number') comparison = (Number(valA) || 0) - (Number(valB) || 0);
-        else comparison = String(valA || '').localeCompare(String(valB || ''));
+        if (type === 'number') {
+            comparison = (Number(valA) || 0) - (Number(valB) || 0);
+        } else {
+            // ▼▼▼ [수정] 한국어(ko) 정렬 규칙을 명시적으로 추가 ▼▼▼
+            comparison = String(valA || '').localeCompare(String(valB || ''), 'ko');
+        }
         return direction === 'asc' ? comparison : -comparison;
     });
 }
