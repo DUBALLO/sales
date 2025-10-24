@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전략적 고객 분석 - 판매실적 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../assets/css/common.css" rel="stylesheet">
+    <script src="../assets/js/sheets-api.js"></script>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-sm border-b no-print">
+        <div class="max-w-6xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <a href="../index.html" class="text-lg font-semibold text-gray-900">판매실적 대시보드</a>
+                    <span class="text-gray-400">|</span>
+                    <span class="text-pink-600 font-medium">전략적 고객 분석</span>
+                </div>
+                <div class="flex space-x-2">
+                    <a href="../index.html" class="nav-link">홈</a>
+                    <a href="./agency-purchase-history.html" class="nav-link">수요기관 분석</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">전략적 고객 분석</h1>
+            <p class="text-gray-600">데이터 분석을 통해 공략 가능한 기회 고객을 발굴하고, 잠재적 교체 수요를 예측합니다.</p>
+        </div>
+
+        <div id="projectAlertPanel" class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 border-l-4 border-pink-500 pl-4">
+                주요 프로젝트 교체 주기 알림 🚨
+            </h2>
+            <div id="projectAlertContent" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="text-center py-10 text-gray-500">분석 중...</div>
+            </div>
+        </div>
+
+        <div id="opportunityCustomerPanel" class="bg-white rounded-lg shadow-md">
+            <div class="p-6 border-b">
+                 <h2 class="text-2xl font-bold text-gray-800 border-l-4 border-blue-500 pl-4">
+                    기회 고객 포착 🎯
+                </h2>
+                <p class="text-gray-600 mt-2 pl-5">공급 업체 충성도가 낮아, 적극적인 영업을 통해 수주 가능성이 높은 수요기관 목록입니다.</p>
+            </div>
+            <div class="p-6">
+                <div class="overflow-x-auto">
+                    <table id="opportunityTable" class="min-w-full divide-y divide-gray-200 data-table">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">순위</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">수요기관명</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">구매 주기</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">최근 3년 구매액</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">1위 업체 변경</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">상세 분석</th>
+                            </tr>
+                        </thead>
+                        <tbody id="opportunityTableBody">
+                           <tr><td colspan="6" class="text-center py-10 text-gray-500">데이터를 불러오는 중입니다...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="../assets/js/common.js"></script>
+    <script src="../assets/js/strategic-customer-analysis.js"></script>
+</body>
+</html>
