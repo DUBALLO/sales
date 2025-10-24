@@ -3,10 +3,15 @@
 // 전역 변수
 let allGovernmentData = []; 
 let currentFilteredData = [];
+// 현재 상세 보기 중인 고객 이름
+let currentDetailCustomer = null; 
+
 let sortStates = {
     customer: { key: 'amount', direction: 'desc', type: 'number' },
     region: { key: 'amount', direction: 'desc', type: 'number' },
-    type: { key: 'amount', direction: 'desc', type: 'number' }
+    type: { key: 'amount', direction: 'desc', type: 'number' },
+    // [추가] 상세 내역 테이블의 정렬 상태 (기본: 최신 계약일 순)
+    detail: { key: 'contractDate', direction: 'desc', type: 'string' }
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -92,13 +97,15 @@ function handleTableSort(tableName, sortKey, sortType = 'string') {
     }
     sortState.type = sortType;
     
-    // 정렬 후 해당 탭의 테이블 다시 렌더링
     if (tableName === 'customer') renderCustomerTable(currentFilteredData);
     else if (tableName === 'region') renderRegionTable(currentFilteredData);
     else if (tableName === 'type') renderTypeTable(currentFilteredData);
+    // [추가] 상세 내역 테이블 정렬
+    else if (tableName === 'detail') renderDetailTable();
 }
 
 async function analyzeCustomers() {
+    currentDetailCustomer = null; // 분석 시 상세 보기 상태 초기화
     document.getElementById('customerDetailPanel').classList.add('hidden');
     document.getElementById('analysisPanel').classList.remove('hidden');
 
@@ -197,7 +204,6 @@ function renderCustomerTable(data) {
 }
 
 function renderRegionTable(data) {
-    // ... (This function remains correct)
     const regionMap = new Map();
     data.forEach(item => {
         if (!regionMap.has(item.region)) {
@@ -241,7 +247,6 @@ function renderRegionTable(data) {
 }
 
 function renderTypeTable(data) {
-    // ... (This function remains correct)
     const typeMap = new Map();
     data.forEach(item => {
         if (!typeMap.has(item.agencyType)) {
@@ -284,66 +289,109 @@ function renderTypeTable(data) {
     updateSortIndicators('typeTable', sortStates.type);
 }
 
-// ▼▼▼ [추가] 누락되었던 showCustomerDetail 함수 ▼▼▼
+// ▼▼▼ [수정됨] showCustomerDetail 함수 전체 변경 ▼▼▼
 function showCustomerDetail(customerName) {
+    currentDetailCustomer = customerName;
     const detailPanel = document.getElementById('customerDetailPanel');
-    const customerData = currentFilteredData.filter(item => item.customer === customerName);
 
-    // 상세 내역 UI 생성
-    let detailHtml = `
-        <div class="p-6">
-            <div class="flex justify-between items-center mb-4">
+    // 상세 내역 UI 및 정렬 기능이 포함된 테이블 헤더 생성
+    detailPanel.innerHTML = `
+        <div class="p-6 printable-area">
+            <div class="flex justify-between items-center mb-4 no-print">
                 <h3 class="text-lg font-semibold text-gray-900">${customerName} - 상세 거래 내역</h3>
                 <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
             </div>
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 data-table">
+                <table id="detailTable" class="min-w-full divide-y divide-gray-200 data-table">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">계약일</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">계약명</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">품목</th>
-                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">공급금액</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractDate" data-sort-type="string"><span>계약일</span></th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractName" data-sort-type="string"><span>계약명</span></th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="product" data-sort-type="string"><span>품목</span></th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>공급금액</span></th>
                         </tr>
                     </thead>
-                    <tbody>
-                        ${customerData.sort((a,b) => new Date(b.contractDate) - new Date(a.contractDate)).map(item => `
-                            <tr>
-                                <td class="px-4 py-3">${item.contractDate}</td>
-                                <td class="px-4 py-3">${item.contractName}</td>
-                                <td class="px-4 py-3">${item.product}</td>
-                                <td class="px-4 py-3 text-right">${CommonUtils.formatCurrency(item.amount)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
+                    <tbody id="detailTableBody"></tbody>
                 </table>
             </div>
         </div>
     `;
 
-    detailPanel.innerHTML = detailHtml;
+    // 데이터 렌더링 함수 호출
+    renderDetailTable();
+
+    // UI 상태 변경
     detailPanel.classList.remove('hidden');
     document.getElementById('analysisPanel').classList.add('hidden');
 
-    // '목록으로' 버튼 이벤트
+    // 이벤트 리스너 연결
     document.getElementById('backToListBtn').addEventListener('click', () => {
+        currentDetailCustomer = null;
         detailPanel.classList.add('hidden');
         document.getElementById('analysisPanel').classList.remove('hidden');
     });
+
+    document.getElementById('detailTable').querySelector('thead').addEventListener('click', (e) => {
+        const th = e.target.closest('th');
+        if (th && th.dataset.sortKey) {
+            handleTableSort('detail', th.dataset.sortKey, th.dataset.sortType);
+        }
+    });
 }
 
-// ▼▼▼ [추가] 누락되었던 printCurrentView 함수 ▼▼▼
+// [추가] 상세 내역 테이블을 렌더링하는 전용 함수
+function renderDetailTable() {
+    if (!currentDetailCustomer) return;
+
+    const customerData = currentFilteredData.filter(item => item.customer === currentDetailCustomer);
+    
+    // 정렬 적용
+    sortData(customerData, sortStates.detail);
+
+    const tbody = document.getElementById('detailTableBody');
+    tbody.innerHTML = '';
+    customerData.forEach(item => {
+        tbody.innerHTML += `
+            <tr>
+                <td class="px-4 py-3">${item.contractDate}</td>
+                <td class="px-4 py-3">${item.contractName}</td>
+                <td class="px-4 py-3">${item.product}</td>
+                <td class="px-4 py-3 text-right">${CommonUtils.formatCurrency(item.amount)}</td>
+            </tr>
+        `;
+    });
+    
+    // 정렬 방향 표시 업데이트
+    updateSortIndicators('detailTable', sortStates.detail);
+}
+
+// ▼▼▼ [수정됨] printCurrentView 함수 ▼▼▼
 function printCurrentView() {
-    // 현재 활성화된 탭 패널을 찾음
-    const activePanel = document.querySelector('.tab-panel:not(.hidden)');
+    let activePanel;
+    // 상세 보기 상태인지 먼저 확인
+    if (currentDetailCustomer) {
+        activePanel = document.getElementById('customerDetailPanel');
+    } else {
+        // 활성화된 탭 패널을 찾음
+        activePanel = document.querySelector('.tab-panel:not(.hidden)');
+    }
+
     if (activePanel) {
-        // 인쇄용 클래스 추가 및 인쇄 실행
         activePanel.classList.add('printable-area');
+        // 요약 카드도 함께 인쇄 영역에 포함 (목록 화면일 때만)
+        if (!currentDetailCustomer) {
+            document.querySelector('.stats-grid').classList.add('printable-area');
+        }
+        
         window.print();
+        
         // 인쇄 후 클래스 제거
         activePanel.classList.remove('printable-area');
+        if (!currentDetailCustomer) {
+            document.querySelector('.stats-grid').classList.remove('printable-area');
+        }
     } else {
-        CommonUtils.showAlert('인쇄할 탭이 활성화되어 있지 않습니다.', 'warning');
+        CommonUtils.showAlert('인쇄할 내용이 없습니다.', 'warning');
     }
 }
 
