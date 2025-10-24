@@ -1,4 +1,4 @@
-// agency-purchase-history.js (v4 - 상세 필터 및 거래처 수 추가)
+// agency-purchase-history.js
 
 // 전역 변수
 let allData = [];
@@ -99,6 +99,7 @@ function analyzeData() {
 
 function renderAgencyRankPanel(data) {
     const panel = document.getElementById('agencyRankPanel');
+    // ▼▼▼ [수정] '구매 주기' 컬럼 추가 ▼▼▼
     panel.innerHTML = `
         <div class="p-6 printable-area">
             <div class="flex justify-between items-center mb-4">
@@ -114,6 +115,7 @@ function renderAgencyRankPanel(data) {
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순위</span></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="agency" data-sort-type="string"><span>수요기관명</span></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="region" data-sort-type="string"><span>지역</span></th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="purchaseCycle" data-sort-type="string"><span>구매 주기</span></th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractCount" data-sort-type="number"><span>거래건수</span></th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplierCount" data-sort-type="number"><span>거래처 수</span></th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>총 구매액</span></th>
@@ -146,6 +148,7 @@ function renderAgencyRankPanel(data) {
     const selectedYear = selectedYearValue === 'all' ? new Date().getFullYear() : parseInt(selectedYearValue);
 
     rankedAgencies.forEach(agency => {
+        // 평균 대비 계산 로직
         const lastFiveYears = Array.from({length: 5}, (_, i) => selectedYear - i).sort();
         const agencyAllData = allData.filter(d => d.agency === agency.agency && d.date && lastFiveYears.includes(new Date(d.date).getFullYear()));
         
@@ -162,24 +165,41 @@ function renderAgencyRankPanel(data) {
         const selectedYearAmount = salesByYear[selectedYear] || 0;
         
         agency.vsAvg = avgAmount > 0 ? ((selectedYearAmount / avgAmount) - 1) * 100 : 0;
+        
+        // ▼▼▼ [추가] 구매 주기 계산 로직 ▼▼▼
+        const agencyHistoricalData = allData.filter(d => d.agency === agency.agency && d.date);
+        const evenYearSales = agencyHistoricalData.filter(d => new Date(d.date).getFullYear() % 2 === 0).reduce((sum, d) => sum + d.amount, 0);
+        const oddYearSales = agencyHistoricalData.filter(d => new Date(d.date).getFullYear() % 2 !== 0).reduce((sum, d) => sum + d.amount, 0);
+        const totalSales = evenYearSales + oddYearSales;
+
+        let cycle = '균형형';
+        if (totalSales > 10000000) { // 1천만원 이상 거래 기관만 분석
+            if (evenYearSales / totalSales > 0.7) cycle = '짝수해';
+            else if (oddYearSales / totalSales > 0.7) cycle = '홀수해';
+        }
+        agency.purchaseCycle = cycle;
     });
 
+    // ▼▼▼ [수정] 정렬 로직은 렌더링 직전에 한 번만 수행하도록 수정 ▼▼▼
     sortData(rankedAgencies, sortStates.rank);
     rankedAgencies.forEach((item, index) => item.rank = index + 1);
 
     const tbody = document.getElementById('agencyRankBody');
     tbody.innerHTML = '';
     if (rankedAgencies.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-3 text-center py-8 text-gray-500">표시할 데이터가 없습니다.</td></tr>`;
+        // ▼▼▼ [수정] colspan 8로 변경 ▼▼▼
+        tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-3 text-center py-8 text-gray-500">표시할 데이터가 없습니다.</td></tr>`;
     } else {
         rankedAgencies.forEach(item => {
             const row = tbody.insertRow();
             const diffText = item.vsAvg === 0 ? '-' : (item.vsAvg > 0 ? `▲ ${item.vsAvg.toFixed(1)}%` : `▼ ${Math.abs(item.vsAvg).toFixed(1)}%`);
             const diffColor = item.vsAvg > 0 ? 'text-red-500' : 'text-blue-500';
+            // ▼▼▼ [수정] '구매 주기' td 추가 ▼▼▼
             row.innerHTML = `
                 <td class="px-4 py-3 text-center">${item.rank}</td>
                 <td class="px-4 py-3"><a href="#" data-agency="${item.agency}" class="text-blue-600 hover:underline">${item.agency}</a></td>
                 <td class="px-4 py-3">${item.city ? `${item.region} ${item.city}`: item.region}</td>
+                <td class="px-4 py-3 text-center">${item.purchaseCycle}</td>
                 <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
                 <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.supplierCount)}</td>
                 <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
@@ -192,12 +212,14 @@ function renderAgencyRankPanel(data) {
         });
     }
     updateSortIndicators('agencyRankTable', sortStates.rank);
+    // ▼▼▼ [수정] 정렬 이벤트 핸들러를 간결하게 수정 ▼▼▼
     document.getElementById('agencyRankTable').querySelector('thead').addEventListener('click', e => {
         const th = e.target.closest('th');
-        if (th && th.dataset.sortKey) {
-            handleTableSort('rank', th.dataset.sortKey, th.dataset.sortType);
-            renderAgencyRankPanel(currentFilteredData);
-        }
+        if (!th || !th.dataset.sortKey) return;
+        
+        handleTableSort('rank', th.dataset.sortKey, th.dataset.sortType);
+        // 데이터를 다시 집계할 필요 없이 현재 필터링된 데이터로 바로 렌더링
+        renderAgencyRankPanel(currentFilteredData);
     });
     document.getElementById('printRankBtn').addEventListener('click', () => printPanel(panel));
     document.getElementById('exportRankBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('agencyRankTable'), '수요기관_구매순위.csv'));
@@ -463,7 +485,7 @@ function sortData(data, sortState) {
         const valA = a[key], valB = b[key];
         let comparison = 0;
         if (type === 'number') comparison = (Number(valA) || 0) - (Number(valB) || 0);
-        else comparison = String(valA || '').localeCompare(String(valB || ''));
+        else comparison = String(valA || '').localeCompare(String(valB || ''), 'ko'); // 'ko' 옵션 추가
         return direction === 'asc' ? comparison : -comparison;
     });
 }
