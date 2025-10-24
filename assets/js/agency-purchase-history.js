@@ -1,4 +1,4 @@
-// agency-purchase-history.js (v4 - 상세 필터 및 거래처 수 추가)
+// agency-purchase-history.js
 
 // 전역 변수
 let allData = [];
@@ -99,6 +99,7 @@ function analyzeData() {
 
 function renderAgencyRankPanel(data) {
     const panel = document.getElementById('agencyRankPanel');
+    // [수정] '지역' 컬럼의 정렬 기준(data-sort-key)을 'fullRegion'으로 변경
     panel.innerHTML = `
         <div class="p-6 printable-area">
             <div class="flex justify-between items-center mb-4">
@@ -113,7 +114,7 @@ function renderAgencyRankPanel(data) {
                     <thead class="bg-gray-50"><tr>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순위</span></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="agency" data-sort-type="string"><span>수요기관명</span></th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="region" data-sort-type="string"><span>지역</span></th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="fullRegion" data-sort-type="string"><span>지역</span></th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractCount" data-sort-type="number"><span>거래건수</span></th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplierCount" data-sort-type="number"><span>거래처 수</span></th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>총 구매액</span></th>
@@ -127,7 +128,7 @@ function renderAgencyRankPanel(data) {
     const agencyMap = new Map();
     data.forEach(item => {
         if (!agencyMap.has(item.agency)) {
-            agencyMap.set(item.agency, { amount: 0, contracts: new Set(), suppliers: new Set(), region: item.region, city: item.city, agencyType: item.agencyType });
+            agencyMap.set(item.agency, { amount: 0, contracts: new Set(), suppliers: new Set(), region: item.region, city: item.city });
         }
         const agencyInfo = agencyMap.get(item.agency);
         agencyInfo.amount += item.amount;
@@ -135,12 +136,16 @@ function renderAgencyRankPanel(data) {
         agencyInfo.suppliers.add(item.supplier);
     });
 
-    let rankedAgencies = [...agencyMap.entries()].map(([agency, { amount, contracts, suppliers, region, city, agencyType }]) => ({
-        agency, amount, 
-        contractCount: contracts.size, 
-        supplierCount: suppliers.size,
-        region, city, agencyType 
-    }));
+    // [수정] 정렬을 위한 'fullRegion' 필드를 새로 생성
+    let rankedAgencies = [...agencyMap.entries()].map(([agency, { amount, contracts, suppliers, region, city }]) => {
+        const fullRegion = city ? `${region} ${city}` : region;
+        return {
+            agency, amount,
+            contractCount: contracts.size,
+            supplierCount: suppliers.size,
+            fullRegion // 정렬에 사용할 키
+        };
+    });
     
     const selectedYearValue = document.getElementById('analysisYear').value;
     const selectedYear = selectedYearValue === 'all' ? new Date().getFullYear() : parseInt(selectedYearValue);
@@ -176,10 +181,11 @@ function renderAgencyRankPanel(data) {
             const row = tbody.insertRow();
             const diffText = item.vsAvg === 0 ? '-' : (item.vsAvg > 0 ? `▲ ${item.vsAvg.toFixed(1)}%` : `▼ ${Math.abs(item.vsAvg).toFixed(1)}%`);
             const diffColor = item.vsAvg > 0 ? 'text-red-500' : 'text-blue-500';
+            // [수정] 화면에 'fullRegion' 값을 표시
             row.innerHTML = `
                 <td class="px-4 py-3 text-center">${item.rank}</td>
                 <td class="px-4 py-3"><a href="#" data-agency="${item.agency}" class="text-blue-600 hover:underline">${item.agency}</a></td>
-                <td class="px-4 py-3">${item.city ? `${item.region} ${item.city}`: item.region}</td>
+                <td class="px-4 py-3">${item.fullRegion}</td>
                 <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
                 <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.supplierCount)}</td>
                 <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
@@ -194,10 +200,10 @@ function renderAgencyRankPanel(data) {
     updateSortIndicators('agencyRankTable', sortStates.rank);
     document.getElementById('agencyRankTable').querySelector('thead').addEventListener('click', e => {
         const th = e.target.closest('th');
-        if (th && th.dataset.sortKey) {
-            handleTableSort('rank', th.dataset.sortKey, th.dataset.sortType);
-            renderAgencyRankPanel(currentFilteredData);
-        }
+        if (!th || !th.dataset.sortKey) return;
+        
+        handleTableSort('rank', th.dataset.sortKey, th.dataset.sortType);
+        renderAgencyRankPanel(currentFilteredData);
     });
     document.getElementById('printRankBtn').addEventListener('click', () => printPanel(panel));
     document.getElementById('exportRankBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('agencyRankTable'), '수요기관_구매순위.csv'));
@@ -465,7 +471,7 @@ function sortData(data, sortState) {
         if (type === 'number') {
             comparison = (Number(valA) || 0) - (Number(valB) || 0);
         } else {
-            // ▼▼▼ [수정] 한국어(ko) 정렬 규칙을 명시적으로 추가 ▼▼▼
+            // [수정] 한국어(ko) 정렬 규칙을 명시적으로 추가
             comparison = String(valA || '').localeCompare(String(valB || ''), 'ko');
         }
         return direction === 'asc' ? comparison : -comparison;
