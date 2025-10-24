@@ -4,10 +4,14 @@
 let allData = [];
 let currentFilteredData = [];
 let chartInstance = null;
+// 현재 상세 분석 중인 수요기관을 저장하여, 필터 변경 시 상태를 유지하기 위함
+let currentAgencyInDetailView = null;
+
 let sortStates = {
     rank: { key: 'amount', direction: 'desc', type: 'number' },
     purchase: { key: 'amount', direction: 'desc', type: 'number' },
-    contract: { key: 'amount', direction: 'desc', type: 'number' }
+    // [수정] 계약 상세의 기본 정렬을 거래일자 내림차순(최신순)으로 설정
+    contract: { key: 'date', direction: 'desc', type: 'string' }
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -15,9 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         allData = await loadAndParseData();
         populateFilters(allData);
-        document.getElementById('analyzeBtn').addEventListener('click', analyzeData);
-        document.getElementById('regionFilter').addEventListener('change', populateCityFilter);
-        await analyzeData();
+        setupEventListeners();
+        await runAnalysis(true); // 초기 로딩 시 목록 표시
     } catch (error) {
         console.error("초기화 실패:", error);
         CommonUtils.showAlert("페이지 초기화 중 오류가 발생했습니다.", 'error');
@@ -25,6 +28,62 @@ document.addEventListener('DOMContentLoaded', async () => {
         showLoadingState(false);
     }
 });
+
+// [수정] 이벤트 리스너 설정 함수 분리
+function setupEventListeners() {
+    // '분석' 버튼 클릭
+    document.getElementById('analyzeBtn').addEventListener('click', () => runAnalysis());
+
+    // [수정] 보고서 상태 유지를 위한 필터별 동작 구분
+    // 연도, 품목 필터 변경: 보고서 상태 유지
+    document.getElementById('analysisYear').addEventListener('change', () => runAnalysis());
+    document.getElementById('productFilter').addEventListener('change', () => runAnalysis());
+
+    // 지역, 소관 필터 변경: 목록으로 돌아가기
+    document.getElementById('regionFilter').addEventListener('change', () => {
+        populateCityFilter();
+        runAnalysis(true); // true는 '목록으로 강제 이동'을 의미
+    });
+    document.getElementById('cityFilter').addEventListener('change', () => runAnalysis(true));
+    document.getElementById('agencyTypeFilter').addEventListener('change', () => runAnalysis(true));
+}
+
+
+// [수정] 메인 분석 실행 함수
+async function runAnalysis(forceList = false) {
+    showLoadingState(true, '데이터 분석 중...');
+    
+    // 지역/소관 필터 변경 시, 상세 보기 상태 해제
+    if (forceList) {
+        currentAgencyInDetailView = null;
+    }
+
+    const year = document.getElementById('analysisYear').value;
+    const product = document.getElementById('productFilter').value;
+    const region = document.getElementById('regionFilter').value;
+    const city = document.getElementById('cityFilter').value;
+    const agencyType = document.getElementById('agencyTypeFilter').value;
+
+    currentFilteredData = allData.filter(item => 
+        (year === 'all' || (item.date && item.date.startsWith(year))) &&
+        (product === 'all' || item.product === product) &&
+        (region === 'all' || item.region === region) &&
+        (city === 'all' || item.city === city) &&
+        (agencyType === 'all' || item.agencyType === agencyType)
+    );
+
+    // 상세 보고서 화면 상태인지, 목록 화면 상태인지에 따라 다른 함수 호출
+    if (currentAgencyInDetailView) {
+        showAgencyDetail(currentAgencyInDetailView);
+    } else {
+        document.getElementById('agencyDetailPanel').classList.add('hidden');
+        document.getElementById('agencyRankPanel').classList.remove('hidden');
+        renderAgencyRankPanel(currentFilteredData);
+    }
+    
+    showLoadingState(false);
+}
+
 
 async function loadAndParseData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
@@ -73,28 +132,6 @@ function populateCityFilter() {
             .sort();
         cities.forEach(city => cityFilter.add(new Option(city, city)));
     }
-}
-
-function analyzeData() {
-    showLoadingState(true, '데이터 분석 중...');
-    document.getElementById('agencyDetailPanel').classList.add('hidden');
-    document.getElementById('agencyRankPanel').classList.remove('hidden');
-
-    const year = document.getElementById('analysisYear').value;
-    const product = document.getElementById('productFilter').value;
-    const region = document.getElementById('regionFilter').value;
-    const city = document.getElementById('cityFilter').value;
-    const agencyType = document.getElementById('agencyTypeFilter').value;
-
-    currentFilteredData = allData.filter(item => 
-        (year === 'all' || (item.date && item.date.startsWith(year))) &&
-        (product === 'all' || item.product === product) &&
-        (region === 'all' || item.region === region) &&
-        (city === 'all' || item.city === city) &&
-        (agencyType === 'all' || item.agencyType === agencyType)
-    );
-    renderAgencyRankPanel(currentFilteredData);
-    showLoadingState(false);
 }
 
 function renderAgencyRankPanel(data) {
@@ -206,18 +243,22 @@ function renderAgencyRankPanel(data) {
     document.getElementById('exportRankBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('agencyRankTable'), '수요기관_구매순위.csv'));
 }
 
-
-// ▼▼▼ [수정됨] 상세 보기 UI 및 로직 전체 변경 ▼▼▼
 function showAgencyDetail(agencyName) {
+    // [수정] 상세 보기 상태로 전환
+    currentAgencyInDetailView = agencyName;
+
     const detailPanel = document.getElementById('agencyDetailPanel');
+    const yearFilter = document.getElementById('analysisYear');
+    const selectedYearText = yearFilter.value === 'all' ? '전체 기간' : yearFilter.options[yearFilter.selectedIndex].text;
+    
+    // [수정] 보고서 UI/UX 전체 개편
     detailPanel.innerHTML = `
         <div id="comprehensiveReport" class="p-6 printable-area">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-gray-900">${agencyName} 종합 보고서</h3>
+                <h3 class="text-xl font-bold text-gray-900">${agencyName} 분석 보고서 (${selectedYearText})</h3>
                 <div class="flex items-center space-x-2 no-print">
                     <button id="toggleAllBtn" class="btn btn-secondary btn-sm">전체 펼치기</button>
-                    <button id="printDetailBtn" class="btn btn-secondary btn-sm">인쇄</button>
-                    <button id="exportDetailBtn" class="btn btn-secondary btn-sm">CSV 내보내기</button>
+                    <button id="printDetailBtn" class="btn btn-secondary btn-sm">보고서 인쇄</button>
                     <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
                 </div>
             </div>
@@ -230,7 +271,7 @@ function showAgencyDetail(agencyName) {
                     <span class="toggle-icon">▼</span>
                 </button>
             </div>
-            <div id="trendDetail" class="mt-4 hidden"></div>
+            <div id="trendDetail" class="mt-4 hidden report-section"></div>
 
             <div class="mt-2 no-print">
                 <button id="toggleContractBtn" class="w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center">
@@ -238,12 +279,11 @@ function showAgencyDetail(agencyName) {
                     <span class="toggle-icon">▼</span>
                 </button>
             </div>
-            <div id="contractDetail" class="mt-4 hidden"></div>
+            <div id="contractDetail" class="mt-4 hidden report-section"></div>
         </div>`;
     
     const agencyData = currentFilteredData.filter(item => item.agency === agencyName);
     
-    // 각 섹션 렌더링
     renderPurchaseDetail(agencyData);
     renderContractDetail(agencyData);
     renderTrendDetail(agencyName);
@@ -254,17 +294,15 @@ function showAgencyDetail(agencyName) {
         contract: { btn: 'toggleContractBtn', content: 'contractDetail' }
     };
 
-    // 개별 토글 버튼
     Object.values(sections).forEach(({ btn, content }) => {
         document.getElementById(btn).addEventListener('click', (e) => {
             const contentEl = document.getElementById(content);
             const iconEl = e.currentTarget.querySelector('.toggle-icon');
-            const isHidden = contentEl.classList.toggle('hidden');
-            iconEl.textContent = isHidden ? '▼' : '▲';
+            contentEl.classList.toggle('hidden');
+            iconEl.textContent = contentEl.classList.contains('hidden') ? '▼' : '▲';
         });
     });
 
-    // 전체 펼치기/접기 버튼
     const toggleAllBtn = document.getElementById('toggleAllBtn');
     toggleAllBtn.addEventListener('click', () => {
         const isExpanding = toggleAllBtn.textContent === '전체 펼치기';
@@ -275,20 +313,14 @@ function showAgencyDetail(agencyName) {
         toggleAllBtn.textContent = isExpanding ? '전체 접기' : '전체 펼치기';
     });
 
-    // 뒤로가기 버튼
     document.getElementById('backToListBtn').addEventListener('click', () => {
+        currentAgencyInDetailView = null; // 상세 보기 상태 해제
         detailPanel.classList.add('hidden');
         document.getElementById('agencyRankPanel').classList.remove('hidden');
     });
 
-    // 인쇄 버튼 (종합 보고서 컨테이너 전체를 인쇄)
     document.getElementById('printDetailBtn').addEventListener('click', () => printPanel(document.getElementById('comprehensiveReport')));
     
-    // CSV 내보내기 (기본 테이블인 구매 내역만)
-    document.getElementById('exportDetailBtn').addEventListener('click', () => {
-        CommonUtils.exportTableToCSV(document.getElementById('purchaseDetailTable'), `${agencyName}_구매내역.csv`);
-    });
-
     document.getElementById('agencyRankPanel').classList.add('hidden');
     detailPanel.classList.remove('hidden');
 }
@@ -296,8 +328,12 @@ function showAgencyDetail(agencyName) {
 
 function renderPurchaseDetail(agencyData) {
     const container = document.getElementById('purchaseDetail');
+    const productFilter = document.getElementById('productFilter');
+    const selectedProductText = productFilter.value === 'all' ? '전체 품목' : productFilter.options[productFilter.selectedIndex].text;
+
+    // [수정] 동적 부제목
     container.innerHTML = `
-        <h4 class="text-md font-semibold mb-2">구매 내역 요약</h4>
+        <h4 class="text-md font-semibold mb-2">${selectedProductText} 구매 내역 요약</h4>
         <table id="purchaseDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
             <thead class="bg-gray-50"><tr>
                 <th class="w-1/12 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순위</span></th>
@@ -367,6 +403,7 @@ function renderContractDetail(agencyData) {
         </table>`;
     
     let data = [...agencyData];
+    // [수정] 기본 정렬을 바로 적용
     sortData(data, sortStates.contract);
     data.forEach((item, index) => item.rank = index + 1);
     
@@ -388,13 +425,14 @@ function renderContractDetail(agencyData) {
         const th = e.target.closest('th');
         if (th && th.dataset.sortKey) {
             handleTableSort('contract', th.dataset.sortKey, th.dataset.sortType);
-            renderContractDetail(agencyData);
+            renderContractDetail(agencyData); // 정렬 후 다시 렌더링
         }
     });
 }
 
 function renderTrendDetail(agencyName) {
     const container = document.getElementById('trendDetail');
+    // [수정] 인쇄 레이아웃을 위해 grid 구조 변경
     container.innerHTML = `
         <h4 class="text-md font-semibold mb-2">연도별 구매 추이</h4>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -439,6 +477,7 @@ function renderTrendDetail(agencyName) {
             }]
         },
         options: {
+            maintainAspectRatio: false, // 인쇄 시 비율 유지 해제
             scales: { y: { beginAtZero: true, ticks: { callback: value => CommonUtils.formatCurrency(value) } } },
             plugins: {
                 tooltip: {
@@ -447,10 +486,7 @@ function renderTrendDetail(agencyName) {
                             const year = context.label;
                             const amount = context.parsed.y;
                             const count = salesByYear[year].contracts.size;
-                            return [
-                                `구매액: ${CommonUtils.formatCurrency(amount)}`,
-                                `구매건수: ${count}건`
-                            ];
+                            return [ `구매액: ${CommonUtils.formatCurrency(amount)}`, `구매건수: ${count}건` ];
                         }
                     }
                 }
@@ -531,11 +567,14 @@ function showLoadingState(isLoading, text = '분석 중...') {
 
 function printPanel(panel) {
     if (panel) {
-        // 인쇄 전 모든 섹션을 강제로 펼칩니다.
-        const isExpanding = true;
-        panel.querySelectorAll('.toggle-icon').forEach(icon => icon.textContent = isExpanding ? '▲' : '▼');
-        panel.querySelectorAll('.hidden[id$="Detail"]').forEach(el => el.classList.remove('hidden'));
-        
+        const toggleAllBtn = panel.querySelector('#toggleAllBtn');
+        if (toggleAllBtn) {
+             // 인쇄 전 모든 섹션을 강제로 펼칩니다.
+            Object.values({trend: { btn: 'toggleTrendBtn', content: 'trendDetail' }, contract: { btn: 'toggleContractBtn', content: 'contractDetail' }}).forEach(({ content }) => {
+                document.getElementById(content).classList.remove('hidden');
+            });
+        }
+       
         panel.classList.add('printing-now');
         window.print();
         
