@@ -35,8 +35,8 @@ async function loadAndParseData() {
         return {
             agency: (item['수요기관명'] || '').trim(),
             supplier: (item['업체'] || '').trim(),
-            region: regionParts[0] || '', // 시/도
-            city: regionParts[1] || '',   // 시/군/구
+            region: regionParts[0] || '',
+            city: regionParts[1] || '',
             agencyType: item['소관구분'] || '기타',
             product: (item['세부품명'] || '').trim(),
             amount: parseInt(String(item['공급금액']).replace(/[^\d]/g, '') || '0', 10),
@@ -99,7 +99,6 @@ function analyzeData() {
 
 function renderAgencyRankPanel(data) {
     const panel = document.getElementById('agencyRankPanel');
-    // [수정] '지역' 컬럼의 정렬 기준(data-sort-key)을 'fullRegion'으로 변경
     panel.innerHTML = `
         <div class="p-6 printable-area">
             <div class="flex justify-between items-center mb-4">
@@ -136,14 +135,13 @@ function renderAgencyRankPanel(data) {
         agencyInfo.suppliers.add(item.supplier);
     });
 
-    // [수정] 정렬을 위한 'fullRegion' 필드를 새로 생성
     let rankedAgencies = [...agencyMap.entries()].map(([agency, { amount, contracts, suppliers, region, city }]) => {
         const fullRegion = city ? `${region} ${city}` : region;
         return {
             agency, amount,
             contractCount: contracts.size,
             supplierCount: suppliers.size,
-            fullRegion // 정렬에 사용할 키
+            fullRegion
         };
     });
     
@@ -181,7 +179,6 @@ function renderAgencyRankPanel(data) {
             const row = tbody.insertRow();
             const diffText = item.vsAvg === 0 ? '-' : (item.vsAvg > 0 ? `▲ ${item.vsAvg.toFixed(1)}%` : `▼ ${Math.abs(item.vsAvg).toFixed(1)}%`);
             const diffColor = item.vsAvg > 0 ? 'text-red-500' : 'text-blue-500';
-            // [수정] 화면에 'fullRegion' 값을 표시
             row.innerHTML = `
                 <td class="px-4 py-3 text-center">${item.rank}</td>
                 <td class="px-4 py-3"><a href="#" data-agency="${item.agency}" class="text-blue-600 hover:underline">${item.agency}</a></td>
@@ -209,66 +206,98 @@ function renderAgencyRankPanel(data) {
     document.getElementById('exportRankBtn').addEventListener('click', () => CommonUtils.exportTableToCSV(document.getElementById('agencyRankTable'), '수요기관_구매순위.csv'));
 }
 
+
+// ▼▼▼ [수정됨] 상세 보기 UI 및 로직 전체 변경 ▼▼▼
 function showAgencyDetail(agencyName) {
     const detailPanel = document.getElementById('agencyDetailPanel');
     detailPanel.innerHTML = `
-        <div class="p-6">
+        <div id="comprehensiveReport" class="p-6 printable-area">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg"><strong class="font-bold">${agencyName}</strong> <span class="font-normal">상세 내역</span></h3>
+                <h3 class="text-xl font-bold text-gray-900">${agencyName} 종합 보고서</h3>
                 <div class="flex items-center space-x-2 no-print">
+                    <button id="toggleAllBtn" class="btn btn-secondary btn-sm">전체 펼치기</button>
                     <button id="printDetailBtn" class="btn btn-secondary btn-sm">인쇄</button>
                     <button id="exportDetailBtn" class="btn btn-secondary btn-sm">CSV 내보내기</button>
                     <button id="backToListBtn" class="btn btn-secondary btn-sm">목록으로</button>
                 </div>
             </div>
-            <div class="border-b border-gray-200 no-print">
-                <nav class="-mb-px flex space-x-8" id="detailTabs">
-                    <button data-tab="purchase" class="analysis-tab active">구매 내역</button>
-                    <button data-tab="contract" class="analysis-tab">계약 상세</button>
-                    <button data-tab="trend" class="analysis-tab">연도별 추이</button>
-                </nav>
+
+            <div id="purchaseDetail" class="mt-4"></div>
+
+            <div class="mt-6 no-print">
+                <button id="toggleTrendBtn" class="w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center">
+                    <span class="font-semibold">연도별 추이</span>
+                    <span class="toggle-icon">▼</span>
+                </button>
             </div>
-            <div id="purchaseDetail" class="tab-content mt-4 printable-area"></div>
-            <div id="contractDetail" class="tab-content mt-4 printable-area hidden"></div>
-            <div id="trendDetail" class="tab-content mt-4 printable-area hidden"></div>
+            <div id="trendDetail" class="mt-4 hidden"></div>
+
+            <div class="mt-2 no-print">
+                <button id="toggleContractBtn" class="w-full text-left p-3 bg-gray-100 hover:bg-gray-200 rounded-md flex justify-between items-center">
+                    <span class="font-semibold">계약 상세</span>
+                    <span class="toggle-icon">▼</span>
+                </button>
+            </div>
+            <div id="contractDetail" class="mt-4 hidden"></div>
         </div>`;
     
     const agencyData = currentFilteredData.filter(item => item.agency === agencyName);
+    
+    // 각 섹션 렌더링
     renderPurchaseDetail(agencyData);
     renderContractDetail(agencyData);
     renderTrendDetail(agencyName);
 
-    document.getElementById('detailTabs').addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            const tabName = e.target.dataset.tab;
-            document.getElementById('detailTabs').querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-            e.target.classList.add('active');
-            detailPanel.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
-            document.getElementById(tabName + 'Detail').classList.remove('hidden');
-        }
+    // --- 이벤트 리스너 설정 ---
+    const sections = {
+        trend: { btn: 'toggleTrendBtn', content: 'trendDetail' },
+        contract: { btn: 'toggleContractBtn', content: 'contractDetail' }
+    };
+
+    // 개별 토글 버튼
+    Object.values(sections).forEach(({ btn, content }) => {
+        document.getElementById(btn).addEventListener('click', (e) => {
+            const contentEl = document.getElementById(content);
+            const iconEl = e.currentTarget.querySelector('.toggle-icon');
+            const isHidden = contentEl.classList.toggle('hidden');
+            iconEl.textContent = isHidden ? '▼' : '▲';
+        });
     });
+
+    // 전체 펼치기/접기 버튼
+    const toggleAllBtn = document.getElementById('toggleAllBtn');
+    toggleAllBtn.addEventListener('click', () => {
+        const isExpanding = toggleAllBtn.textContent === '전체 펼치기';
+        Object.values(sections).forEach(({ btn, content }) => {
+            document.getElementById(content).classList.toggle('hidden', !isExpanding);
+            document.getElementById(btn).querySelector('.toggle-icon').textContent = isExpanding ? '▲' : '▼';
+        });
+        toggleAllBtn.textContent = isExpanding ? '전체 접기' : '전체 펼치기';
+    });
+
+    // 뒤로가기 버튼
     document.getElementById('backToListBtn').addEventListener('click', () => {
         detailPanel.classList.add('hidden');
         document.getElementById('agencyRankPanel').classList.remove('hidden');
     });
-    document.getElementById('printDetailBtn').addEventListener('click', () => printPanel(detailPanel.querySelector('.tab-content:not(.hidden)')));
+
+    // 인쇄 버튼 (종합 보고서 컨테이너 전체를 인쇄)
+    document.getElementById('printDetailBtn').addEventListener('click', () => printPanel(document.getElementById('comprehensiveReport')));
+    
+    // CSV 내보내기 (기본 테이블인 구매 내역만)
     document.getElementById('exportDetailBtn').addEventListener('click', () => {
-        const activeTab = detailPanel.querySelector('.tab-content:not(.hidden)');
-        const table = activeTab.querySelector('table');
-        if (table) {
-             CommonUtils.exportTableToCSV(table, `${agencyName}_상세내역.csv`);
-        } else {
-             CommonUtils.showAlert('내보낼 데이터 테이블이 없습니다.', 'warning');
-        }
+        CommonUtils.exportTableToCSV(document.getElementById('purchaseDetailTable'), `${agencyName}_구매내역.csv`);
     });
+
     document.getElementById('agencyRankPanel').classList.add('hidden');
     detailPanel.classList.remove('hidden');
 }
 
+
 function renderPurchaseDetail(agencyData) {
     const container = document.getElementById('purchaseDetail');
     container.innerHTML = `
-        <h4 class="text-md font-semibold mb-2">수요기관 구매 내역</h4>
+        <h4 class="text-md font-semibold mb-2">구매 내역 요약</h4>
         <table id="purchaseDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
             <thead class="bg-gray-50"><tr>
                 <th class="w-1/12 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순위</span></th>
@@ -329,9 +358,9 @@ function renderContractDetail(agencyData) {
         <table id="contractDetailTable" class="min-w-full divide-y divide-gray-200 data-table">
             <thead class="bg-gray-50"><tr>
                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="rank" data-sort-type="number"><span>순번</span></th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="date" data-sort-type="string"><span>거래일자</span></th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="contractName" data-sort-type="string"><span>계약명</span></th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="supplier" data-sort-type="string"><span>업체명</span></th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="date" data-sort-type="string"><span>거래일자</span></th>
                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>공급금액</span></th>
             </tr></thead>
             <tbody id="contractDetailBody"></tbody>
@@ -347,9 +376,9 @@ function renderContractDetail(agencyData) {
         const row = tbody.insertRow();
         row.innerHTML = `
             <td class="px-4 py-3 text-center">${item.rank}</td>
+            <td class="px-4 py-3 text-center">${item.date}</td>
             <td class="px-4 py-3">${item.contractName}</td>
             <td class="px-4 py-3">${item.supplier}</td>
-            <td class="px-4 py-3 text-center">${item.date}</td>
             <td class="px-4 py-3 text-right font-medium whitespace-nowrap">${CommonUtils.formatCurrency(item.amount)}</td>
         `;
     });
@@ -367,13 +396,13 @@ function renderContractDetail(agencyData) {
 function renderTrendDetail(agencyName) {
     const container = document.getElementById('trendDetail');
     container.innerHTML = `
+        <h4 class="text-md font-semibold mb-2">연도별 구매 추이</h4>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="md:col-span-2 bg-white p-4 rounded-lg shadow">
-                <h4 class="text-md font-semibold mb-2">최근 5년간 구매 추이</h4>
                 <canvas id="trendChart"></canvas>
             </div>
             <div class="md:col-span-1 bg-white p-4 rounded-lg shadow">
-                <h4 class="text-md font-semibold mb-2">주요 지표 요약</h4>
+                 <h5 class="text-sm font-semibold mb-2">주요 지표 요약</h5>
                 <table id="trendSummaryTable" class="min-w-full text-sm"><tbody></tbody></table>
             </div>
         </div>`;
@@ -471,7 +500,6 @@ function sortData(data, sortState) {
         if (type === 'number') {
             comparison = (Number(valA) || 0) - (Number(valB) || 0);
         } else {
-            // [수정] 한국어(ko) 정렬 규칙을 명시적으로 추가
             comparison = String(valA || '').localeCompare(String(valB || ''), 'ko');
         }
         return direction === 'asc' ? comparison : -comparison;
@@ -503,8 +531,15 @@ function showLoadingState(isLoading, text = '분석 중...') {
 
 function printPanel(panel) {
     if (panel) {
+        // 인쇄 전 모든 섹션을 강제로 펼칩니다.
+        const isExpanding = true;
+        panel.querySelectorAll('.toggle-icon').forEach(icon => icon.textContent = isExpanding ? '▲' : '▼');
+        panel.querySelectorAll('.hidden[id$="Detail"]').forEach(el => el.classList.remove('hidden'));
+        
         panel.classList.add('printing-now');
         window.print();
+        
+        // 인쇄 후 원래 상태로 복원 (선택적)
         setTimeout(() => {
             panel.classList.remove('printing-now');
         }, 500);
