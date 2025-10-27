@@ -28,7 +28,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadAndParseProcurementData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
-    const rawData = await window.sheetsAPI.loadCSVData('procurement');
+    // ▼▼▼ [수정] 이 부분을 새로운 통합 함수로 변경합니다. ▼▼▼
+    const rawData = await window.sheetsAPI.loadAllProcurementData(); 
     return rawData
         .map(item => ({
             customer: (item['수요기관명'] || '').trim(),
