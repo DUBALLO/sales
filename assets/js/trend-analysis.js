@@ -1,4 +1,4 @@
-// trend-analysis.js (v2 - 비교 분석 기능 추가)
+// trend-analysis.js
 
 // 전역 변수
 let allData = [];
@@ -24,7 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadAndParseAllData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
-    const rawData = await window.sheetsAPI.loadCSVData('procurement');
+    // ▼▼▼ [수정] 이 부분을 새로운 통합 함수로 변경합니다. ▼▼▼
+    const rawData = await window.sheetsAPI.loadAllProcurementData();
     return rawData.map(item => ({
         amount: parseInt(String(item['공급금액']).replace(/[^\d]/g, '') || '0', 10),
         date: item['기준일자'] || '',
@@ -35,7 +36,6 @@ async function loadAndParseAllData() {
     })).filter(item => item.amount > 0 && item.date && item.contractName);
 }
 
-// ▼▼▼ 연도 필터를 동적으로 생성하는 함수 ▼▼▼
 function populateYearFilters() {
     const baseYearEl = document.getElementById('baseYear');
     const comparisonYearEl = document.getElementById('comparisonYear');
@@ -55,6 +55,9 @@ function populateYearFilters() {
     const currentYear = new Date().getFullYear();
     if (years.includes(currentYear)) {
         comparisonYearEl.value = currentYear;
+    } else if (years.length > 0) {
+        // 현재 연도 데이터가 없을 경우, 가장 최신 연도를 기본값으로 설정
+        comparisonYearEl.value = years[0];
     }
 }
 
@@ -86,10 +89,8 @@ function analyzeTrends() {
     
     const productFilteredData = allData.filter(item => (product === 'all') || (item.product === product));
 
-    // 분석연도 데이터 집계
     const comparisonData = productFilteredData.filter(d => new Date(d.date).getFullYear().toString() === comparisonYear);
 
-    // 기준연도 데이터 집계
     let baseData, baseLabel;
     const yearsInData = [...new Set(productFilteredData.map(d => new Date(d.date).getFullYear()))];
     
@@ -109,7 +110,6 @@ function analyzeTrends() {
     showLoadingState(false);
 }
 
-// ▼▼▼ 다중 데이터셋을 받도록 수정된 차트 렌더링 함수 ▼▼▼
 function renderChart(canvasId, type, labels, datasets) {
     if (chartInstances[canvasId]) {
         chartInstances[canvasId].destroy();
