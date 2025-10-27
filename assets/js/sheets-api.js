@@ -1,4 +1,4 @@
-// Google Sheets API 연결 및 CSV 로드 기능 (v4 - 컬럼 매핑 강화)
+// Google Sheets API 연결 및 CSV 로드 기능 (v5 - CSV 파싱 로직 복원 및 강화)
 
 class SheetsAPI {
     constructor() {
@@ -71,20 +71,54 @@ class SheetsAPI {
         return this.parseCSV(csvText);
     }
     
-    // ▼▼▼ [수정됨] 컬럼 순서가 달라도 정확히 매핑하는 로직으로 변경 ▼▼▼
+    // ▼▼▼ [수정됨] 쉼표(,)가 포함된 데이터를 안전하게 처리하는 로직으로 전체 변경 ▼▼▼
+    
+    /**
+     * CSV 한 줄을 파싱하는 헬퍼 함수. 큰따옴표 안의 쉼표는 무시합니다.
+     */
+    parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+                // 따옴표가 연속 두 번 나오면(escaped quote) 하나의 따옴표로 처리
+                if (inQuotes && line[i + 1] === '"') {
+                    current += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                // 따옴표 밖에 있는 쉼표에서만 자름
+                result.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current);
+        // 각 데이터의 앞뒤 공백과 불필요한 따옴표 제거
+        return result.map(s => s.trim().replace(/^"|"$/g, ''));
+    }
+
+    /**
+     * CSV 텍스트 전체를 파싱하여 객체 배열로 변환하는 메인 함수.
+     */
     parseCSV(csvText) {
         const lines = csvText.trim().split('\n');
         if (lines.length < 2) return [];
 
-        // 1. 각 시트의 헤더(컬럼명)를 읽고, 공백을 제거합니다.
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        // 헤더(컬럼명)를 안전하게 파싱
+        const headers = this.parseCSVLine(lines[0]);
 
-        // 2. 데이터 라인을 순회하며, 헤더를 기준으로 객체를 생성합니다.
+        // 데이터 라인을 순회하며, 헤더를 기준으로 정확하게 객체를 생성
         return lines.slice(1).map(line => {
-            const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+            const values = this.parseCSVLine(line);
             const obj = {};
-            // 3. headers 배열의 각 컬럼명을 키(key)로 사용하여 값을 할당합니다.
-            // 이렇게 하면 컬럼 순서가 바뀌어도 `obj['업체']`는 항상 '업체' 컬럼의 값을 갖게 됩니다.
             headers.forEach((header, index) => {
                 obj[header] = values[index];
             });
