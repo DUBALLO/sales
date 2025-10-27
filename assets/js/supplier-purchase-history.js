@@ -1,4 +1,4 @@
-// supplier-purchase-history.js (v2.5 - 상세 내역 점유율 제거)
+// supplier-purchase-history.js
 
 // 전역 변수
 let allData = [];
@@ -9,40 +9,41 @@ let sortStates = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-    showLoadingState(true, '데이터 로딩 중...');
     try {
         allData = await loadAndParseData();
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        if (analyzeBtn) {
-            analyzeBtn.addEventListener('click', analyzeData);
-        }
+        document.getElementById('analyzeBtn').addEventListener('click', analyzeData);
         await analyzeData();
     } catch (error) {
         console.error("초기화 실패:", error);
         CommonUtils.showAlert("페이지 초기화 중 오류가 발생했습니다.", 'error');
-    } finally {
-        showLoadingState(false);
     }
 });
 
-async function loadAndParseAllData() {
+// ▼▼▼ [수정됨] 데이터 파싱 로직을 안정화하여 오류 방지 ▼▼▼
+async function loadAndParseData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
-    // ▼▼▼ [수정] 이 부분을 새로운 통합 함수로 변경합니다. ▼▼▼
+    
+    // 이제 모든 조달 데이터를 한번에 불러옵니다.
     const rawData = await window.sheetsAPI.loadAllProcurementData();
-    return rawData.map(item => ({
-        agency: (item['수요기관명'] || '').trim(),
-        supplier: (item['업체'] || '').trim(),
-        region: (item['수요기관지역'] || '').trim().split(' ')[0],
-        agencyType: item['소관구분'] || '기타',
-        product: (item['세부품명'] || '').trim(),
-        amount: parseInt(String(item['공급금액']).replace(/[^\d]/g, '') || '0', 10),
-        date: item['기준일자'] || '',
-        contractName: (item['계약명'] || '').trim()
-    })).filter(item => item.supplier && item.agency && item.amount > 0);
+    
+    // 어떤 데이터가 들어와도 오류가 나지 않도록 안전하게 처리합니다.
+    return rawData.map(item => {
+        const amountStr = String(item['공급금액'] || '0').replace(/[^\d]/g, '');
+        return {
+            agency: (item['수요기관명'] || '').trim(),
+            supplier: (item['업체'] || '').trim(),
+            region: (item['수요기관지역'] || '').trim().split(' ')[0],
+            agencyType: item['소관구분'] || '기타',
+            product: (item['세부품명'] || '').trim(),
+            amount: amountStr ? parseInt(amountStr, 10) : 0,
+            date: item['기준일자'] || '',
+            contractName: (item['계약명'] || '').trim()
+        };
+    }).filter(item => item.supplier && item.agency && item.amount > 0); // 유효한 데이터만 필터링
 }
 
+
 function analyzeData() {
-    showLoadingState(true, '데이터 분석 중...');
     document.getElementById('supplierDetailPanel').classList.add('hidden');
     document.getElementById('supplierPanel').classList.remove('hidden');
 
@@ -56,12 +57,11 @@ function analyzeData() {
 
     updateSummaryStats(currentFilteredData);
     renderSupplierTable(currentFilteredData);
-    showLoadingState(false);
 }
 
 function updateSummaryStats(data) {
     const totalSuppliers = new Set(data.map(item => item.supplier)).size;
-    const totalContracts = new Set(data.map(item => item.contractName)).size;
+    const totalContracts = data.length; // 계약 건수는 row 수로 집계
     const totalSales = data.reduce((sum, item) => sum + item.amount, 0);
 
     document.getElementById('totalSuppliers').textContent = CommonUtils.formatNumber(totalSuppliers) + '개';
@@ -96,39 +96,38 @@ function renderSupplierTable(data) {
     const supplierMap = new Map();
     data.forEach(item => {
         if (!supplierMap.has(item.supplier)) {
-            supplierMap.set(item.supplier, { amount: 0, contracts: new Set() });
+            supplierMap.set(item.supplier, { amount: 0, contractCount: 0 });
         }
         const info = supplierMap.get(item.supplier);
         info.amount += item.amount;
-        info.contracts.add(item.contractName);
+        info.contractCount++; // 각 row를 계약 1건으로 집계
     });
 
-    let supplierData = [...supplierMap.entries()].map(([supplier, { amount, contracts }]) => ({
-        supplier, amount, contractCount: contracts.size
+    let supplierData = [...supplierMap.entries()].map(([supplier, { amount, contractCount }]) => ({
+        supplier, amount, contractCount
     }));
 
     sortData(supplierData, sortStates.main);
     supplierData.forEach((item, index) => item.rank = index + 1);
 
     const tbody = panel.querySelector('#supplierTableBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500">데이터가 없습니다.</td></tr>';
+    if (supplierData.length === 0) return;
+
     tbody.innerHTML = '';
-    if (supplierData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-3 text-center py-8 text-gray-500">데이터가 없습니다.</td></tr>`;
-    } else {
-        supplierData.forEach(item => {
-            const row = tbody.insertRow();
-            row.innerHTML = `
-                <td class="px-4 py-3 text-center">${item.rank}</td>
-                <td class="px-4 py-3"><a href="#" data-supplier="${item.supplier}" class="text-blue-600 hover:underline">${item.supplier}</a></td>
-                <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
-                <td class="px-4 py-3 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
-            `;
-            row.querySelector('a').addEventListener('click', e => {
-                e.preventDefault();
-                showSupplierDetail(e.target.dataset.supplier);
-            });
+    supplierData.forEach(item => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td class="px-4 py-3 text-center">${item.rank}</td>
+            <td class="px-4 py-3"><a href="#" data-supplier="${item.supplier}" class="text-blue-600 hover:underline">${item.supplier}</a></td>
+            <td class="px-4 py-3 text-center">${CommonUtils.formatNumber(item.contractCount)}</td>
+            <td class="px-4 py-3 text-right font-medium">${CommonUtils.formatCurrency(item.amount)}</td>
+        `;
+        row.querySelector('a').addEventListener('click', e => {
+            e.preventDefault();
+            showSupplierDetail(e.target.dataset.supplier);
         });
-    }
+    });
 
     updateSortIndicators('supplierTable', sortStates.main);
 
@@ -162,7 +161,7 @@ function showSupplierDetail(supplierName) {
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="agency" data-sort-type="string"><span>수요기관명</span></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="region" data-sort-type="string"><span>소재지</span></th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="amount" data-sort-type="number"><span>업체 판매금액</span></th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="totalAmount" data-sort-type="number"><span>수요기관 전체</span></th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer" data-sort-key="totalAmount" data-sort-type="number"><span>수요기관 전체 구매액</span></th>
                     </tr></thead>
                     <tbody id="supplierDetailTableBody"></tbody>
                 </table>
@@ -183,7 +182,6 @@ function showSupplierDetail(supplierName) {
         agencySalesMap.get(item.agency).amount += item.amount;
     });
     
-    // ▼▼▼ 상세 내역 테이블 데이터 생성 시 점유율 계산 로직 제거 ▼▼▼
     let detailData = [...agencySalesMap.values()].map(item => {
         const totalAmount = agencyTotalMap.get(item.agency) || 0;
         return { ...item, totalAmount };
@@ -195,7 +193,6 @@ function showSupplierDetail(supplierName) {
         tbody.innerHTML = '';
         detailData.forEach(item => {
             const row = tbody.insertRow();
-            // ▼▼▼ 상세 내역 테이블에서 점유율 td 제거 ▼▼▼
             row.innerHTML = `
                 <td class="px-4 py-3">${item.agency}</td>
                 <td class="px-4 py-3">${item.region}</td>
@@ -245,7 +242,7 @@ function sortData(data, sortState) {
         const valA = a[key], valB = b[key];
         let comparison = 0;
         if (type === 'number') comparison = (Number(valA) || 0) - (Number(valB) || 0);
-        else comparison = String(valA || '').localeCompare(String(valB || ''));
+        else comparison = String(valA || '').localeCompare(String(valB || ''), 'ko');
         return direction === 'asc' ? comparison : -comparison;
     });
 }
@@ -262,15 +259,6 @@ function updateSortIndicators(tableId, sortState) {
             }
         }
     });
-}
-
-function showLoadingState(isLoading, text = '분석 중...') {
-    const button = document.getElementById('analyzeBtn');
-    if (button) {
-        button.disabled = isLoading;
-        const svgIcon = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>';
-        button.innerHTML = isLoading ? `<div class="loading-spinner mr-2"></div> ${text}...` : `${svgIcon}분석`;
-    }
 }
 
 function printPanel(panel) {
