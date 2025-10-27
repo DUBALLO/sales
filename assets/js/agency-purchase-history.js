@@ -73,7 +73,8 @@ async function runAnalysis(forceList = false) {
 
 async function loadAndParseData() {
     if (!window.sheetsAPI) throw new Error('sheets-api.js가 로드되지 않았습니다.');
-    const rawData = await window.sheetsAPI.loadCSVData('procurement');
+    // ▼▼▼ [수정] 이 부분을 새로운 통합 함수로 변경합니다. ▼▼▼
+    const rawData = await window.sheetsAPI.loadAllProcurementData();
     return rawData.map(item => {
         const fullRegion = (item['수요기관지역'] || '').trim();
         const regionParts = fullRegion.split(' ');
