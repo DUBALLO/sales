@@ -1,4 +1,4 @@
-// Google Sheets API 연결 및 CSV 로드 기능 (v5 - CSV 파싱 로직 복원 및 강화)
+// Google Sheets API 연결 및 CSV 로드 기능 (v6 - 안정화 버전)
 
 class SheetsAPI {
     constructor() {
@@ -71,8 +71,6 @@ class SheetsAPI {
         return this.parseCSV(csvText);
     }
     
-    // ▼▼▼ [수정됨] 쉼표(,)가 포함된 데이터를 안전하게 처리하는 로직으로 전체 변경 ▼▼▼
-    
     /**
      * CSV 한 줄을 파싱하는 헬퍼 함수. 큰따옴표 안의 쉼표는 무시합니다.
      */
@@ -85,7 +83,6 @@ class SheetsAPI {
             const char = line[i];
             
             if (char === '"') {
-                // 따옴표가 연속 두 번 나오면(escaped quote) 하나의 따옴표로 처리
                 if (inQuotes && line[i + 1] === '"') {
                     current += '"';
                     i++;
@@ -93,7 +90,6 @@ class SheetsAPI {
                     inQuotes = !inQuotes;
                 }
             } else if (char === ',' && !inQuotes) {
-                // 따옴표 밖에 있는 쉼표에서만 자름
                 result.push(current);
                 current = '';
             } else {
@@ -101,7 +97,6 @@ class SheetsAPI {
             }
         }
         result.push(current);
-        // 각 데이터의 앞뒤 공백과 불필요한 따옴표 제거
         return result.map(s => s.trim().replace(/^"|"$/g, ''));
     }
 
@@ -109,21 +104,25 @@ class SheetsAPI {
      * CSV 텍스트 전체를 파싱하여 객체 배열로 변환하는 메인 함수.
      */
     parseCSV(csvText) {
-        const lines = csvText.trim().split('\n');
+        const lines = csvText.trim().split('\n').filter(line => line); // 빈 줄 제거
         if (lines.length < 2) return [];
 
-        // 헤더(컬럼명)를 안전하게 파싱
         const headers = this.parseCSVLine(lines[0]);
+        const data = [];
 
-        // 데이터 라인을 순회하며, 헤더를 기준으로 정확하게 객체를 생성
-        return lines.slice(1).map(line => {
-            const values = this.parseCSVLine(line);
-            const obj = {};
+        for (let i = 1; i < lines.length; i++) {
+            const values = this.parseCSVLine(lines[i]);
+            // 헤더와 값의 개수가 다르면 데이터 오류로 간주하고 건너뜀
+            if (values.length !== headers.length) continue; 
+            
+            const item = {};
             headers.forEach((header, index) => {
-                obj[header] = values[index];
+                const cleanHeader = header.trim();
+                item[cleanHeader] = values[index] ? values[index].trim() : '';
             });
-            return obj;
-        });
+            data.push(item);
+        }
+        return data;
     }
 }
 
