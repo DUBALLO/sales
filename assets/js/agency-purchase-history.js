@@ -37,6 +37,14 @@ function setupEventListeners() {
     });
     document.getElementById('cityFilter').addEventListener('change', () => runAnalysis(true));
     document.getElementById('agencyTypeFilter').addEventListener('change', () => runAnalysis(true));
+    
+    // ▼▼▼ [추가] 검색창 Enter 키 이벤트 리스너 ▼▼▼
+    document.getElementById('agencySearchFilter').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            runAnalysis();
+        }
+    });
+    // ▲▲▲ [추가] ▲▲▲
 }
 
 async function runAnalysis(forceList = false) {
@@ -51,13 +59,20 @@ async function runAnalysis(forceList = false) {
     const region = document.getElementById('regionFilter').value;
     const city = document.getElementById('cityFilter').value;
     const agencyType = document.getElementById('agencyTypeFilter').value;
+    
+    // ▼▼▼ [추가] 검색어 값 가져오기 ▼▼▼
+    const agencySearch = document.getElementById('agencySearchFilter').value.trim().toLowerCase();
+    // ▲▲▲ [추가] ▲▲▲
 
     currentFilteredData = allData.filter(item => 
         (year === 'all' || (item.date && item.date.startsWith(year))) &&
         (product === 'all' || item.product === product) &&
         (region === 'all' || item.region === region) &&
         (city === 'all' || item.city === city) &&
-        (agencyType === 'all' || item.agencyType === agencyType)
+        (agencyType === 'all' || item.agencyType === agencyType) &&
+        // ▼▼▼ [추가] 수요기관명 검색 조건 ▼▼▼
+        (agencySearch === '' || item.agency.toLowerCase().includes(agencySearch))
+        // ▲▲▲ [추가] ▲▲▲
     );
 
     if (currentAgencyInDetailView) {
